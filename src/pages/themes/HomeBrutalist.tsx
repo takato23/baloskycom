@@ -52,6 +52,21 @@ const supportModes = [
   },
 ];
 
+const getYoutubeEmbedUrl = (url: string) => {
+  if (!url) return '';
+
+  const shortMatch = url.match(/youtu\.be\/([^?&/]+)/);
+  if (shortMatch?.[1]) return `https://www.youtube.com/embed/${shortMatch[1]}`;
+
+  const watchMatch = url.match(/[?&]v=([^?&/]+)/);
+  if (watchMatch?.[1]) return `https://www.youtube.com/embed/${watchMatch[1]}`;
+
+  const embedMatch = url.match(/youtube\.com\/embed\/([^?&/]+)/);
+  if (embedMatch?.[1]) return `https://www.youtube.com/embed/${embedMatch[1]}`;
+
+  return '';
+};
+
 export default function HomeBrutalist() {
   const { campaigns, rewards, supporters, galleryImages, blogPosts, settings, currency, shareCampaign } = useAppContext();
   const homeContent = settings?.content.home;
@@ -68,6 +83,7 @@ export default function HomeBrutalist() {
   const highlightedPost = blogPosts[0];
   const recentSupporters = supporters.slice(0, 3);
   const heroTitleLines = homeContent?.hero.title.split('\n') ?? [];
+  const musicVideos = homeContent?.music.videos ?? [];
 
   return (
     <div className="bg-[#f5f0e8] text-black">
@@ -91,15 +107,15 @@ export default function HomeBrutalist() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-14 md:pb-18">
-          <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+          <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
             <div className="space-y-8">
               <motion.div
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45 }}
-                className="space-y-5"
+                className="space-y-5 border-4 border-black bg-white p-6 md:p-8 brutal-shadow"
               >
-                <div className="inline-flex items-center gap-3 border-2 border-black bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] brutal-shadow-sm">
+                <div className="inline-flex items-center gap-3 border-2 border-black bg-[#f5f0e8] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] brutal-shadow-sm">
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#00FF00]" />
                   {settings?.creatorName || 'Santi Balosky'}
                   <span className="text-black/45">internet, canciones, ia y delirio</span>
@@ -109,7 +125,7 @@ export default function HomeBrutalist() {
                   <p className="max-w-md font-bold uppercase tracking-[0.24em] text-black/55">
                     {homeContent?.hero.eyebrow}
                   </p>
-                  <h1 className="max-w-5xl font-display text-[clamp(3.8rem,10vw,8.5rem)] font-bold uppercase leading-[0.88] tracking-[-0.06em]">
+                  <h1 className="max-w-5xl font-display text-[clamp(3.6rem,9vw,7.4rem)] font-bold uppercase leading-[0.9] tracking-[-0.06em] text-black">
                     {heroTitleLines.map((line, index) => (
                       <React.Fragment key={`${line}-${index}`}>
                         {line}
@@ -180,29 +196,19 @@ export default function HomeBrutalist() {
                 <img
                   src={settings?.creatorAvatar || '/images/santi-avatar.jpeg'}
                   alt={settings?.creatorName || 'Santi Balosky'}
-                  className="h-[520px] w-full object-cover object-center grayscale contrast-125"
+                  className="h-[560px] w-full object-cover object-center grayscale contrast-125"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.05),rgba(0,0,0,0.7))]" />
-
-                <div className="absolute left-4 top-4 border-2 border-black bg-white px-3 py-2 font-brutal text-sm uppercase tracking-[0.18em] text-black brutal-shadow-sm">
-                  caos ordenado
-                </div>
-
-                <div className="absolute bottom-0 left-0 right-0 grid gap-3 border-t-4 border-black bg-[#f5f0e8] p-4 md:grid-cols-2">
-                  <div className="border-2 border-black bg-white p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-black/55">si me seguís</p>
-                    <p className="mt-2 font-brutal text-2xl uppercase">podés bancar una idea o pedir una locura</p>
-                  </div>
-                  <div className="border-2 border-black bg-yellow-300 p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-black/55">si caíste de casualidad</p>
-                    <p className="mt-2 font-brutal text-2xl uppercase">acá están mis trabajos y mis experimentos</p>
-                  </div>
-                </div>
               </div>
-
-              <div className="absolute -left-2 -top-4 hidden border-4 border-black bg-[#FF00FF] px-4 py-3 font-brutal text-2xl uppercase text-white brutal-shadow md:block">
-                sin app ajena
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="border-4 border-black bg-white p-4 brutal-shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-black/55">acá podés</p>
+                  <p className="mt-2 font-brutal text-2xl uppercase">bancar una idea, pedir algo o mirar en qué ando</p>
+                </div>
+                <div className="border-4 border-black bg-yellow-300 p-4 brutal-shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-black/55">todo junto</p>
+                  <p className="mt-2 font-brutal text-2xl uppercase">contenido, proyectos, música e ia</p>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -535,6 +541,141 @@ export default function HomeBrutalist() {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
+        <div className="mb-8 grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
+          <div className="space-y-3">
+            <p className="font-bold uppercase tracking-[0.24em] text-black/55">{homeContent?.courses.eyebrow}</p>
+            <h2 className="font-display text-4xl font-bold uppercase leading-none tracking-[-0.05em]">
+              {homeContent?.courses.title}
+            </h2>
+          </div>
+          <p className="max-w-3xl text-right font-medium text-black/70">
+            {homeContent?.courses.subtitle}
+          </p>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          {homeContent?.courses.items.map((course, index) => (
+            <div key={course.title} className={cn(
+              "border-4 border-black p-6 brutal-shadow-sm",
+              index === 1 ? 'bg-[#00FF00]' : index === 2 ? 'bg-[#111111] text-white' : 'bg-white'
+            )}>
+              <div className={cn(
+                "inline-flex px-3 py-1 border-2 border-black text-xs font-bold uppercase tracking-[0.2em]",
+                index === 2 ? 'bg-white text-black' : 'bg-[#FF00FF] text-white'
+              )}>
+                {course.badge}
+              </div>
+              <h3 className="mt-5 font-brutal text-3xl uppercase leading-[0.94]">{course.title}</h3>
+              <p className={cn("mt-4 text-sm leading-relaxed font-medium", index === 2 ? 'text-white/76' : 'text-black/74')}>
+                {course.description}
+              </p>
+              {course.href && course.href !== '#' && (
+                <Link
+                  to={course.href}
+                  className={cn(
+                    "mt-6 inline-flex items-center gap-2 font-brutal text-lg uppercase",
+                    index === 2 ? 'text-[#00FF00]' : 'text-black hover:text-[#FF00FF]'
+                  )}
+                >
+                  Ver más <ArrowRight className="w-5 h-5" />
+                </Link>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y-4 border-black bg-[#111111] text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
+          <div className="mb-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+            <div className="space-y-3">
+              <p className="font-bold uppercase tracking-[0.24em] text-white/55">{homeContent?.music.eyebrow}</p>
+              <h2 className="font-display text-4xl font-bold uppercase leading-none tracking-[-0.05em]">
+                {homeContent?.music.title}
+              </h2>
+            </div>
+            <p className="max-w-3xl text-right font-medium text-white/72">
+              {homeContent?.music.subtitle}
+            </p>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="grid gap-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                {homeContent?.music.spotifyUrl && (
+                  <a
+                    href={homeContent.music.spotifyUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="border-4 border-white bg-[#1DB954] px-5 py-4 font-brutal text-lg uppercase text-black brutal-shadow-sm"
+                  >
+                    Spotify
+                  </a>
+                )}
+                {homeContent?.music.appleMusicUrl && (
+                  <a
+                    href={homeContent.music.appleMusicUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="border-4 border-white bg-white px-5 py-4 font-brutal text-lg uppercase text-black brutal-shadow-sm"
+                  >
+                    Apple Music
+                  </a>
+                )}
+                {homeContent?.music.youtubeChannelUrl && (
+                  <a
+                    href={homeContent.music.youtubeChannelUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="border-4 border-white bg-[#FF0033] px-5 py-4 font-brutal text-lg uppercase text-white brutal-shadow-sm"
+                  >
+                    YouTube
+                  </a>
+                )}
+              </div>
+
+              {(!homeContent?.music.spotifyUrl && !homeContent?.music.appleMusicUrl && !homeContent?.music.youtubeChannelUrl) && (
+                <div className="border-4 border-white bg-black p-5">
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-white/55">
+                    Acá van a aparecer tus links de música cuando los cargues desde admin.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {musicVideos.map((video, index) => {
+                const embedUrl = getYoutubeEmbedUrl(video.youtubeUrl);
+
+                return (
+                  <div key={`${video.title}-${index}`} className="border-4 border-white bg-white text-black brutal-shadow-sm overflow-hidden">
+                    <div className="p-4 border-b-4 border-black">
+                      <p className="font-brutal text-xl uppercase leading-none">{video.title || `Video ${index + 1}`}</p>
+                    </div>
+                    {embedUrl ? (
+                      <iframe
+                        src={embedUrl}
+                        title={video.title || `Video ${index + 1}`}
+                        className="aspect-video w-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div className="aspect-video w-full flex items-center justify-center bg-[#f5f0e8] p-4 text-center">
+                        <p className="text-sm font-bold uppercase tracking-[0.18em] text-black/55">
+                          Cargá un link de YouTube en admin para mostrarlo acá
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

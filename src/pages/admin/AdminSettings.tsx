@@ -149,6 +149,104 @@ export default function AdminSettings() {
     );
   };
 
+  const handleCourseChange = (
+    index: number,
+    field: keyof SiteSettings['content']['home']['courses']['items'][number],
+    value: string
+  ) => {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            content: {
+              ...prev.content,
+              home: {
+                ...prev.content.home,
+                courses: {
+                  ...prev.content.home.courses,
+                  items: prev.content.home.courses.items.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, [field]: value } : item
+                  ),
+                },
+              },
+            },
+          }
+        : null
+    );
+  };
+
+  const handleCoursesMetaChange = (
+    field: keyof Omit<SiteSettings['content']['home']['courses'], 'items'>,
+    value: string
+  ) => {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            content: {
+              ...prev.content,
+              home: {
+                ...prev.content.home,
+                courses: {
+                  ...prev.content.home.courses,
+                  [field]: value,
+                },
+              },
+            },
+          }
+        : null
+    );
+  };
+
+  const handleMusicMetaChange = (
+    field: keyof Omit<SiteSettings['content']['home']['music'], 'videos'>,
+    value: string
+  ) => {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            content: {
+              ...prev.content,
+              home: {
+                ...prev.content.home,
+                music: {
+                  ...prev.content.home.music,
+                  [field]: value,
+                },
+              },
+            },
+          }
+        : null
+    );
+  };
+
+  const handleMusicVideoChange = (
+    index: number,
+    field: keyof SiteSettings['content']['home']['music']['videos'][number],
+    value: string
+  ) => {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            content: {
+              ...prev.content,
+              home: {
+                ...prev.content.home,
+                music: {
+                  ...prev.content.home.music,
+                  videos: prev.content.home.music.videos.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, [field]: value } : item
+                  ),
+                },
+              },
+            },
+          }
+        : null
+    );
+  };
+
   const handleCheckoutCopyChange = (
     field: keyof SiteSettings['content']['checkout']['copy'],
     value: string
@@ -643,6 +741,169 @@ export default function AdminSettings() {
                     className={inputClassName}
                   />
                 )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-white">Cursos de IA</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Eyebrow</label>
+              <input
+                type="text"
+                value={formData.content.home.courses.eyebrow}
+                onChange={(e) => handleCoursesMetaChange('eyebrow', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Título</label>
+              <input
+                type="text"
+                value={formData.content.home.courses.title}
+                onChange={(e) => handleCoursesMetaChange('title', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-bold text-zinc-400">Subtítulo</label>
+              <textarea
+                value={formData.content.home.courses.subtitle}
+                onChange={(e) => handleCoursesMetaChange('subtitle', e.target.value)}
+                rows={3}
+                className={textareaClassName}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-6">
+            {formData.content.home.courses.items.map((course, index) => (
+              <div key={index} className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 grid gap-4">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Curso {index + 1}
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input
+                    type="text"
+                    value={course.badge}
+                    onChange={(e) => handleCourseChange(index, 'badge', e.target.value)}
+                    placeholder="Badge"
+                    className={inputClassName}
+                  />
+                  <input
+                    type="text"
+                    value={course.title}
+                    onChange={(e) => handleCourseChange(index, 'title', e.target.value)}
+                    placeholder="Título"
+                    className={inputClassName}
+                  />
+                  <div className="sm:col-span-2">
+                    <textarea
+                      value={course.description}
+                      onChange={(e) => handleCourseChange(index, 'description', e.target.value)}
+                      rows={3}
+                      placeholder="Descripción"
+                      className={textareaClassName}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <input
+                      type="text"
+                      value={course.href}
+                      onChange={(e) => handleCourseChange(index, 'href', e.target.value)}
+                      placeholder="Link"
+                      className={inputClassName}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-white">Música</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Eyebrow</label>
+              <input
+                type="text"
+                value={formData.content.home.music.eyebrow}
+                onChange={(e) => handleMusicMetaChange('eyebrow', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Título</label>
+              <input
+                type="text"
+                value={formData.content.home.music.title}
+                onChange={(e) => handleMusicMetaChange('title', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-bold text-zinc-400">Subtítulo</label>
+              <textarea
+                value={formData.content.home.music.subtitle}
+                onChange={(e) => handleMusicMetaChange('subtitle', e.target.value)}
+                rows={3}
+                className={textareaClassName}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Spotify URL</label>
+              <input
+                type="text"
+                value={formData.content.home.music.spotifyUrl}
+                onChange={(e) => handleMusicMetaChange('spotifyUrl', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Apple Music URL</label>
+              <input
+                type="text"
+                value={formData.content.home.music.appleMusicUrl}
+                onChange={(e) => handleMusicMetaChange('appleMusicUrl', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-bold text-zinc-400">YouTube URL</label>
+              <input
+                type="text"
+                value={formData.content.home.music.youtubeChannelUrl}
+                onChange={(e) => handleMusicMetaChange('youtubeChannelUrl', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-6">
+            {formData.content.home.music.videos.map((video, index) => (
+              <div key={index} className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 grid gap-4">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Video {index + 1}
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input
+                    type="text"
+                    value={video.title}
+                    onChange={(e) => handleMusicVideoChange(index, 'title', e.target.value)}
+                    placeholder="Título"
+                    className={inputClassName}
+                  />
+                  <input
+                    type="text"
+                    value={video.youtubeUrl}
+                    onChange={(e) => handleMusicVideoChange(index, 'youtubeUrl', e.target.value)}
+                    placeholder="YouTube URL"
+                    className={inputClassName}
+                  />
+                </div>
               </div>
             ))}
           </div>

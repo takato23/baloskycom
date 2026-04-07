@@ -130,6 +130,35 @@ export interface HomeSectionContent {
   discoverySubtitle: string;
 }
 
+export interface HomeCourseItemContent {
+  badge: string;
+  title: string;
+  description: string;
+  href: string;
+}
+
+export interface HomeCoursesContent {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  items: HomeCourseItemContent[];
+}
+
+export interface HomeMusicVideoContent {
+  title: string;
+  youtubeUrl: string;
+}
+
+export interface HomeMusicContent {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  spotifyUrl: string;
+  appleMusicUrl: string;
+  youtubeChannelUrl: string;
+  videos: HomeMusicVideoContent[];
+}
+
 export interface CheckoutCopy {
   title: string;
   subtitle: string;
@@ -155,6 +184,8 @@ export interface HomeContentSettings {
   supportModes: HomeSupportModeContent[];
   discoveryCards: HomeDiscoveryCardContent[];
   sections: HomeSectionContent;
+  courses: HomeCoursesContent;
+  music: HomeMusicContent;
 }
 
 export interface PublicContentSettings {

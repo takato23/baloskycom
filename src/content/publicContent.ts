@@ -77,6 +77,46 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
       discoverySubtitle:
         'No todo pasa por aportar. También podés mirar, leer, votar y ver en qué ando.',
     },
+    courses: {
+      eyebrow: 'se viene',
+      title: 'Cursos de IA',
+      subtitle:
+        'Talleres, clases y formatos donde voy a compartir lo que vengo aprendiendo con herramientas y flujos de IA.',
+      items: [
+        {
+          badge: 'Próximamente',
+          title: 'IA para crear mejor',
+          description: 'Una guía para bajar ideas, prompts y flujos a cosas concretas y publicables.',
+          href: '#',
+        },
+        {
+          badge: 'Próximamente',
+          title: 'Imágenes, video y experimentos',
+          description: 'Procesos para mezclar herramientas, corregir resultados y salir con algo usable.',
+          href: '#',
+        },
+        {
+          badge: 'Próximamente',
+          title: 'Internet, identidad y obra',
+          description: 'Cómo convertir herramientas nuevas en una voz propia en vez de hacer ruido genérico.',
+          href: '#',
+        },
+      ],
+    },
+    music: {
+      eyebrow: 'escuchá',
+      title: 'Música',
+      subtitle:
+        'Canciones, pruebas, videos y cosas que fui sacando o armando con ayuda de herramientas como SUNO.',
+      spotifyUrl: '',
+      appleMusicUrl: '',
+      youtubeChannelUrl: '',
+      videos: [
+        { title: 'Tema 01', youtubeUrl: '' },
+        { title: 'Tema 02', youtubeUrl: '' },
+        { title: 'Tema 03', youtubeUrl: '' },
+      ],
+    },
   },
   checkout: {
     copy: {
@@ -134,6 +174,26 @@ export const normalizePublicContent = (
     sections: {
       ...DEFAULT_PUBLIC_CONTENT.home.sections,
       ...(content?.home?.sections ?? {}),
+    },
+    courses: {
+      ...DEFAULT_PUBLIC_CONTENT.home.courses,
+      ...(content?.home?.courses ?? {}),
+      items: normalizeArray(content?.home?.courses?.items, DEFAULT_PUBLIC_CONTENT.home.courses.items).map(
+        (item, index) => ({
+          ...DEFAULT_PUBLIC_CONTENT.home.courses.items[index],
+          ...item,
+        })
+      ),
+    },
+    music: {
+      ...DEFAULT_PUBLIC_CONTENT.home.music,
+      ...(content?.home?.music ?? {}),
+      videos: normalizeArray(content?.home?.music?.videos, DEFAULT_PUBLIC_CONTENT.home.music.videos).map(
+        (item, index) => ({
+          ...DEFAULT_PUBLIC_CONTENT.home.music.videos[index],
+          ...item,
+        })
+      ),
     },
   },
   checkout: {
