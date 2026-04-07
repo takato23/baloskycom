@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { api } from '@/services/api';
 import { SiteSettings, Currency, Poll, Post, GalleryImage, BlogPost, ThemeId } from '@/types';
+import { normalizeSiteSettings } from '@/content/publicContent';
 
 // Keep existing UI types for now to avoid breaking themes
 export type Campaign = {
@@ -82,11 +83,11 @@ const initialUserProfile: UserProfile = {
 const mockPolls: Poll[] = [
   {
     id: '1',
-    question: '¿De qué tema hago el próximo video?',
+    question: '¿Qué te gustaría ver primero en esta página?',
     options: [
-      { id: 'o1', text: 'Setup Tour 2026', votes: 45 },
-      { id: 'o2', text: 'Review del nuevo MacBook', votes: 120 },
-      { id: 'o3', text: 'Vlog de viaje a Japón', votes: 89 }
+      { id: 'o1', text: 'Más proyectos publicados', votes: 12 },
+      { id: 'o2', text: 'Más contenido para aportantes', votes: 18 },
+      { id: 'o3', text: 'Más encargos y servicios', votes: 9 }
     ],
     active: true,
     createdAt: new Date().toISOString(),
@@ -97,52 +98,50 @@ const mockPolls: Poll[] = [
 const mockPosts: Post[] = [
   {
     id: '1',
-    title: '¡Detrás de escena del último video!',
-    content: 'Acá les dejo unas fotos exclusivas de cómo grabamos la escena del dron. Fue una locura total, casi lo perdemos en el lago jajaja.',
+    title: 'Cómo voy a usar este espacio',
+    content: 'Esta sección queda para publicar avances reales, ideas en proceso, materiales para aportantes y actualizaciones cortas del proyecto. La idea es que no haya promesas raras ni humo: solo cosas que efectivamente estén disponibles acá.',
     imageUrl: 'https://images.unsplash.com/photo-1579965342575-16428a7c8881?q=80&w=800&auto=format&fit=crop',
     isLocked: true,
     minContributionRequired: 1000,
     createdAt: new Date(Date.now() - 86400000).toISOString(),
-    likes: 24,
+    likes: 8,
     type: 'standard',
     comments: [
-      { id: 'c1', author: 'Matias', text: '¡Qué locura ese dron!', createdAt: new Date(Date.now() - 80000000).toISOString() }
+      { id: 'c1', author: 'Matias', text: 'Banco que quede claro qué se desbloquea y qué no.', createdAt: new Date(Date.now() - 80000000).toISOString() }
     ]
   },
   {
     id: '2',
-    title: 'Bienvenidos al nuevo Feed del Creador',
-    content: 'Este espacio es solo para ustedes, los que bancan el proyecto mes a mes. Acá voy a estar subiendo adelantos, encuestas y contenido sin filtro.',
+    title: 'Espacio para aportantes',
+    content: 'Acá van las publicaciones para la gente que apoya el proyecto. Si más adelante se suman beneficios manuales, menciones o contacto directo, se van a publicar explícitamente cuando estén definidos.',
     isLocked: false,
     minContributionRequired: 0,
     createdAt: new Date(Date.now() - 172800000).toISOString(),
-    likes: 56,
+    likes: 14,
     type: 'standard',
     comments: []
   },
   {
     id: '3',
-    title: 'Prompt Revelado: Cyberpunk City',
-    content: 'Muchos me preguntaron cómo logré el estilo de la última imagen en Instagram. Acá les dejo el prompt exacto que usé en Midjourney v6.',
+    title: 'Espacio reservado para recursos reales',
+    content: 'Cuando haya un archivo, guía o material concreto para compartir, se publica acá con su acceso correspondiente. Hasta entonces conviene mostrar este bloque como contenido reservado, no como una descarga inventada.',
     imageUrl: 'https://images.unsplash.com/photo-1605806616949-1e87b487cb2a?q=80&w=800&auto=format&fit=crop',
     isLocked: true,
     minContributionRequired: 5000,
     createdAt: new Date(Date.now() - 259200000).toISOString(),
-    likes: 89,
-    type: 'ai-prompt',
-    aiPrompt: '/imagine prompt: A futuristic cyberpunk city at night, neon lights reflecting on wet streets, cinematic lighting, 8k resolution, photorealistic --ar 16:9 --v 6.0',
+    likes: 5,
+    type: 'standard',
     comments: []
   },
   {
     id: '4',
-    title: 'Template de React + Vite (Brutalist)',
-    content: 'Les comparto el boilerplate exacto que uso para arrancar mis proyectos web con estilo brutalista. Ya viene configurado con Tailwind y Framer Motion.',
+    title: 'Publicación premium de ejemplo',
+    content: 'Este slot queda reservado para una publicación de mayor nivel cuando exista contenido concreto para ese tramo de aporte. Mientras no exista, la plataforma no debería vender humo ni anticipos inventados.',
     isLocked: true,
     minContributionRequired: 25000,
     createdAt: new Date(Date.now() - 345600000).toISOString(),
-    likes: 112,
-    type: 'resource',
-    downloadUrl: 'https://github.com/ejemplo/brutalist-template/archive/refs/heads/main.zip',
+    likes: 3,
+    type: 'standard',
     comments: []
   }
 ];
@@ -177,22 +176,22 @@ const mockGalleryImages: GalleryImage[] = [
 const mockBlogPosts: BlogPost[] = [
   {
     id: 'b1',
-    title: 'Cómo crear prompts efectivos en Midjourney',
-    content: 'En este artículo te cuento mis secretos para generar imágenes increíbles usando Midjourney v6. La clave está en la estructura del prompt y en usar las palabras correctas para la iluminación y el estilo.\n\nPrimero, siempre empiezo definiendo el sujeto principal...',
-    category: 'Tutoriales IA',
-    tags: ['Midjourney', 'Prompts', 'IA'],
+    title: 'Qué entra hoy en un aporte y qué no',
+    content: 'Esta página sirve para centralizar aportes, recompensas reales y publicaciones para aportantes. Lo importante es que cada beneficio exista de verdad antes de mostrarlo.\n\nSi todavía no hay acceso anticipado, chat directo o menciones garantizadas, no deberían figurar como parte de la propuesta. Cuando algo exista, se publica con alcance, condiciones y tiempos claros.',
+    category: 'Notas del proyecto',
+    tags: ['Aportes', 'Recompensas', 'Producto'],
     imageUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=800&auto=format&fit=crop',
     createdAt: new Date(Date.now() - 86400000).toISOString(),
     comments: [
-      { id: 'bc1', author: 'Ana', text: '¡Excelente tutorial! Me sirvió muchísimo.', createdAt: new Date(Date.now() - 40000000).toISOString() }
+      { id: 'bc1', author: 'Ana', text: 'Mucho mejor dejar claros los beneficios reales.', createdAt: new Date(Date.now() - 40000000).toISOString() }
     ]
   },
   {
     id: 'b2',
-    title: 'Mi experiencia viajando por Japón',
-    content: 'Japón es un país de contrastes. Por un lado, la tecnología de punta en Akihabara, y por otro, la tranquilidad de los templos en Kyoto. En este post les comparto mis reflexiones sobre este viaje inolvidable...',
-    category: 'Viajes',
-    tags: ['Japón', 'Vlog', 'Reflexiones'],
+    title: 'Cómo quiero ordenar encargos, aportes y publicaciones',
+    content: 'Una cosa es el aporte libre, otra los encargos a medida y otra las publicaciones para aportantes. Separar bien esas tres entradas ayuda a que la página no prometa más de lo que realmente entrega.\n\nLa idea es que cada sección tenga una expectativa simple: apoyar, contratar algo puntual o seguir el proyecto.',
+    category: 'Notas del proyecto',
+    tags: ['Encargos', 'Aportes', 'Contenido'],
     imageUrl: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=800&auto=format&fit=crop',
     createdAt: new Date(Date.now() - 172800000).toISOString(),
     comments: []
@@ -272,12 +271,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         badges
       });
 
-      setSettings({
+      const normalizedSettings = normalizeSiteSettings({
         ...apiSettings,
         availabilityStatus: 'available'
       });
-      if (apiSettings.defaultTheme) {
-        setTheme(apiSettings.defaultTheme as Theme);
+
+      setSettings(normalizedSettings);
+      if (normalizedSettings.defaultTheme) {
+        setTheme(normalizedSettings.defaultTheme as Theme);
       }
     } catch (error) {
       console.error("Failed to load data", error);

@@ -1,7 +1,8 @@
 import express from 'express';
-import db from '../db';
-import { MercadoPagoConfig, Preference } from 'mercadopago';
+import db, { createAdminUser, hasAdminUsers, updateAdminUserCredentials } from '../db';
+import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
 import jwt from 'jsonwebtoken';
+import { verifyPassword } from '../auth';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-local-dev';
@@ -10,6 +11,116 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-local-dev';
 const mpClient = new MercadoPagoConfig({ 
   accessToken: process.env.MP_ACCESS_TOKEN || 'TEST-0000000000000000-000000-00000000000000000000000000000000-000000000' 
 });
+const preferenceClient = new Preference(mpClient);
+const paymentClient = new Payment(mpClient);
+
+const getBaseUrl = (req: express.Request) => {
+  const configuredUrl = process.env.APP_URL?.trim();
+  if (configuredUrl) return configuredUrl.replace(/\/$/, '');
+
+  const origin = req.headers.origin;
+  if (origin) return origin.replace(/\/$/, '');
+
+  return `${req.protocol}://${req.get('host')}`;
+};
+
+const getNotificationUrl = (req: express.Request) => {
+  const baseUrl = getBaseUrl(req);
+
+  try {
+    const hostname = new URL(baseUrl).hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return undefined;
+    }
+  } catch (error) {
+    console.warn('Invalid APP_URL/origin for Mercado Pago webhook:', error);
+    return undefined;
+  }
+
+  return `${baseUrl}/api/webhook/mercadopago`;
+};
+
+const getPaymentIdFromWebhook = (req: express.Request) => {
+  const bodyPaymentId = req.body?.data?.id ?? req.body?.resource?.split('/').pop();
+  const queryPaymentId = req.query['data.id'] ?? req.query.id;
+  const maybePaymentId = bodyPaymentId || queryPaymentId;
+
+  if (!maybePaymentId) return null;
+
+  const parsedPaymentId = Number(maybePaymentId);
+  return Number.isFinite(parsedPaymentId) ? parsedPaymentId : null;
+};
+
+const processApprovedPayment = (payment: Awaited<ReturnType<Payment['get']>>) => {
+  if (!payment.id || payment.status !== 'approved') {
+    return { processed: false, reason: 'payment-not-approved' as const };
+  }
+
+  const paymentId = String(payment.id);
+  const existing = db
+    .prepare('SELECT paymentId FROM processed_payments WHERE paymentId = ?')
+    .get(paymentId) as { paymentId: string } | undefined;
+
+  if (existing) {
+    return { processed: false, reason: 'already-processed' as const };
+  }
+
+  const metadata = payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {};
+  const rawCampaignId = typeof metadata.campaignId === 'string' ? metadata.campaignId.trim() : '';
+  const fallbackCampaignId = 'c3';
+  const campaignExists = rawCampaignId
+    ? (db.prepare('SELECT id FROM campaigns WHERE id = ?').get(rawCampaignId) as { id: string } | undefined)
+    : undefined;
+  const campaignId = campaignExists?.id || fallbackCampaignId;
+
+  const rawSupporterName = typeof metadata.supporterName === 'string' ? metadata.supporterName.trim() : '';
+  const supporterName = rawSupporterName || 'Anónimo';
+  const message = typeof metadata.message === 'string' ? metadata.message.trim() : '';
+  const amount = Number(payment.transaction_amount || 0);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error(`Invalid transaction amount for payment ${paymentId}`);
+  }
+
+  const messageId = `msg_${Date.now()}_${paymentId}`;
+  const processedAt = new Date().toISOString();
+  const createdAt = payment.date_approved || payment.date_created || processedAt;
+
+  const transaction = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO messages (id, supporterName, amount, message, isAnonymous, isApproved, createdAt, campaignId)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(messageId, supporterName, amount, message || null, rawSupporterName ? 0 : 1, 1, createdAt, campaignId);
+
+    db.prepare('UPDATE campaigns SET currentAmount = currentAmount + ? WHERE id = ?').run(amount, campaignId);
+
+    db.prepare(`
+      INSERT INTO processed_payments (paymentId, messageId, campaignId, supporterName, amount, status, externalReference, processedAt, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      paymentId,
+      messageId,
+      campaignId,
+      supporterName,
+      amount,
+      payment.status,
+      payment.external_reference || null,
+      processedAt,
+      createdAt
+    );
+  });
+
+  transaction();
+
+  return {
+    processed: true,
+    reason: 'processed' as const,
+    campaignId,
+    supporterName,
+    amount,
+    message
+  };
+};
 
 // --- AUTH MIDDLEWARE ---
 const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -27,16 +138,75 @@ const requireAuth = (req: express.Request, res: express.Response, next: express.
 };
 
 // --- AUTH ---
+router.get('/auth/status', (_req, res) => {
+  const hasAdmin = hasAdminUsers();
+  res.json({ hasAdmin, bootstrapAvailable: !hasAdmin });
+});
+
+router.post('/auth/bootstrap', (req, res) => {
+  if (hasAdminUsers()) {
+    return res.status(409).json({ error: 'Admin already configured' });
+  }
+
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '');
+
+  if (username.length < 3) {
+    return res.status(400).json({ error: 'Username must have at least 3 characters' });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must have at least 8 characters' });
+  }
+
+  const user = createAdminUser(username, password);
+  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+
+  return res.status(201).json({ token, user });
+});
+
 router.post('/auth/login', (req, res) => {
   const { username, password } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE username = ? AND password = ?').get(username, password) as any;
-  
-  if (user) {
+  const user = db
+    .prepare('SELECT id, username, passwordHash, role FROM users WHERE username = ?')
+    .get(username) as any;
+
+  if (user && verifyPassword(password, user.passwordHash)) {
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
     res.json({ token, user: { id: user.id, username: user.username } });
   } else {
     res.status(401).json({ error: 'Invalid credentials' });
   }
+});
+
+router.put('/auth/credentials', requireAuth, (req, res) => {
+  const userId = (req as any).user?.id;
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '');
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (username.length < 3) {
+    return res.status(400).json({ error: 'Username must have at least 3 characters' });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must have at least 8 characters' });
+  }
+
+  const existingUser = db
+    .prepare('SELECT id FROM users WHERE username = ? AND id != ?')
+    .get(username, userId) as { id: string } | undefined;
+
+  if (existingUser) {
+    return res.status(409).json({ error: 'Username already in use' });
+  }
+
+  updateAdminUserCredentials(userId, username, password);
+  const token = jwt.sign({ id: userId, username }, JWT_SECRET, { expiresIn: '24h' });
+  return res.json({ token, user: { id: userId, username } });
 });
 
 // --- PRODUCTS ---
@@ -185,22 +355,6 @@ router.get('/rewards', (req, res) => {
   res.json(rewards);
 });
 
-// --- USERS ---
-router.get('/users', requireAuth, (req, res) => {
-  try {
-    const users = db.prepare('SELECT id, username, role, createdAt FROM users').all();
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-router.delete('/users/:id', requireAuth, (req, res) => {
-  const { id } = req.params;
-  db.prepare('DELETE FROM users WHERE id = ?').run(id);
-  res.json({ success: true });
-});
-
 // --- MESSAGES ---
 router.get('/messages', (req, res) => {
   const messages = db.prepare('SELECT * FROM messages ORDER BY createdAt DESC').all();
@@ -322,90 +476,90 @@ router.put('/settings', requireAuth, (req, res) => {
 router.post('/checkout/preference', async (req, res) => {
   try {
     const { amount, title, campaignId, supporterName, message } = req.body;
+    const normalizedAmount = Number(amount);
 
-    const preference = new Preference(mpClient);
-    const result = await preference.create({
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount < 1) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    const baseUrl = getBaseUrl(req);
+    const notificationUrl = getNotificationUrl(req);
+
+    const result = await preferenceClient.create({
       body: {
         items: [
           {
             id: campaignId || 'general',
             title: title || 'Aporte a Creador',
             quantity: 1,
-            unit_price: Number(amount),
+            unit_price: normalizedAmount,
             currency_id: 'ARS'
           }
         ],
         back_urls: {
-          success: `${req.headers.origin}/checkout/success`,
-          failure: `${req.headers.origin}/checkout/failure`,
-          pending: `${req.headers.origin}/checkout/pending`
+          success: `${baseUrl}/checkout/success`,
+          failure: `${baseUrl}/checkout/failure`,
+          pending: `${baseUrl}/checkout/pending`
         },
         auto_return: 'approved',
+        external_reference: `${campaignId || 'general'}-${Date.now()}`,
         metadata: {
           campaignId,
-          supporterName,
-          message
+          supporterName: typeof supporterName === 'string' ? supporterName.trim() : '',
+          message: typeof message === 'string' ? message.trim() : ''
         },
-        notification_url: `${req.headers.origin}/api/webhook/mercadopago`
+        ...(notificationUrl ? { notification_url: notificationUrl } : {})
       }
     });
 
-    res.json({ init_point: result.init_point });
+    res.json({
+      init_point: result.init_point,
+      sandbox_init_point: result.sandbox_init_point
+    });
   } catch (error) {
     console.error('Mercado Pago Error:', error);
     res.status(500).json({ error: 'Error creating preference' });
   }
 });
 
+router.get('/checkout/status/:paymentId', async (req, res) => {
+  try {
+    const paymentId = Number(req.params.paymentId);
+
+    if (!Number.isFinite(paymentId)) {
+      return res.status(400).json({ error: 'Invalid payment id' });
+    }
+
+    const payment = await paymentClient.get({ id: paymentId });
+    const processingResult = payment.status === 'approved' ? processApprovedPayment(payment) : null;
+
+    res.json({
+      id: payment.id,
+      status: payment.status,
+      statusDetail: payment.status_detail,
+      amount: payment.transaction_amount,
+      currency: payment.currency_id,
+      processed: processingResult?.reason === 'processed' || processingResult?.reason === 'already-processed'
+    });
+  } catch (error) {
+    console.error('Mercado Pago status error:', error);
+    res.status(500).json({ error: 'Error fetching payment status' });
+  }
+});
+
 // --- WEBHOOK ---
 router.post('/webhook/mercadopago', async (req, res) => {
   try {
-    const { type, data } = req.body;
-    
-    if (type === 'payment') {
-      console.log('Payment received:', data.id);
-      
-      // NOTE: In a real environment, you would fetch the payment details from MP API using data.id
-      // to verify the payment status and get the metadata.
-      // For this MVP, we will simulate fetching the metadata from the payment
-      // and creating the message/updating the campaign.
-      
-      // If we could fetch it, it would look like this:
-      /*
-      const payment = await mpClient.payment.get({ id: data.id });
-      if (payment.status === 'approved') {
-        const { campaignId, supporterName, message } = payment.metadata;
-        const amount = payment.transaction_amount;
-      */
-      
-      // --- SIMULATED WEBHOOK PROCESSING FOR TESTING ---
-      // We are simulating the data that would normally come from the MP API
-      // This allows us to test the webhook locally without a real MP token
-      
-      // We'll extract the metadata from the request body if it was sent (for testing)
-      // or use dummy data if it wasn't.
-      const metadata = req.body.metadata || {};
-      const campaignId = metadata.campaignId || null;
-      const supporterName = metadata.supporterName || 'Anónimo (Webhook)';
-      const message = metadata.message || 'Gracias por el apoyo!';
-      const amount = req.body.transaction_amount || 100; // Default amount
-      
-      // Create message
-      const id = `msg_${Date.now()}`;
-      const createdAt = new Date().toISOString();
-      db.prepare(`
-        INSERT INTO messages (id, supporterName, amount, message, isAnonymous, isApproved, createdAt, campaignId)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(id, supporterName, amount, message, !supporterName ? 1 : 0, 1, createdAt, campaignId);
-      
-      // Update campaign
-      if (campaignId) {
-        db.prepare('UPDATE campaigns SET currentAmount = currentAmount + ? WHERE id = ?').run(amount, campaignId);
-      } else {
-        db.prepare('UPDATE campaigns SET currentAmount = currentAmount + ? WHERE id = ?').run(amount, 'c3');
-      }
+    const paymentId = getPaymentIdFromWebhook(req);
 
-      // --- DISCORD WEBHOOK ---
+    if (!paymentId) {
+      return res.status(200).send('Ignored');
+    }
+
+    const payment = await paymentClient.get({ id: paymentId });
+    const processingResult = processApprovedPayment(payment);
+
+    if (processingResult.reason === 'processed') {
       try {
         const settingsRow = db.prepare('SELECT data FROM settings WHERE id = ?').get('global') as any;
         if (settingsRow) {
@@ -415,30 +569,14 @@ router.post('/webhook/mercadopago', async (req, res) => {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                content: `🎉 **¡Nuevo Aporte!**\n**${supporterName}** acaba de aportar **$${amount}**.\nMensaje: "${message}"`
+                content: `🎉 **¡Nuevo Aporte!**\n**${processingResult.supporterName}** acaba de aportar **$${processingResult.amount}**.\nMensaje: "${processingResult.message || 'Sin mensaje'}"`
               })
             });
           }
         }
-      } catch (e) {
-        console.error('Error sending Discord webhook:', e);
+      } catch (discordError) {
+        console.error('Error sending Discord webhook:', discordError);
       }
-
-      // --- DIGITAL PRODUCT DELIVERY LOGIC ---
-      // In a real application, you would check if the payment was for a specific product
-      // or membership, and then trigger an email with the download link or access instructions.
-      // For this MVP, we'll just log that the delivery process would start here.
-      if (metadata.productId) {
-        console.log(`Triggering delivery for product ${metadata.productId} to ${metadata.payerEmail || 'unknown email'}`);
-        // Example: await emailService.sendProductDeliveryEmail(metadata.payerEmail, metadata.productId);
-      } else if (metadata.membershipId) {
-        console.log(`Activating membership ${metadata.membershipId} for ${metadata.payerEmail || 'unknown email'}`);
-        // Example: await userService.activateMembership(metadata.payerUserId, metadata.membershipId);
-      }
-      // --------------------------------------
-      
-      console.log('Simulated webhook processed successfully');
-      // ------------------------------------------------
     }
     
     res.status(200).send('OK');

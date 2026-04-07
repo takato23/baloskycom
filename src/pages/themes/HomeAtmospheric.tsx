@@ -1,272 +1,250 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Heart, Coffee, Star, Zap, Image as ImageIcon, Video, Award, ArrowRight, Share2 } from 'lucide-react';
+import { ArrowRight, Coffee, MessageSquare, Share2, Sparkles } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
-import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/utils/currency';
 
 export default function HomeAtmospheric() {
-  const { campaigns, rewards, supporters, isLoading, shareCampaign } = useAppContext();
+  const { campaigns, supporters, galleryImages, blogPosts, settings, currency, shareCampaign } = useAppContext();
+  const homeContent = settings?.content.home;
 
-  const getIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Sticker': return <Star className="w-5 h-5 text-purple-300" />;
-      case 'Image': return <ImageIcon className="w-5 h-5 text-blue-300" />;
-      case 'Video': return <Video className="w-5 h-5 text-pink-300" />;
-      case 'Award': return <Award className="w-5 h-5 text-amber-300" />;
-      default: return <Star className="w-5 h-5 text-zinc-300" />;
-    }
-  };
+  const activeCampaigns = campaigns.filter((campaign) => campaign.active);
+  const featuredCampaign =
+    activeCampaigns.find((campaign) => campaign.goal > 0) || activeCampaigns[0] || null;
+  const totalRaised = campaigns.reduce((sum, campaign) => sum + campaign.raised, 0);
+  const latestImage = galleryImages[0];
+  const latestPost = blogPosts[0];
 
   return (
-    <div className="space-y-16 pb-16 min-h-screen font-sans text-white relative overflow-hidden">
-      {/* Atmospheric Backgrounds */}
+    <div className="space-y-16 pb-20 min-h-screen font-sans text-white relative overflow-hidden">
       <div className="fixed inset-0 pointer-events-none z-[-1] bg-[#05050a]">
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.2, 1],
-            opacity: [0.3, 0.5, 0.3],
-            x: [0, 50, 0],
-            y: [0, -50, 0]
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-purple-900/40 blur-[100px]"
+        <motion.div
+          animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.55, 0.3], x: [0, 80, 0], y: [0, -70, 0] }}
+          transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute top-[-15%] left-[-10%] h-[48vw] w-[48vw] rounded-full bg-fuchsia-900/35 blur-[120px]"
         />
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.5, 1],
-            opacity: [0.2, 0.4, 0.2],
-            x: [0, -50, 0],
-            y: [0, 50, 0]
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="absolute bottom-[-10%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-blue-900/30 blur-[120px]"
+        <motion.div
+          animate={{ scale: [1, 1.4, 1], opacity: [0.2, 0.45, 0.2], x: [0, -90, 0], y: [0, 90, 0] }}
+          transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+          className="absolute bottom-[-20%] right-[-10%] h-[58vw] w-[58vw] rounded-full bg-sky-900/30 blur-[150px]"
         />
       </div>
 
-      {/* Hero Section */}
-      <section className="text-center space-y-8 pt-16 relative z-10 px-4">
-        <motion.div 
-          className="relative inline-block"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
-        >
-          <div className="w-40 h-40 rounded-full overflow-hidden mx-auto shadow-[0_0_40px_rgba(139,92,246,0.5)] border border-white/20 p-1 backdrop-blur-sm">
-            <img 
-              src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=400&auto=format&fit=crop" 
-              alt="Santiago Balosky" 
-              className="w-full h-full object-cover rounded-full"
-            />
-          </div>
-        </motion.div>
+      <section className="px-4 pt-16">
+        <div className="mx-auto max-w-7xl grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-end">
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-3 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] backdrop-blur-xl">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-fuchsia-400 shadow-[0_0_12px_rgba(232,121,249,0.9)]" />
+              {homeContent?.hero.eyebrow}
+            </div>
 
-        <div className="space-y-4">
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.2 }}
-            className="text-6xl md:text-7xl font-serif italic tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-200 to-white"
-          >
-            Santiago Balosky
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 0.4 }}
-            className="text-white/60 max-w-md mx-auto text-lg font-light leading-relaxed"
-          >
-            Creador de contenido, viajero y catador profesional de alfajores. Bancá este delirio para que siga creando.
-          </motion.p>
-        </div>
+            <div className="space-y-5">
+              <h1 className="max-w-5xl text-[clamp(3.8rem,9vw,7.8rem)] font-serif italic leading-[0.88] tracking-[-0.06em] text-transparent bg-clip-text bg-gradient-to-r from-white via-fuchsia-100 to-sky-100">
+                {homeContent?.hero.title.split('\n').map((line, index) => (
+                  <React.Fragment key={`${line}-${index}`}>
+                    {line}
+                    {index < homeContent.hero.title.split('\n').length - 1 && <br />}
+                  </React.Fragment>
+                ))}
+              </h1>
+              <p className="max-w-2xl text-lg md:text-xl leading-relaxed text-white/74">
+                {homeContent?.hero.subtitle}
+              </p>
+            </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.6 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8"
-        >
-          <Link 
-            to="/checkout" 
-            className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-full font-light text-lg transition-all backdrop-blur-md border border-white/20 flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-          >
-            <Coffee className="w-5 h-5" />
-            Invitame un cafecito
-          </Link>
-        </motion.div>
-      </section>
-
-      {/* Campaigns Section */}
-      <section className="space-y-12 px-4 pt-12 relative z-10">
-        <div className="text-center space-y-2">
-          <h2 className="text-4xl font-serif italic text-white/90">Misiones Activas</h2>
-          <div className="w-12 h-px bg-white/20 mx-auto" />
-        </div>
-        
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {isLoading ? (
-            Array.from({ length: 3 }).map((_, idx) => (
-              <div key={idx} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden flex flex-col h-[400px] animate-pulse">
-                <div className="h-56 bg-white/10" />
-                <div className="p-8 flex-1 flex flex-col -mt-12 relative z-10">
-                  <div className="h-8 bg-white/20 rounded-full w-3/4 mb-4" />
-                  <div className="h-4 bg-white/10 rounded-full w-full mb-2" />
-                  <div className="h-4 bg-white/10 rounded-full w-5/6 mb-6" />
-                  <div className="mt-auto h-12 bg-white/20 rounded-2xl w-full" />
-                </div>
-              </div>
-            ))
-          ) : campaigns.filter(c => c.active).map((campaign) => {
-            const progress = campaign.goal > 0 ? Math.min((campaign.raised / campaign.goal) * 100, 100) : 100;
-            
-            return (
-              <motion.div 
-                key={campaign.id}
-                whileHover={{ y: -5 }}
-                className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden flex flex-col group shadow-2xl relative"
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <Link
+                to={homeContent?.hero.primaryCtaHref || '/checkout'}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-7 py-4 text-sm font-semibold uppercase tracking-[0.18em] backdrop-blur-xl transition-colors hover:bg-white/18"
               >
-                <div className="absolute top-4 right-4 z-20 flex gap-2 items-center">
-                  <button 
-                    onClick={() => shareCampaign(campaign)}
-                    className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 transition-all"
-                    title="Compartir"
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="h-56 overflow-hidden relative">
-                  <img 
-                    src={campaign.image} 
-                    alt={campaign.title} 
-                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-700 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0502] via-[#0a0502]/50 to-transparent" />
-                </div>
-                
-                <div className="p-8 flex-1 flex flex-col -mt-12 relative z-10">
-                  <h3 className="text-2xl font-serif italic mb-3 text-white/90">{campaign.title}</h3>
-                  <p className="text-white/50 text-sm mb-8 flex-1 font-light leading-relaxed">{campaign.description}</p>
-                  
-                  <div className="space-y-5 mt-auto">
-                    {campaign.goal > 0 ? (
-                      <>
-                        <div className="flex justify-between text-xs font-light tracking-widest uppercase text-white/60">
-                          <span>${campaign.raised.toLocaleString('es-AR')}</span>
-                          <span>${campaign.goal.toLocaleString('es-AR')}</span>
-                        </div>
-                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${progress}%` }}
-                            transition={{ duration: 1.5, ease: "easeOut" }}
-                            className="h-full bg-gradient-to-r from-purple-500 to-blue-400 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)]"
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex justify-between text-xs font-light tracking-widest uppercase text-white/60">
-                        <span>${campaign.raised.toLocaleString('es-AR')} RECAUDADOS</span>
-                        <span>META ABIERTA</span>
-                      </div>
-                    )}
-                    
-                    <Link 
-                      to={`/checkout/${campaign.id}`}
-                      className="mt-6 w-full py-4 bg-white/5 hover:bg-white/10 text-white/90 rounded-2xl font-light transition-all flex items-center justify-center gap-2 border border-white/10"
-                    >
-                      Aportar <ArrowRight className="w-4 h-4 opacity-50" />
-                    </Link>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </section>
+                <Coffee className="w-4 h-4" />
+                {homeContent?.hero.primaryCtaLabel}
+              </Link>
+              <Link
+                to={homeContent?.hero.secondaryCtaHref || '/portfolio'}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 px-7 py-4 text-sm font-semibold uppercase tracking-[0.18em] backdrop-blur-xl transition-colors hover:bg-white/8"
+              >
+                {homeContent?.hero.secondaryCtaLabel}
+              </Link>
+            </div>
 
-      {/* Rewards Section */}
-      <section className="space-y-12 px-4 pt-12 relative z-10">
-        <div className="text-center space-y-2">
-          <h2 className="text-4xl font-serif italic text-white/90">Recompensas</h2>
-          <div className="w-12 h-px bg-white/20 mx-auto" />
-        </div>
-        
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 flex items-start gap-6 animate-pulse">
-                <div className="w-14 h-14 rounded-full bg-white/10 shrink-0" />
-                <div className="w-full">
-                  <div className="h-6 bg-white/20 rounded-full w-3/4 mb-2" />
-                  <div className="h-4 bg-white/10 rounded-full w-full mb-1" />
-                  <div className="h-4 bg-white/10 rounded-full w-5/6 mb-4" />
-                  <div className="h-6 bg-white/20 rounded-full w-1/2" />
-                </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-[2rem] border border-white/10 bg-white/6 p-5 backdrop-blur-xl">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">recaudado</p>
+                <p className="mt-3 text-3xl font-serif">{formatCurrency(totalRaised, currency)}</p>
               </div>
-            ))
-          ) : rewards.map((reward) => (
-            <div key={reward.id} className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 flex flex-col sm:flex-row items-start gap-6 hover:bg-white/10 transition-colors">
-              <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0 shadow-[inset_0_0_20px_rgba(255,255,255,0.05)]">
-                {getIcon(reward.icon)}
+              <div className="rounded-[2rem] border border-white/10 bg-white/6 p-5 backdrop-blur-xl">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">misiones</p>
+                <p className="mt-3 text-3xl font-serif">{activeCampaigns.length}</p>
               </div>
-              <div className="flex-1">
-                <h4 className="font-serif italic text-xl text-white/90">{reward.title}</h4>
-                <p className="text-sm text-white/50 mt-2 font-light">{reward.description}</p>
-                <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 text-xs font-light tracking-wider">
-                  Desde ${reward.minAmount.toLocaleString('es-AR')}
-                </div>
+              <div className="rounded-[2rem] border border-white/10 bg-white/6 p-5 backdrop-blur-xl">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">comunidad</p>
+                <p className="mt-3 text-3xl font-serif">{supporters.length}</p>
               </div>
             </div>
-          ))}
+          </div>
+
+          <div className="grid gap-4">
+            <div className="overflow-hidden rounded-[2rem] border border-white/12 bg-black/20 backdrop-blur-xl">
+              <img
+                src={settings?.creatorAvatar || '/images/santi-avatar.jpeg'}
+                alt={settings?.creatorName || 'Santi Balosky'}
+                className="aspect-[4/5] w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {homeContent?.discoveryCards.slice(0, 2).map((card) => (
+                <Link
+                  key={card.title}
+                  to={card.href}
+                  className="rounded-[1.5rem] border border-white/10 bg-white/6 p-5 backdrop-blur-xl transition-colors hover:bg-white/10"
+                >
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">seguir mirando</p>
+                  <h2 className="mt-3 text-2xl font-serif italic leading-none">{card.title}</h2>
+                  <p className="mt-3 text-sm leading-relaxed text-white/70">{card.description}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Community Wall */}
-      <section className="space-y-12 px-4 pt-12 pb-20 relative z-10">
-        <div className="text-center space-y-2">
-          <h2 className="text-4xl font-serif italic text-white/90">El Muro</h2>
-          <div className="w-12 h-px bg-white/20 mx-auto" />
-        </div>
-        
-        <div className="space-y-6 max-w-2xl mx-auto">
-          {supporters.slice(0, 5).map((supporter, idx) => (
-            <motion.div 
-              key={supporter.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 relative overflow-hidden"
-            >
-              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-purple-500/50 to-transparent" />
-              <div className="flex justify-between items-start mb-4 pl-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/80 font-serif italic text-lg border border-white/20">
-                    {supporter.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h5 className="font-serif italic text-lg text-white/90">{supporter.name}</h5>
-                    <p className="text-xs text-white/40 font-light">{supporter.date}</p>
-                  </div>
+      {featuredCampaign && (
+        <section className="px-4">
+          <div className="mx-auto max-w-7xl grid gap-6 rounded-[2.2rem] border border-white/10 bg-white/6 p-6 backdrop-blur-xl lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="space-y-5">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">misión destacada</p>
+              <h2 className="text-5xl font-serif italic leading-[0.92] tracking-[-0.05em]">{featuredCampaign.title}</h2>
+              <p className="max-w-2xl text-white/72 leading-relaxed">{featuredCampaign.description}</p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">recaudado</p>
+                  <p className="mt-2 text-2xl font-serif">{formatCurrency(featuredCampaign.raised, currency)}</p>
                 </div>
-                <div className="text-sm font-light tracking-wider text-purple-300">
-                  ${supporter.amount.toLocaleString('es-AR')}
+                <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">meta</p>
+                  <p className="mt-2 text-2xl font-serif">
+                    {featuredCampaign.goal > 0 ? formatCurrency(featuredCampaign.goal, currency) : 'Abierta'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">avance</p>
+                  <p className="mt-2 text-2xl font-serif">
+                    {featuredCampaign.goal > 0
+                      ? `${Math.min(Math.round((featuredCampaign.raised / featuredCampaign.goal) * 100), 100)}%`
+                      : 'Libre'}
+                  </p>
                 </div>
               </div>
-              {supporter.message && (
-                <p className="text-white/60 text-sm mt-4 pl-4 font-light italic leading-relaxed">"{supporter.message}"</p>
-              )}
-              {supporter.creatorResponse && (
-                <div className="mt-4 ml-4 pl-4 border-l-2 border-purple-500/30 bg-white/5 rounded-r-xl p-3 relative">
-                  <div className="text-xs font-serif italic text-purple-300/80 mb-1 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-                    Respuesta del creador
+
+              {featuredCampaign.goal > 0 && (
+                <div className="space-y-2">
+                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      whileInView={{ width: `${Math.min((featuredCampaign.raised / featuredCampaign.goal) * 100, 100)}%` }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 1.2, ease: 'easeOut' }}
+                      className="h-full rounded-full bg-gradient-to-r from-fuchsia-400 to-sky-300 shadow-[0_0_14px_rgba(232,121,249,0.6)]"
+                    />
                   </div>
-                  <p className="text-white/80 text-sm font-light leading-relaxed">"{supporter.creatorResponse}"</p>
                 </div>
               )}
-            </motion.div>
-          ))}
+
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <Link
+                  to={`/checkout/${featuredCampaign.id}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/12 px-6 py-4 text-sm font-semibold uppercase tracking-[0.18em] hover:bg-white/20 transition-colors"
+                >
+                  Bancar esta misión <ArrowRight className="w-4 h-4" />
+                </Link>
+                <button
+                  onClick={() => shareCampaign(featuredCampaign)}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 px-6 py-4 text-sm font-semibold uppercase tracking-[0.18em] hover:bg-white/8 transition-colors"
+                >
+                  Compartir <Share2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <img
+                src={featuredCampaign.image}
+                alt={featuredCampaign.title}
+                className="aspect-[4/3] w-full rounded-[1.6rem] object-cover border border-white/10"
+                referrerPolicy="no-referrer"
+              />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {homeContent?.supportModes.slice(0, 2).map((mode) => (
+                  <Link
+                    key={mode.title}
+                    to={mode.href}
+                    className="rounded-[1.5rem] border border-white/10 bg-black/15 p-5 transition-colors hover:bg-white/8"
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">{mode.eyebrow}</p>
+                    <h3 className="mt-3 text-2xl font-serif italic leading-none">{mode.title}</h3>
+                    <p className="mt-3 text-sm leading-relaxed text-white/70">{mode.description}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="px-4">
+        <div className="mx-auto max-w-7xl grid gap-6 lg:grid-cols-[1fr_1fr_0.9fr]">
+          <div className="rounded-[2rem] border border-white/10 bg-white/6 p-6 backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-5 w-5 text-fuchsia-300" />
+              <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">última pieza IA</p>
+            </div>
+            {latestImage && (
+              <>
+                <img
+                  src={latestImage.imageUrl}
+                  alt={latestImage.title}
+                  className="mt-5 aspect-[4/3] w-full rounded-[1.5rem] object-cover border border-white/10"
+                  referrerPolicy="no-referrer"
+                />
+                <h3 className="mt-5 text-3xl font-serif italic">{latestImage.title}</h3>
+                <p className="mt-3 leading-relaxed text-white/70">{latestImage.prompt}</p>
+              </>
+            )}
+          </div>
+
+          <div className="rounded-[2rem] border border-white/10 bg-black/18 p-6 backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <MessageSquare className="h-5 w-5 text-sky-300" />
+              <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">último post</p>
+            </div>
+            {latestPost && (
+              <>
+                <h3 className="mt-5 text-3xl font-serif italic">{latestPost.title}</h3>
+                <p className="mt-3 leading-relaxed text-white/72">{latestPost.content.slice(0, 220)}...</p>
+                <Link to="/blog" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-fuchsia-200">
+                  Ir al blog <ArrowRight className="h-4 w-4" />
+                </Link>
+              </>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {homeContent?.discoveryCards.slice(2).map((card) => (
+              <Link
+                key={card.title}
+                to={card.href}
+                className="block rounded-[1.5rem] border border-white/10 bg-white/6 p-5 backdrop-blur-xl transition-colors hover:bg-white/10"
+              >
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">seguir mirando</p>
+                <h3 className="mt-3 text-2xl font-serif italic leading-none">{card.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/70">{card.description}</p>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
     </div>

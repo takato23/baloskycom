@@ -2,7 +2,10 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import apiRouter from './src/server/routes/api';
+
+dotenv.config();
 
 async function startServer() {
   const app = express();

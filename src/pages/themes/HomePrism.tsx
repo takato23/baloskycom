@@ -97,7 +97,7 @@ export default function HomePrism() {
         >
           <div className="w-40 h-40 rounded-full overflow-hidden mx-auto border border-white/20 p-1 backdrop-blur-xl bg-white/5 shadow-[0_0_40px_rgba(192,132,252,0.2)]">
             <img 
-              src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=400&auto=format&fit=crop" 
+              src="/images/santi-avatar.jpeg" 
               alt="Santiago Balosky" 
               className="w-full h-full object-cover rounded-full"
             />

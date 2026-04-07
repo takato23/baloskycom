@@ -204,7 +204,7 @@ export default function Profile() {
             "border-4 border-black brutal-shadow-sm"
           )}>
             <img 
-              src={settings.creatorAvatar || "https://picsum.photos/seed/creator/200/200"} 
+              src={settings.creatorAvatar || "/images/santi-avatar.jpeg"} 
               alt={settings.creatorName}
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
@@ -279,7 +279,7 @@ export default function Profile() {
               </span>
             ))}
             {userProfile.badges.length === 0 && (
-              <span className={cn("text-xs italic", "text-black/60 font-bold")}>Aportá para ganar insignias</span>
+              <span className={cn("text-xs italic", "text-black/60 font-bold")}>Tus reconocimientos van a aparecer acá cuando existan beneficios asignados.</span>
             )}
           </div>
           

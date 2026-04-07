@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Check, X, Eye, EyeOff, Wand2 } from 'lucide-react';
 import { api } from '@/services/api';
-import { Campaign, SupporterMessage, Product, Membership, UserProfile } from '@/types';
+import { Campaign, SupporterMessage, Product, Membership } from '@/types';
 import { Modal } from '@/components/Modal';
 
 export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab?: string }) {
@@ -10,7 +10,6 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
   const [messages, setMessages] = useState<SupporterMessage[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
-  const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
@@ -40,13 +39,6 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
         setMessages(m);
         setProducts(p);
         setMemberships(mem);
-        
-        try {
-          const u = await api.getUsers();
-          setUsers(u);
-        } catch (e) {
-          console.error("Failed to fetch users", e);
-        }
       } catch (error) {
         console.error('Error fetching admin data:', error);
       } finally {
@@ -152,17 +144,6 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
-      try {
-        await api.deleteUser(id);
-        setUsers(users.filter(u => u.id !== id));
-      } catch (error) {
-        console.error('Error deleting user:', error);
-      }
-    }
-  };
-
   const handleDeleteMessage = async (id: string) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar este mensaje?')) {
       try {
@@ -183,6 +164,10 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
       {activeTab === 'overview' && (
         <div className="space-y-6">
           <h2 className="text-2xl font-display font-bold text-white">Resumen</h2>
+          <p className="text-sm text-zinc-400 max-w-3xl">
+            Usá este panel para manejar campañas, productos, membresías, mensajes y la configuración pública del sitio.
+            El acceso admin ahora se configura aparte y ya no se mezcla con una sección falsa de usuarios.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
               <h3 className="text-zinc-400 font-medium mb-2">Recaudación Total</h3>
@@ -323,39 +308,6 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                   </button>
                   <button 
                     onClick={() => handleDeleteMembership(membership.id)}
-                    className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Users Tab */}
-      {activeTab === 'users' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-display font-bold text-white">Usuarios</h2>
-          </div>
-          
-          <div className="grid gap-4">
-            {users.map(user => (
-              <div key={user.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-white">{user.name}</h3>
-                  <p className="text-zinc-400 text-sm mt-1">
-                    Aportes: ${user.totalContributed}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteUser(user.id)}
                     className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />

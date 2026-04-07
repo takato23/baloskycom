@@ -52,7 +52,7 @@ export const HOME_THEME_COMPONENTS: Record<ThemeId, React.LazyExoticComponent<Re
   minimal: lazy(() => import('@/pages/themes/HomeMinimal')),
   atmospheric: lazy(() => import('@/pages/themes/HomeAtmospheric')),
   cybergrid: lazy(() => import('@/pages/themes/HomeCyberGrid')),
-  terminal: lazy(() => import('@/pages/themes/HomeTerminal')),
+  terminal: lazy(() => import('../pages/themes/HomeTerminal')),
 };
 
 export const getThemeOption = (themeId: ThemeId) =>

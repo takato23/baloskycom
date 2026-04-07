@@ -1,14 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock } from 'lucide-react';
+import { KeyRound, Lock } from 'lucide-react';
 import { api } from '@/services/api';
 
+type Mode = 'login' | 'bootstrap';
+
 export default function AdminLogin() {
+  const navigate = useNavigate();
+  const [mode, setMode] = useState<Mode>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+
+  useEffect(() => {
+    const loadStatus = async () => {
+      try {
+        const status = await api.getAdminAuthStatus();
+        setMode(status.bootstrapAvailable ? 'bootstrap' : 'login');
+      } catch (err) {
+        setError('No se pudo verificar el estado del acceso admin.');
+      } finally {
+        setIsCheckingStatus(false);
+      }
+    };
+
+    loadStatus();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,39 +46,85 @@ export default function AdminLogin() {
     }
   };
 
+  const handleBootstrap = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (username.trim().length < 3) {
+      setError('Elegí un usuario de al menos 3 caracteres.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const res = await api.bootstrapAdmin(username.trim(), password);
+      localStorage.setItem('admin_token', res.token);
+      navigate('/admin');
+    } catch (err) {
+      setError('No se pudo crear el acceso admin inicial.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isCheckingStatus) {
+    return <div className="min-h-[70vh] flex items-center justify-center text-zinc-400">Verificando acceso admin...</div>;
+  }
+
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-8 space-y-6">
         <div className="flex flex-col items-center justify-center space-y-2 text-center">
           <div className="w-12 h-12 bg-violet-600/20 rounded-full flex items-center justify-center mb-2">
-            <Lock className="w-6 h-6 text-violet-400" />
+            {mode === 'bootstrap' ? (
+              <KeyRound className="w-6 h-6 text-violet-400" />
+            ) : (
+              <Lock className="w-6 h-6 text-violet-400" />
+            )}
           </div>
-          <h1 className="text-2xl font-display font-bold text-white">Acceso Admin</h1>
-          <p className="text-zinc-400 text-sm">Ingresá tus credenciales para administrar la plataforma.</p>
+          <h1 className="text-2xl font-display font-bold text-white">
+            {mode === 'bootstrap' ? 'Crear acceso admin' : 'Acceso Admin'}
+          </h1>
+          <p className="text-zinc-400 text-sm">
+            {mode === 'bootstrap'
+              ? 'No existe ningún admin configurado. Creá el primer acceso desde acá.'
+              : 'Ingresá tus credenciales para administrar la plataforma.'}
+          </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={mode === 'bootstrap' ? handleBootstrap : handleLogin} className="space-y-4">
           {error && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center font-medium">
               {error}
             </div>
           )}
-          
+
           <div className="space-y-2">
             <label className="text-sm font-bold text-zinc-400">Usuario</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-violet-500 focus:outline-none transition-colors"
               required
             />
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-bold text-zinc-400">Contraseña</label>
-            <input 
-              type="password" 
+            <input
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-violet-500 focus:outline-none transition-colors"
@@ -66,12 +132,31 @@ export default function AdminLogin() {
             />
           </div>
 
-          <button 
+          {mode === 'bootstrap' && (
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Repetir contraseña</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-violet-500 focus:outline-none transition-colors"
+                required
+              />
+            </div>
+          )}
+
+          <button
             type="submit"
             disabled={isLoading}
             className="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 mt-4"
           >
-            {isLoading ? 'Verificando...' : 'Ingresar'}
+            {isLoading
+              ? mode === 'bootstrap'
+                ? 'Creando acceso...'
+                : 'Verificando...'
+              : mode === 'bootstrap'
+                ? 'Crear y entrar'
+                : 'Ingresar'}
           </button>
         </form>
       </div>

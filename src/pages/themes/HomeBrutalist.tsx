@@ -20,30 +20,18 @@ import { FAN_TIERS } from '@/utils/tiers';
 
 const routes = [
   {
-    title: 'Muro',
-    description: 'Los mensajes, aguantes y respuestas que van quedando cuando alguien banca una misión.',
-    href: '/wall',
     icon: MessageSquare,
     accent: 'bg-[#00FF00]',
   },
   {
-    title: 'Feed exclusivo',
-    description: 'Adelantos, encuestas, recursos, prompts y contenido para quienes ya pusieron el hombro.',
-    href: '/vip',
     icon: Heart,
     accent: 'bg-[#FF00FF] text-white',
   },
   {
-    title: 'Portfolio',
-    description: 'Webapps, edición con IA y trabajos que también sirven para cerrar proyectos pagos.',
-    href: '/portfolio',
     icon: Briefcase,
     accent: 'bg-yellow-300',
   },
   {
-    title: 'Galería IA',
-    description: 'Experimentos, prompts y piezas que después pueden transformarse en encargos concretos.',
-    href: '/gallery',
     icon: Palette,
     accent: 'bg-black text-white',
   },
@@ -51,29 +39,14 @@ const routes = [
 
 const supportModes = [
   {
-    eyebrow: 'Aporte libre',
-    title: 'Un cafecito para bancar el ritmo',
-    description: 'Para cuando querés empujar el contenido sin pedir nada a cambio. Sirve para sostener el día a día y las ideas espontáneas.',
-    href: '/checkout',
-    cta: 'Aportar ahora',
     color: 'bg-[#00FF00]',
     icon: Coffee,
   },
   {
-    eyebrow: 'Encargo IA',
-    title: 'Te llevás algo hecho para vos',
-    description: 'Fotos editadas, avatares, memes, piezas visuales o rarezas personalizadas. La forma más clara de convertir apoyo en entrega.',
-    href: '/checkout',
-    cta: 'Pedir un encargo',
     color: 'bg-[#FF00FF] text-white',
     icon: Wand2,
   },
   {
-    eyebrow: 'Proyecto serio',
-    title: 'Si querés laburar conmigo, también',
-    description: 'La web también funciona como portfolio. Si una marca o seguidor quiere contratarme, cae directo en el lugar correcto.',
-    href: '/portfolio',
-    cta: 'Ver portfolio',
     color: 'bg-yellow-300',
     icon: Briefcase,
   },
@@ -81,6 +54,7 @@ const supportModes = [
 
 export default function HomeBrutalist() {
   const { campaigns, rewards, supporters, galleryImages, blogPosts, settings, currency, shareCampaign } = useAppContext();
+  const homeContent = settings?.content.home;
 
   const activeCampaigns = campaigns.filter((campaign) => campaign.active);
   const primaryCampaign =
@@ -93,6 +67,7 @@ export default function HomeBrutalist() {
   const latestImages = galleryImages.slice(0, 2);
   const highlightedPost = blogPosts[0];
   const recentSupporters = supporters.slice(0, 3);
+  const heroTitleLines = homeContent?.hero.title.split('\n') ?? [];
 
   return (
     <div className="bg-[#f5f0e8] text-black">
@@ -127,23 +102,23 @@ export default function HomeBrutalist() {
                 <div className="inline-flex items-center gap-3 border-2 border-black bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] brutal-shadow-sm">
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#00FF00]" />
                   {settings?.creatorName || 'Santi Balosky'}
-                  <span className="text-black/45">creador + internet gremlin</span>
+                  <span className="text-black/45">internet, canciones, ia y delirio</span>
                 </div>
 
                 <div className="space-y-4">
                   <p className="max-w-md font-bold uppercase tracking-[0.24em] text-black/55">
-                    una web propia para que el apoyo no termine en una app genérica
+                    {homeContent?.hero.eyebrow}
                   </p>
                   <h1 className="max-w-5xl font-display text-[clamp(3.8rem,10vw,8.5rem)] font-bold uppercase leading-[0.88] tracking-[-0.06em]">
-                    bancá lo que hago
-                    <br />
-                    y llevate algo
-                    <br />
-                    en el proceso
+                    {heroTitleLines.map((line, index) => (
+                      <React.Fragment key={`${line}-${index}`}>
+                        {line}
+                        {index < heroTitleLines.length - 1 && <br />}
+                      </React.Fragment>
+                    ))}
                   </h1>
                   <p className="max-w-2xl text-lg sm:text-xl font-medium leading-relaxed text-black/78">
-                    Esta página mezcla tres cosas que hoy están separadas: apoyo directo, encargos creativos y portfolio.
-                    Podés empujar una misión, pedirme una pieza con IA o simplemente seguir lo que voy publicando.
+                    {homeContent?.hero.subtitle}
                   </p>
                 </div>
               </motion.div>
@@ -155,16 +130,16 @@ export default function HomeBrutalist() {
                 className="flex flex-col gap-4 sm:flex-row"
               >
                 <Link
-                  to="/checkout"
+                  to={homeContent?.hero.primaryCtaHref || '/checkout'}
                   className="inline-flex items-center justify-center gap-2 border-4 border-black bg-black px-7 py-4 font-brutal text-lg uppercase tracking-[0.14em] text-white brutal-shadow hover:bg-[#00FF00] hover:text-black transition-colors"
                 >
-                  Aportar un cafecito <ArrowRight className="w-5 h-5" />
+                  {homeContent?.hero.primaryCtaLabel} <ArrowRight className="w-5 h-5" />
                 </Link>
                 <Link
-                  to="/portfolio"
+                  to={homeContent?.hero.secondaryCtaHref || '/portfolio'}
                   className="inline-flex items-center justify-center gap-2 border-4 border-black bg-white px-7 py-4 font-brutal text-lg uppercase tracking-[0.14em] brutal-shadow-sm hover:bg-yellow-300 transition-colors"
                 >
-                  Ver lo que hago <Briefcase className="w-5 h-5" />
+                  {homeContent?.hero.secondaryCtaLabel} <Briefcase className="w-5 h-5" />
                 </Link>
               </motion.div>
 
@@ -203,7 +178,7 @@ export default function HomeBrutalist() {
             >
               <div className="relative overflow-hidden border-4 border-black bg-black brutal-shadow">
                 <img
-                  src={settings?.creatorAvatar || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=800&auto=format&fit=crop'}
+                  src={settings?.creatorAvatar || '/images/santi-avatar.jpeg'}
                   alt={settings?.creatorName || 'Santi Balosky'}
                   className="h-[520px] w-full object-cover object-center grayscale contrast-125"
                   referrerPolicy="no-referrer"
@@ -211,17 +186,17 @@ export default function HomeBrutalist() {
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.05),rgba(0,0,0,0.7))]" />
 
                 <div className="absolute left-4 top-4 border-2 border-black bg-white px-3 py-2 font-brutal text-sm uppercase tracking-[0.18em] text-black brutal-shadow-sm">
-                  portfolio + apoyo + rarezas
+                  caos ordenado
                 </div>
 
                 <div className="absolute bottom-0 left-0 right-0 grid gap-3 border-t-4 border-black bg-[#f5f0e8] p-4 md:grid-cols-2">
                   <div className="border-2 border-black bg-white p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-black/55">ideal para</p>
-                    <p className="mt-2 font-brutal text-2xl uppercase">seguidores que quieren participar</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-black/55">si me seguís</p>
+                    <p className="mt-2 font-brutal text-2xl uppercase">podés bancar una idea o pedir una locura</p>
                   </div>
                   <div className="border-2 border-black bg-yellow-300 p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-black/55">también sirve para</p>
-                    <p className="mt-2 font-brutal text-2xl uppercase">marcas, clientes y comisiones</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-black/55">si caíste de casualidad</p>
+                    <p className="mt-2 font-brutal text-2xl uppercase">acá están mis trabajos y mis experimentos</p>
                   </div>
                 </div>
               </div>
@@ -237,23 +212,24 @@ export default function HomeBrutalist() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
         <div className="mb-8 flex items-end justify-between gap-6">
           <div className="space-y-3">
-            <p className="font-bold uppercase tracking-[0.24em] text-black/55">cómo entra la plata</p>
+            <p className="font-bold uppercase tracking-[0.24em] text-black/55">{homeContent?.sections.supportEyebrow}</p>
             <h2 className="font-display text-4xl font-bold uppercase leading-none tracking-[-0.05em]">
-              tres puertas claras
+              {homeContent?.sections.supportTitle}
             </h2>
           </div>
           <p className="hidden max-w-xl text-right font-medium text-black/70 md:block">
-            La home necesitaba separar apoyo emocional, pedidos concretos y contratación profesional. Ahora cada camino tiene nombre propio.
+            {homeContent?.sections.supportSubtitle}
           </p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
           {supportModes.map((mode, index) => {
             const Icon = mode.icon;
+            const content = homeContent?.supportModes[index];
 
             return (
               <motion.div
-                key={mode.title}
+                key={content?.title || index}
                 initial={{ opacity: 0, y: 18 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-80px' }}
@@ -265,20 +241,20 @@ export default function HomeBrutalist() {
                     <Icon className="h-7 w-7 text-current" />
                   </div>
                   <div className="space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-black/55">{mode.eyebrow}</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-black/55">{content?.eyebrow}</p>
                     <h3 className="font-display text-3xl font-bold uppercase leading-none tracking-[-0.04em]">
-                      {mode.title}
+                      {content?.title}
                     </h3>
-                    <p className="font-medium leading-relaxed text-black/76">{mode.description}</p>
+                    <p className="font-medium leading-relaxed text-black/76">{content?.description}</p>
                   </div>
                 </div>
 
                 <div className="border-t-4 border-black p-6">
                   <Link
-                    to={mode.href}
+                    to={content?.href || '/checkout'}
                     className="inline-flex items-center gap-2 font-brutal text-lg uppercase tracking-[0.14em] hover:text-[#FF00FF] transition-colors"
                   >
-                    {mode.cta} <ArrowRight className="w-5 h-5" />
+                    {content?.ctaLabel} <ArrowRight className="w-5 h-5" />
                   </Link>
                 </div>
               </motion.div>
@@ -394,13 +370,12 @@ export default function HomeBrutalist() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="space-y-5">
-            <p className="font-bold uppercase tracking-[0.24em] text-black/55">qué recibe la gente</p>
+            <p className="font-bold uppercase tracking-[0.24em] text-black/55">{homeContent?.sections.rewardsEyebrow}</p>
             <h2 className="font-display text-4xl font-bold uppercase leading-none tracking-[-0.05em]">
-              recompensas y escalones
+              {homeContent?.sections.rewardsTitle}
             </h2>
             <p className="max-w-xl font-medium leading-relaxed text-black/72">
-              Tu idea de “cafecitos con premio” está buena. La clave es que la recompensa sea inmediata y entendible:
-              acceso, entrega digital, mención o un encargo personalizado.
+              {homeContent?.sections.rewardsSubtitle}
             </p>
           </div>
 
@@ -454,13 +429,13 @@ export default function HomeBrutalist() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
           <div className="mb-8 flex items-end justify-between gap-6">
             <div className="space-y-3">
-              <p className="font-bold uppercase tracking-[0.24em] text-black/55">además del pago</p>
+              <p className="font-bold uppercase tracking-[0.24em] text-black/55">{homeContent?.sections.discoveryEyebrow}</p>
               <h2 className="font-display text-4xl font-bold uppercase leading-none tracking-[-0.05em]">
-                el universo del sitio
+                {homeContent?.sections.discoveryTitle}
               </h2>
             </div>
             <p className="hidden max-w-xl text-right font-medium text-black/70 md:block">
-              Acá es donde la web deja de ser solo un checkout y pasa a ser una casa digital para tu comunidad.
+              {homeContent?.sections.discoverySubtitle}
             </p>
           </div>
 
@@ -468,10 +443,11 @@ export default function HomeBrutalist() {
             <div className="grid gap-6 sm:grid-cols-2">
               {routes.map((item, index) => {
                 const Icon = item.icon;
+                const content = homeContent?.discoveryCards[index];
 
                 return (
                   <motion.div
-                    key={item.title}
+                    key={content?.title || index}
                     initial={{ opacity: 0, y: 18 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: '-70px' }}
@@ -484,13 +460,13 @@ export default function HomeBrutalist() {
                       </div>
                       <div className="space-y-3">
                         <h3 className="font-display text-2xl font-bold uppercase leading-none tracking-[-0.04em]">
-                          {item.title}
+                          {content?.title}
                         </h3>
-                        <p className="font-medium leading-relaxed text-black/74">{item.description}</p>
+                        <p className="font-medium leading-relaxed text-black/74">{content?.description}</p>
                       </div>
                     </div>
                     <div className="border-t-4 border-black p-5">
-                      <Link to={item.href} className="inline-flex items-center gap-2 font-brutal text-lg uppercase">
+                      <Link to={content?.href || '/'} className="inline-flex items-center gap-2 font-brutal text-lg uppercase">
                         Entrar <ArrowRight className="w-5 h-5" />
                       </Link>
                     </div>
@@ -532,7 +508,7 @@ export default function HomeBrutalist() {
               {highlightedPost && (
                 <div className="grid gap-4 border-4 border-black bg-white p-5 brutal-shadow-sm md:grid-cols-[1fr_180px]">
                   <div className="space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-black/55">último texto</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-black/55">última nota</p>
                     <h3 className="font-display text-3xl font-bold uppercase leading-none tracking-[-0.04em]">
                       {highlightedPost.title}
                     </h3>
@@ -619,16 +595,16 @@ export default function HomeBrutalist() {
 
           <div className="flex h-full flex-col justify-between border-4 border-black bg-[#111111] p-6 text-white brutal-shadow">
             <div className="space-y-5">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/55">tesis del producto</p>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/55">gracias posta</p>
               <h3 className="font-display text-4xl font-bold uppercase leading-[0.94] tracking-[-0.05em]">
-                una página que cobre,
+                si estás acá,
                 <br />
-                muestre obra
+                gracias por bancar
                 <br />
-                y premie apoyo
+                este delirio
               </h3>
               <p className="font-medium leading-relaxed text-white/74">
-                Ese cruce es exactamente lo que te diferencia de una página de “cafecitos” genérica. Acá el aporte no termina en una transacción: abre acceso, activa pedidos y fortalece tu marca.
+                Cada aporte empuja viajes, canciones, videos, experimentos y las ideas raras que se me cruzan por la cabeza.
               </p>
             </div>
 

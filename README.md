@@ -1,20 +1,36 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Bancame
 
-# Run and deploy your AI Studio app
+Sitio para aportes, campañas, contenido para aportantes y administración básica.
 
-This contains everything you need to run your app locally.
+## Correr local
 
-View your app in AI Studio: https://ai.studio/apps/627c3f41-e7e6-48b2-a500-a40f409af287
+1. Instalá dependencias con `npm install`
+2. Creá `.env.local` a partir de `.env.example`
+3. Levantá el proyecto con `npm run dev`
+4. Abrí [http://localhost:3000](http://localhost:3000)
 
-## Run Locally
+## Admin
 
-**Prerequisites:**  Node.js
+- Entrá a `/admin/login`
+- Si no existe ningún admin, el sistema te deja crear el primer acceso desde esa misma pantalla
+- Si ya existe, iniciás sesión normalmente
+- Desde `/admin/settings` podés rotar usuario y contraseña del panel
 
+## Qué conviene editar desde el panel
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- `Configuración`: textos públicos, links, avatar, bio y template visual
+- `Misiones`: campañas activas y su metadata
+- `Mensajes`: moderación y respuestas públicas
+- `Productos` y `Membresías`: solo si realmente los vas a ofrecer
+
+## Qué conviene editar en código
+
+- Lógica de checkout y pagos
+- Estructura de features nuevas
+- Componentes, layouts y comportamiento del frontend
+
+## Mercado Pago
+
+- Configurá `MP_ACCESS_TOKEN` con un token real de Mercado Pago
+- Configurá `APP_URL` con la URL pública donde corre la app
+- Si `APP_URL` apunta a `localhost`, el checkout igual puede abrir, pero el webhook no va a poder acreditar aportes automáticamente desde Mercado Pago

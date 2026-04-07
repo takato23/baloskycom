@@ -89,8 +89,85 @@ export interface SiteSettings {
   highlightedCampaignId?: string;
   supportAmountsSuggested: number[];
   legalText: string;
+  content: PublicContentSettings;
   discordWebhookUrl?: string;
   availabilityStatus?: 'available' | 'busy';
+}
+
+export interface HomeHeroContent {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  primaryCtaLabel: string;
+  primaryCtaHref: string;
+  secondaryCtaLabel: string;
+  secondaryCtaHref: string;
+}
+
+export interface HomeSupportModeContent {
+  eyebrow: string;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  href: string;
+}
+
+export interface HomeDiscoveryCardContent {
+  title: string;
+  description: string;
+  href: string;
+}
+
+export interface HomeSectionContent {
+  supportEyebrow: string;
+  supportTitle: string;
+  supportSubtitle: string;
+  rewardsEyebrow: string;
+  rewardsTitle: string;
+  rewardsSubtitle: string;
+  discoveryEyebrow: string;
+  discoveryTitle: string;
+  discoverySubtitle: string;
+}
+
+export interface CheckoutCopy {
+  title: string;
+  subtitle: string;
+  encargoTitle: string;
+  encargoDescription: string;
+}
+
+export interface PortfolioCopy {
+  heroTitle: string;
+  heroSubtitle: string;
+  ctaTitle: string;
+  ctaBody: string;
+  ctaButton: string;
+}
+
+export interface VipCopy {
+  title: string;
+  subtitle: string;
+}
+
+export interface HomeContentSettings {
+  hero: HomeHeroContent;
+  supportModes: HomeSupportModeContent[];
+  discoveryCards: HomeDiscoveryCardContent[];
+  sections: HomeSectionContent;
+}
+
+export interface PublicContentSettings {
+  home: HomeContentSettings;
+  checkout: {
+    copy: CheckoutCopy;
+  };
+  portfolio: {
+    copy: PortfolioCopy;
+  };
+  vip: {
+    copy: VipCopy;
+  };
 }
 
 export interface Purchase {
@@ -110,6 +187,20 @@ export interface DiscountCode {
   createdAt: string;
 }
 
+export interface CheckoutPreferenceResponse {
+  init_point?: string;
+  sandbox_init_point?: string;
+}
+
+export interface CheckoutPaymentStatus {
+  id?: number;
+  status?: string;
+  statusDetail?: string;
+  amount?: number;
+  currency?: string;
+  processed?: boolean;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -117,6 +208,11 @@ export interface UserProfile {
   unlockedRewards: string[];
   badges: string[];
   purchases: Purchase[];
+}
+
+export interface AdminAuthStatus {
+  hasAdmin: boolean;
+  bootstrapAvailable: boolean;
 }
 
 export type Currency = 'ARS' | 'USD' | 'CRYPTO';

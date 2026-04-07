@@ -65,7 +65,7 @@ export default function HomeStardust() {
         >
           <div className="w-40 h-40 rounded-full overflow-hidden mx-auto border border-amber-500/30 p-1 bg-[#020617]/40 backdrop-blur-md shadow-[0_0_40px_rgba(251,191,36,0.15)]">
             <img 
-              src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=400&auto=format&fit=crop" 
+              src="/images/santi-avatar.jpeg" 
               alt="Santiago Balosky" 
               className="w-full h-full object-cover rounded-full opacity-90"
             />

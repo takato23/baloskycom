@@ -11,21 +11,21 @@ export const FAN_TIERS: FanTier[] = [
     id: 'amigo',
     name: 'Amigo',
     minAmount: 1000,
-    benefits: ['Insignia de Amigo en el perfil', 'Acceso al Feed del Creador'],
+    benefits: ['Tu perfil pasa al nivel Amigo', 'Desbloqueás publicaciones para aportantes desde este monto'],
     color: 'bg-yellow-300'
   },
   {
     id: 'colaborador',
     name: 'Colaborador',
     minAmount: 5000,
-    benefits: ['Insignia de Colaborador', 'Acceso anticipado a contenido', 'Voto doble en encuestas'],
+    benefits: ['Tu perfil pasa al nivel Colaborador', 'Desbloqueás publicaciones y recursos marcados desde este monto'],
     color: 'bg-[#00FF00]'
   },
   {
     id: 'mecenas',
     name: 'Mecenas',
     minAmount: 25000,
-    benefits: ['Insignia de Mecenas Supremo', 'Mención especial en videos', 'Chat directo (próximamente)'],
+    benefits: ['Tu perfil pasa al nivel Mecenas', 'Desbloqueás todo el contenido bloqueado cargado en la plataforma'],
     color: 'bg-[#FF00FF]'
   }
 ];

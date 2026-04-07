@@ -1,6 +1,8 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { DEFAULT_PUBLIC_CONTENT } from '@/content/publicContent';
+import { hashPassword, verifyPassword } from './auth';
 
 const dbDir = path.join(process.cwd(), 'data');
 if (!fs.existsSync(dbDir)) {
@@ -88,7 +90,10 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL
+    password TEXT,
+    passwordHash TEXT,
+    role TEXT NOT NULL DEFAULT 'admin',
+    createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS discount_codes (
@@ -107,12 +112,59 @@ db.exec(`
     title TEXT NOT NULL,
     createdAt TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS processed_payments (
+    paymentId TEXT PRIMARY KEY,
+    messageId TEXT NOT NULL,
+    campaignId TEXT,
+    supporterName TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    externalReference TEXT,
+    processedAt TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+  );
 `);
 
 // Add new columns to existing tables if they don't exist (SQLite ALTER TABLE limitations workaround)
 try { db.exec('ALTER TABLE campaigns ADD COLUMN stretchGoals TEXT;'); } catch (e) { /* Ignore if exists */ }
 try { db.exec('ALTER TABLE campaigns ADD COLUMN videoUrl TEXT;'); } catch (e) { /* Ignore if exists */ }
 try { db.exec('ALTER TABLE messages ADD COLUMN creatorResponse TEXT;'); } catch (e) { /* Ignore if exists */ }
+try { db.exec('ALTER TABLE users ADD COLUMN passwordHash TEXT;'); } catch (e) { /* Ignore if exists */ }
+try { db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin';"); } catch (e) { /* Ignore if exists */ }
+try { db.exec('ALTER TABLE users ADD COLUMN createdAt TEXT;'); } catch (e) { /* Ignore if exists */ }
+
+db.prepare("UPDATE users SET role = COALESCE(role, 'admin') WHERE role IS NULL OR role = ''").run();
+db.prepare("UPDATE users SET createdAt = COALESCE(createdAt, ?) WHERE createdAt IS NULL OR createdAt = ''").run(
+  new Date().toISOString()
+);
+
+const legacyUsers = db
+  .prepare('SELECT id, username, password, passwordHash FROM users')
+  .all() as Array<{ id: string; username: string; password: string | null; passwordHash: string | null }>;
+
+for (const user of legacyUsers) {
+  if (!user.passwordHash && user.password) {
+    db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(hashPassword(user.password), user.id);
+  }
+}
+
+const legacyDefaultUser = db
+  .prepare('SELECT id, username, password, passwordHash FROM users WHERE username = ?')
+  .get('admin') as { id: string; username: string; password: string | null; passwordHash: string | null } | undefined;
+
+const userCount = (db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }).count;
+
+if (
+  userCount === 1 &&
+  legacyDefaultUser &&
+  (legacyDefaultUser.password === 'admin123' || verifyPassword('admin123', legacyDefaultUser.passwordHash))
+) {
+  db.prepare('DELETE FROM users WHERE id = ?').run(legacyDefaultUser.id);
+  console.warn(
+    '[auth] Se eliminó el admin por defecto inseguro. Creá un nuevo acceso desde /admin/login usando el bootstrap inicial.'
+  );
+}
 
 // Seed initial data if empty
 const countCampaigns = db.prepare('SELECT COUNT(*) as count FROM campaigns').get() as { count: number };
@@ -155,7 +207,7 @@ if (countCampaigns.count === 0) {
   const initialSettings = {
     creatorName: 'Santi Balosky',
     creatorBio: 'Creador de contenido, viajero y catador profesional de alfajores. Bancá este delirio para que siga creando.',
-    creatorAvatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=400&auto=format&fit=crop',
+    creatorAvatar: '/images/santi-avatar.jpeg',
     heroTitle: 'Santi Balosky',
     heroSubtitle: 'Creador de contenido, viajero y catador profesional de alfajores. Bancá este delirio para que siga creando.',
     primaryCTA: 'Invitame un cafecito',
@@ -168,7 +220,8 @@ if (countCampaigns.count === 0) {
     defaultTheme: 'brutalist',
     visibleSections: ['hero', 'campaigns', 'rewards', 'wall'],
     supportAmountsSuggested: [1000, 3000, 5000, 10000],
-    legalText: 'Pago seguro simulado (MVP)'
+    legalText: 'Pago seguro con Mercado Pago.',
+    content: DEFAULT_PUBLIC_CONTENT
   };
   
   db.prepare('INSERT INTO settings (id, data) VALUES (?, ?)').run('global', JSON.stringify(initialSettings));
@@ -189,14 +242,36 @@ if (countCampaigns.count === 0) {
   insertMembership.run('m1', 'Bancador Oficial', 2000, 'monthly', 'Acceso a contenido exclusivo y mi gratitud eterna.', JSON.stringify(['Vlogs detrás de escena', 'Mención en videos', 'Grupo de Telegram']), 0, 1, 1, now);
   insertMembership.run('m2', 'Productor Ejecutivo', 5000, 'monthly', 'Para los que quieren ser parte activa del canal.', JSON.stringify(['Todo lo anterior', 'Votación de próximos destinos', 'Videollamada mensual grupal']), 1, 1, 2, now);
 
-  // Seed Admin User
-  db.prepare('INSERT INTO users (id, username, password) VALUES (?, ?, ?)').run('u1', 'admin', 'admin123');
-
   // Seed Discount Codes
   db.prepare('INSERT INTO discount_codes (id, code, discountPercent, active, createdAt) VALUES (?, ?, ?, ?, ?)').run('d1', 'VERANO20', 20, 1, now);
 
   // Seed Purchases
   db.prepare('INSERT INTO purchases (id, supporterName, type, itemId, title, createdAt) VALUES (?, ?, ?, ?, ?, ?)').run('pur1', 'Santi Balosky', 'product', 'p1', 'Guía de Viaje: Tokyo Low Cost', now);
 }
+
+export const hasAdminUsers = () => {
+  const result = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'admin'").get() as { count: number };
+  return result.count > 0;
+};
+
+export const createAdminUser = (username: string, password: string) => {
+  const now = new Date().toISOString();
+  const id = `admin_${Date.now()}`;
+  const passwordHash = hashPassword(password);
+
+  db.prepare(
+    'INSERT INTO users (id, username, password, passwordHash, role, createdAt) VALUES (?, ?, NULL, ?, ?, ?)'
+  ).run(id, username, passwordHash, 'admin', now);
+
+  return { id, username, role: 'admin', createdAt: now };
+};
+
+export const updateAdminUserCredentials = (userId: string, username: string, password: string) => {
+  const passwordHash = hashPassword(password);
+
+  db.prepare(
+    'UPDATE users SET username = ?, password = NULL, passwordHash = ? WHERE id = ?'
+  ).run(username, passwordHash, userId);
+};
 
 export default db;

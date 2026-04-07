@@ -87,7 +87,7 @@ export default function HomeLiquid() {
         >
           <div className="w-36 h-36 rounded-3xl overflow-hidden mx-auto border border-white/20 p-1 backdrop-blur-xl bg-white/5 shadow-[0_10px_40px_rgba(0,255,255,0.15)] rotate-3">
             <img 
-              src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=400&auto=format&fit=crop" 
+              src="/images/santi-avatar.jpeg" 
               alt="Santiago Balosky" 
               className="w-full h-full object-cover rounded-2xl -rotate-3 scale-110"
             />

@@ -84,8 +84,9 @@ const timeline = [
 ];
 
 export default function Portfolio() {
-  const { theme } = useAppContext();
+  const { theme, settings } = useAppContext();
   const styles = getThemedPageStyles(theme);
+  const portfolioCopy = settings?.content.portfolio.copy;
   const [filter, setFilter] = useState('Todos');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -111,22 +112,49 @@ export default function Portfolio() {
   return (
     <div className={cn("theme-page theme-adapt space-y-12 pb-10", styles.shell)}>
       {/* Hero Section */}
-      <div className="text-center space-y-6">
-        <motion.div 
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className={cn("w-20 h-20 mx-auto flex items-center justify-center", styles.contrastPanel)}
-        >
-          <Briefcase className="w-10 h-10" />
-        </motion.div>
-        <h1 className={cn("text-5xl md:text-6xl font-bold", styles.pageTitle)}>
-          Mi Portfolio
-        </h1>
-        <p className={cn("text-xl max-w-2xl mx-auto font-medium", styles.pageSubtitle)}>
-          No solo creo contenido, también construyo herramientas y experiencias digitales. 
-          Conocé mis servicios y proyectos.
-        </p>
-      </div>
+      <section className={cn("grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-end", styles.panel)}>
+        <div className="p-6 md:p-8 space-y-5">
+          <div className={cn(
+            "inline-flex items-center gap-3 px-4 py-2 border",
+            styles.softPanel,
+            theme === 'minimal' ? 'rounded-full border-black/10 shadow-none' : '',
+            theme === 'terminal' ? 'rounded-none' : ''
+          )}>
+            <Briefcase className="w-4 h-4" />
+            <span className={cn(theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium' : 'text-xs font-bold uppercase tracking-[0.2em]')}>
+              proyectos, servicios y experimentos
+            </span>
+          </div>
+
+          <h1 className={cn("text-5xl md:text-7xl font-bold leading-[0.92]", styles.pageTitle)}>
+            {portfolioCopy?.heroTitle}
+          </h1>
+          <p className={cn("text-xl max-w-2xl font-medium", styles.pageSubtitle)}>
+            {portfolioCopy?.heroSubtitle}
+          </p>
+        </div>
+
+        <div className={cn(
+          "p-6 md:p-8 h-full flex flex-col justify-between",
+          styles.contrastPanel,
+          theme === 'minimal' && 'bg-[#161616] text-white'
+        )}>
+          <div>
+            <p className={cn(
+              "text-xs uppercase tracking-[0.2em]",
+              theme === 'minimal' ? 'text-white/65 normal-case tracking-[0.04em]' : 'text-white/60 font-bold'
+            )}>
+              foco actual
+            </p>
+            <p className="mt-4 text-3xl font-bold">
+              web, IA, contenido y cosas raras de internet
+            </p>
+          </div>
+          <p className="mt-6 text-sm leading-relaxed text-white/72">
+            Si caíste acá por una idea puntual, esta sección te sirve para entender rápido qué hago y cómo lo llevo a algo concreto.
+          </p>
+        </div>
+      </section>
 
       {/* Tech Stack Marquee */}
       <section className={cn("overflow-hidden py-4 border-y-4 border-black flex whitespace-nowrap", styles.softPanel)}>
@@ -187,7 +215,16 @@ export default function Portfolio() {
       {/* Projects Section */}
       <section>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h2 className={cn("text-3xl font-bold", styles.sectionTitle)}>Proyectos Destacados</h2>
+          <div className="space-y-2">
+            <p className={cn(
+              "text-xs uppercase tracking-[0.2em]",
+              styles.pageSubtitle,
+              theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium' : 'font-bold'
+            )}>
+              selección rápida
+            </p>
+            <h2 className={cn("text-3xl font-bold", styles.sectionTitle)}>Proyectos Destacados</h2>
+          </div>
           <div className="flex flex-wrap gap-2">
             {['Todos', 'Proyectos IA', 'Desarrollo Web', 'Creación de Contenido'].map(cat => (
               <button
@@ -421,19 +458,31 @@ export default function Portfolio() {
       </section>
 
       {/* CTA Section */}
-      <section className={cn("p-8 md:p-12 text-center", styles.accentPanel)}>
-        <h2 className={cn("text-4xl font-bold mb-4 font-brutal uppercase", styles.sectionTitle)}>
-          ¿Trabajamos Juntos?
-        </h2>
-        <p className={cn("text-xl font-medium mb-8 max-w-2xl mx-auto", styles.pageSubtitle)}>
-          Si tenés una idea para una webapp, necesitás edición con IA o querés potenciar tu contenido, hablemos.
-        </p>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className={cn("inline-flex items-center gap-2 px-8 py-4 text-xl font-bold uppercase transition-transform", styles.primaryButton)}
-        >
-          Contactame <ArrowRight className="w-6 h-6" />
-        </button>
+      <section className={cn("grid gap-6 lg:grid-cols-[0.95fr_1.05fr]", styles.panel)}>
+        <div className={cn("p-8 md:p-10", styles.accentPanel)}>
+          <p className={cn(
+            "text-xs uppercase tracking-[0.2em]",
+            theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium text-black/70' : 'font-bold'
+          )}>
+            siguiente paso
+          </p>
+          <h2 className={cn("text-4xl font-bold mt-4 font-brutal uppercase", styles.sectionTitle)}>
+            {portfolioCopy?.ctaTitle}
+          </h2>
+        </div>
+        <div className="p-8 md:p-10 flex flex-col justify-between">
+          <p className={cn("text-xl font-medium max-w-2xl", styles.pageSubtitle)}>
+            {portfolioCopy?.ctaBody}
+          </p>
+          <div className="mt-8">
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className={cn("inline-flex items-center gap-2 px-8 py-4 text-xl font-bold uppercase transition-transform", styles.primaryButton)}
+            >
+              {portfolioCopy?.ctaButton} <ArrowRight className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
       </section>
 
       {/* Project Modal */}

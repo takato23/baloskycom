@@ -52,7 +52,6 @@ export default function App() {
               <Route path="campaigns" element={<AdminDashboard defaultTab="campaigns" />} />
               <Route path="products" element={<AdminDashboard defaultTab="products" />} />
               <Route path="memberships" element={<AdminDashboard defaultTab="memberships" />} />
-              <Route path="users" element={<AdminDashboard defaultTab="users" />} />
               <Route path="messages" element={<AdminDashboard defaultTab="messages" />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />

@@ -1,4 +1,14 @@
-import { Campaign, Reward, SupporterMessage, SiteSettings, Product, Membership, UserProfile } from '@/types';
+import {
+  AdminAuthStatus,
+  Campaign,
+  CheckoutPaymentStatus,
+  CheckoutPreferenceResponse,
+  Reward,
+  SupporterMessage,
+  SiteSettings,
+  Product,
+  Membership
+} from '@/types';
 
 // ==========================================
 // API SERVICE (Connected to Local Express Backend)
@@ -16,6 +26,20 @@ const getHeaders = () => {
 
 export const api = {
   // Auth
+  getAdminAuthStatus: async (): Promise<AdminAuthStatus> => {
+    const res = await fetch(`${API_URL}/auth/status`);
+    if (!res.ok) throw new Error('Failed to fetch auth status');
+    return res.json();
+  },
+  bootstrapAdmin: async (username: string, password: string) => {
+    const res = await fetch(`${API_URL}/auth/bootstrap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    if (!res.ok) throw new Error('Failed to create admin');
+    return res.json();
+  },
   login: async (username: string, password: string) => {
     const res = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
@@ -23,6 +47,15 @@ export const api = {
       body: JSON.stringify({ username, password })
     });
     if (!res.ok) throw new Error('Invalid credentials');
+    return res.json();
+  },
+  updateAdminCredentials: async (username: string, password: string) => {
+    const res = await fetch(`${API_URL}/auth/credentials`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ username, password })
+    });
+    if (!res.ok) throw new Error('Failed to update admin credentials');
     return res.json();
   },
 
@@ -127,22 +160,6 @@ export const api = {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to delete membership');
-  },
-
-  // Users
-  getUsers: async (): Promise<UserProfile[]> => {
-    const res = await fetch(`${API_URL}/users`, {
-      headers: getHeaders()
-    });
-    if (!res.ok) throw new Error('Failed to fetch users');
-    return res.json();
-  },
-  deleteUser: async (id: string): Promise<void> => {
-    const res = await fetch(`${API_URL}/users/${id}`, {
-      method: 'DELETE',
-      headers: getHeaders()
-    });
-    if (!res.ok) throw new Error('Failed to delete user');
   },
 
   // Messages (Wall)
@@ -260,13 +277,24 @@ export const api = {
   },
 
   // Mercado Pago Checkout
-  createPreference: async (amount: number, title: string, campaignId?: string, supporterName?: string, message?: string) => {
+  createPreference: async (
+    amount: number,
+    title: string,
+    campaignId?: string,
+    supporterName?: string,
+    message?: string
+  ): Promise<CheckoutPreferenceResponse> => {
     const res = await fetch(`${API_URL}/checkout/preference`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount, title, campaignId, supporterName, message })
     });
     if (!res.ok) throw new Error('Failed to create preference');
+    return res.json();
+  },
+  getPaymentStatus: async (paymentId: string): Promise<CheckoutPaymentStatus> => {
+    const res = await fetch(`${API_URL}/checkout/status/${paymentId}`);
+    if (!res.ok) throw new Error('Failed to fetch payment status');
     return res.json();
   }
 };
