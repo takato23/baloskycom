@@ -1,96 +1,42 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Code, Image as ImageIcon, MonitorPlay, ArrowRight, Briefcase, Star, ChevronDown, ChevronUp, X, Play, ExternalLink, ThumbsUp, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Star, ChevronDown, ChevronUp, X, Play, ExternalLink, Copy, Check, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppContext } from '@/context/AppContext';
-import { getThemedPageStyles } from '@/themes/pageStyles';
-
-const services = [
-  {
-    title: 'Desarrollo de Webapps',
-    description: 'Creo aplicaciones web modernas, rápidas y escalables. Especializado en React, Vite y código limpio para dar vida a tus ideas.',
-    icon: Code,
-    color: 'bg-[#00FF00]'
-  },
-  {
-    title: 'Edición con IA',
-    description: 'Edición avanzada de fotos y videos con IA. Beneficios: Resultados únicos, entregas rápidas y calidad premium. Proceso: Envío de material ➔ Generación de conceptos ➔ Refinamiento ➔ Entrega final.',
-    icon: ImageIcon,
-    color: 'bg-[#FF00FF]'
-  },
-  {
-    title: 'Creación de Contenido',
-    description: 'Producción audiovisual, edición de video y estrategias de contenido para destacar en redes sociales.',
-    icon: MonitorPlay,
-    color: 'bg-yellow-300'
-  }
-];
-
-const projects = [
-  {
-    id: 'p1',
-    title: 'Plataforma de Creadores',
-    category: 'Desarrollo Web',
-    image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=800&auto=format&fit=crop',
-    link: '#',
-    demoUrl: 'https://example.com/demo',
-    longDescription: 'Una plataforma integral diseñada para creadores de contenido, permitiendo monetización directa, gestión de comunidad y recompensas exclusivas. Construida con React, Node.js y Tailwind CSS para un rendimiento óptimo.',
-    rating: 4.8,
-    ratingCount: 12
-  },
-  {
-    id: 'p2',
-    title: 'Campaña Visual IA',
-    category: 'Proyectos IA',
-    image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=800&auto=format&fit=crop',
-    link: '#',
-    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-    promptTitle: 'Cyberpunk Cityscape',
-    prompt: 'A futuristic cyberpunk city with neon lights, highly detailed, 8k resolution, unreal engine 5 render',
-    rating: 5.0,
-    ratingCount: 8
-  },
-  {
-    id: 'p3',
-    title: 'Reels Virales',
-    category: 'Creación de Contenido',
-    image: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=800&auto=format&fit=crop',
-    link: '#',
-    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-    rating: 4.5,
-    ratingCount: 24
-  }
-];
-
-const techStack = ['React', 'Vite', 'Tailwind CSS', 'Node.js', 'Midjourney', 'RunwayML', 'Figma', 'TypeScript', 'Framer Motion'];
+import { getPageStyles } from '@/themes/pageStyles';
+import { PORTFOLIO_CATEGORIES, PORTFOLIO_PROJECTS, type PortfolioProject } from '@/content/portfolioProjects';
+import InnerPageNav from '@/components/InnerPageNav';
 
 const testimonials = [
-  { name: 'Carlos M.', role: 'Emprendedor', text: 'Santi nos armó una webapp increíble. La calidad del código y el diseño brutalista superaron nuestras expectativas. Trabajar con él fue súper fluido y colaborativo.' },
-  { name: 'Laura G.', role: 'Creadora de Contenido', text: 'Las ediciones con IA son de otro planeta. Entendió perfectamente la visión de la marca y el proceso de iteración fue excelente. Un profesional de primera.' },
-  { name: 'Agencia XYZ', role: 'Marketing', text: 'Colaborar con Santi en nuestra campaña visual fue la mejor decisión. Su creatividad y la calidad final del trabajo nos dejaron sin palabras. Totalmente recomendado.' }
+  { name: 'Carlos M.', role: 'Emprendedor', text: 'Santi nos armó una webapp increíble. La calidad del código y el diseño brutalista superaron nuestras expectativas.' },
+  { name: 'Laura G.', role: 'Creadora de Contenido', text: 'Las ediciones con IA son de otro planeta. Entendió perfectamente la visión de la marca y el proceso de iteración fue excelente.' },
+  { name: 'Agencia XYZ', role: 'Marketing', text: 'Colaborar con Santi en nuestra campaña visual fue la mejor decisión. Su creatividad y la calidad final del trabajo nos dejaron sin palabras.' }
 ];
 
 const faqs = [
-  { q: '¿Cuánto tardás en hacer una webapp?', a: 'Depende de la complejidad, pero una landing page o webapp sencilla puede estar lista en 1 a 2 semanas.' },
-  { q: '¿Qué herramientas de IA usás?', a: 'Principalmente Midjourney para imágenes, Runway para video, y ChatGPT/Claude para asistencia en código y guiones.' },
-  { q: '¿Hacés trabajos a medida?', a: '¡Sí! Podés contactarme directamente o usar los niveles de "Mecenas" en la plataforma para encargar proyectos específicos.' }
+  { q: '¿Cuánto tardás en hacer una webapp?', a: 'Depende de la complejidad — una landing o webapp sencilla, 1 a 2 semanas.' },
+  { q: '¿Qué herramientas de IA usás?', a: 'Midjourney, Runway, Suno, ChatGPT/Claude. Depende del proyecto.' },
+  { q: '¿Hacés trabajos a medida?', a: 'Sí. Escribime al DM o entrá como Mesaza desde la home para encargar algo específico.' }
 ];
 
 const timeline = [
-  { year: '2023', title: 'Inicios en Creación', desc: 'Empecé a subir videos sobre tecnología y programación.' },
-  { year: '2024', title: 'Exploración IA', desc: 'Me metí de lleno en la generación de imágenes y video con IA.' },
-  { year: '2025', title: 'Primeras Webapps', desc: 'Lancé mis primeros proyectos freelance para clientes internacionales.' },
-  { year: '2026', title: 'Plataforma Propia', desc: 'Creación de este espacio brutalista para unificar todo mi trabajo.' }
+  { year: '2023', title: 'Inicios en creación', desc: 'Videos sobre tecnología y programación.' },
+  { year: '2024', title: 'Exploración IA', desc: 'Generación de imágenes y video con IA.' },
+  { year: '2025', title: 'Primeras webapps', desc: 'Proyectos freelance para clientes internacionales.' },
+  { year: '2026', title: 'Plataforma propia', desc: 'Este espacio, unificado.' }
 ];
 
 export default function Portfolio() {
-  const { theme, settings } = useAppContext();
-  const styles = getThemedPageStyles(theme);
+  const { settings } = useAppContext();
+  const styles = getPageStyles();
   const portfolioCopy = settings?.content.portfolio.copy;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsKey = searchParams.toString();
   const [filter, setFilter] = useState('Todos');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<any | null>(null);
+  const [selectedProject, setSelectedProject] = useState<PortfolioProject | null>(null);
   const [userRatings, setUserRatings] = useState<{ [key: string]: number }>({});
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
@@ -107,132 +53,64 @@ export default function Portfolio() {
     }
   };
 
-  const filteredProjects = filter === 'Todos' ? projects : projects.filter(p => p.category === filter);
+  const filteredProjects =
+    filter === 'Todos' ? PORTFOLIO_PROJECTS : PORTFOLIO_PROJECTS.filter((project) => project.category === filter);
+
+  useEffect(() => {
+    const projectId = searchParams.get('project');
+    const nextProject = projectId
+      ? PORTFOLIO_PROJECTS.find((project) => project.id === projectId) ?? null
+      : null;
+
+    setSelectedProject((current) => {
+      if (current?.id === nextProject?.id) return current;
+      return nextProject;
+    });
+  }, [searchParamsKey]);
+
+  const openProject = (project: PortfolioProject) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('project', project.id);
+    setSelectedProject(project);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const closeProject = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('project');
+    setSelectedProject(null);
+    setSearchParams(nextParams, { replace: true });
+  };
 
   return (
-    <div className={cn("theme-page theme-adapt space-y-12 pb-10", styles.shell)}>
-      {/* Hero Section */}
-      <section className={cn("grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-end", styles.panel)}>
-        <div className="p-6 md:p-8 space-y-5">
-          <div className={cn(
-            "inline-flex items-center gap-3 px-4 py-2 border",
-            styles.softPanel,
-            theme === 'minimal' ? 'rounded-full border-black/10 shadow-none' : '',
-            theme === 'terminal' ? 'rounded-none' : ''
-          )}>
-            <Briefcase className="w-4 h-4" />
-            <span className={cn(theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium' : 'text-xs font-bold uppercase tracking-[0.2em]')}>
-              proyectos, servicios y experimentos
-            </span>
-          </div>
+    <div className="theme-page theme-adapt max-w-6xl mx-auto pb-10 px-4 sm:px-0 space-y-14 md:space-y-20" style={{ color: 'var(--black)' }}>
+      <InnerPageNav label="portfolio" />
 
-          <h1 className={cn("text-5xl md:text-7xl font-bold leading-[0.92]", styles.pageTitle)}>
-            {portfolioCopy?.heroTitle}
-          </h1>
-          <p className={cn("text-xl max-w-2xl font-medium", styles.pageSubtitle)}>
-            {portfolioCopy?.heroSubtitle}
-          </p>
-        </div>
-
-        <div className={cn(
-          "p-6 md:p-8 h-full flex flex-col justify-between",
-          styles.contrastPanel,
-          theme === 'minimal' && 'bg-[#161616] text-white'
-        )}>
-          <div>
-            <p className={cn(
-              "text-xs uppercase tracking-[0.2em]",
-              theme === 'minimal' ? 'text-white/65 normal-case tracking-[0.04em]' : 'text-white/60 font-bold'
-            )}>
-              foco actual
-            </p>
-            <p className="mt-4 text-3xl font-bold">
-              web, IA, contenido y cosas raras de internet
-            </p>
-          </div>
-          <p className="mt-6 text-sm leading-relaxed text-white/72">
-            Si caíste acá por una idea puntual, esta sección te sirve para entender rápido qué hago y cómo lo llevo a algo concreto.
-          </p>
-        </div>
-      </section>
-
-      {/* Tech Stack Marquee */}
-      <section className={cn("overflow-hidden py-4 border-y-4 border-black flex whitespace-nowrap", styles.softPanel)}>
-        <motion.div 
-          animate={{ x: ["0%", "-50%"] }}
-          transition={{ repeat: Infinity, ease: "linear", duration: 20 }}
-          className={cn("flex gap-8 items-center uppercase text-2xl font-bold", styles.sectionTitle)}
-        >
-          {[...techStack, ...techStack].map((tech, i) => (
-            <span key={i} className="flex items-center gap-8">
-              {tech} <Star className="w-6 h-6 fill-black" />
-            </span>
-          ))}
-        </motion.div>
-      </section>
-
-      {/* Services Section */}
-      <section>
-        <h2 className={cn("text-3xl font-bold mb-6", styles.sectionTitle)}>Servicios</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {services.map((service, index) => {
-            const Icon = service.icon;
-            const isHighlighted = service.title === 'Edición con IA';
-            return (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={cn(
-                  "p-6 transition-transform hover:-translate-y-1 relative",
-                  isHighlighted ? styles.contrastPanel : styles.panel
-                )}
-              >
-                {isHighlighted && (
-                  <div className={cn("absolute -top-3 -right-3 text-xs font-bold px-3 py-1 border-2 transform rotate-12", styles.badge)}>
-                    DESTACADO
-                  </div>
-                )}
-                <div className={cn(
-                  "w-14 h-14 flex items-center justify-center mb-6 border-4 border-black brutal-shadow-sm text-black",
-                  service.color
-                )}>
-                  <Icon className="w-7 h-7 text-black" />
-                </div>
-                <h3 className={cn("text-xl font-bold mb-3 font-brutal uppercase", isHighlighted ? "text-white" : styles.sectionTitle)}>
-                  {service.title}
-                </h3>
-                <p className={cn("font-medium", isHighlighted ? "text-white/80" : styles.pageSubtitle)}>
-                  {service.description}
-                </p>
-              </motion.div>
-            );
-          })}
-        </div>
+      {/* Hero — single block, dense */}
+      <section className="pt-4 md:pt-8">
+        <p className="t-eyebrow mb-4">Portfolio</p>
+        <h1 className="t-hero text-[clamp(2.5rem,9vw,7rem)] max-w-4xl">
+          {portfolioCopy?.heroTitle || 'Lo que hago'}
+        </h1>
+        <p className="t-body text-base md:text-xl max-w-2xl mt-6">
+          {portfolioCopy?.heroSubtitle || 'Web, IA, video y cosas raras de internet.'}
+        </p>
       </section>
 
       {/* Projects Section */}
       <section>
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <div className="space-y-2">
-            <p className={cn(
-              "text-xs uppercase tracking-[0.2em]",
-              styles.pageSubtitle,
-              theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium' : 'font-bold'
-            )}>
-              selección rápida
-            </p>
-            <h2 className={cn("text-3xl font-bold", styles.sectionTitle)}>Proyectos Destacados</h2>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {['Todos', 'Proyectos IA', 'Desarrollo Web', 'Creación de Contenido'].map(cat => (
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-10 gap-4">
+          <h2 className="t-section text-[clamp(1.75rem,4vw,3rem)]">Proyectos</h2>
+          <div className="flex flex-wrap gap-1 -mx-1 md:mx-0">
+            {PORTFOLIO_CATEGORIES.map(cat => (
               <button
                 key={cat}
                 onClick={() => setFilter(cat)}
                 className={cn(
-                  "px-4 py-1 border-2 border-black font-bold uppercase text-sm transition-colors",
-                  filter === cat ? styles.contrastPanel : styles.panel
+                  'px-3 py-1.5 text-[10px] font-mono tracking-[0.18em] uppercase border transition-colors',
+                  filter === cat
+                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                    : 'border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--black)]'
                 )}
               >
                 {cat}
@@ -240,108 +118,119 @@ export default function Portfolio() {
             ))}
           </div>
         </div>
-        <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <motion.div layout className="portfolio-grid-page grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-6">
           <AnimatePresence>
-            {filteredProjects.map((project, index) => (
+            {filteredProjects.map((project) => (
               <motion.div
-                key={project.title}
+                key={project.id}
                 layout
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.2 }}
-                className={cn(
-                  "group relative overflow-hidden block",
-                  styles.panel
-                )}
+                data-hover
+                className="group relative overflow-hidden block"
+                style={{ border: '1px solid var(--border)' }}
               >
-                <div 
-                  className={cn(
-                    "aspect-video overflow-hidden border-b-4 border-black relative group/media cursor-pointer"
-                  )}
-                  onClick={() => setSelectedProject(project)}
+                <div
+                  className="aspect-video overflow-hidden relative group/media cursor-pointer"
+                  style={{ borderBottom: '1px solid var(--border)' }}
+                  onClick={() => openProject(project)}
                 >
                   {project.videoUrl ? (
-                    <video 
-                      src={project.videoUrl} 
+                    <video
+                      src={project.videoUrl}
                       className="w-full h-full object-cover"
-                      muted 
-                      loop 
-                      autoPlay 
+                      muted
+                      loop
+                      autoPlay
                       playsInline
                     />
                   ) : (
-                    <img 
-                      src={project.image} 
-                      alt={project.title} 
+                    <img
+                      src={project.image}
+                      alt={project.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
                   )}
                   {project.videoUrl && (
-                    <div className="absolute top-2 right-2 bg-black text-white px-2 py-1 text-xs font-bold uppercase flex items-center gap-1">
+                    <div
+                      className="absolute top-2 right-2 px-2 py-1 text-xs uppercase flex items-center gap-1"
+                      style={{ background: 'var(--black)', color: 'var(--white)', fontWeight: 600 }}
+                    >
                       <Play className="w-3 h-3" /> Video
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="bg-[#FF00FF] text-white px-4 py-2 font-bold uppercase border-2 border-black">Ver Detalles</span>
+                    <span
+                      className="px-4 py-2 uppercase text-sm"
+                      style={{ background: 'var(--accent)', color: 'var(--white)', fontWeight: 600 }}
+                    >
+                      Ver Detalles
+                    </span>
                   </div>
                 </div>
                 <div className="p-4 space-y-4 flex flex-col flex-1">
                   <div>
-                    <div className={cn(
-                      "inline-block px-2 py-1 text-xs font-bold uppercase mb-2 border-2 border-black",
-                      styles.chip
-                    )}>
+                    <div
+                      className="inline-block px-2 py-1 text-xs uppercase mb-2"
+                      style={{ border: '1px solid var(--border)', fontWeight: 600 }}
+                    >
                       {project.category}
                     </div>
-                    <h3 className={cn("text-xl font-bold font-brutal uppercase", styles.sectionTitle)}>
+                    <h3 className="t-section text-xl uppercase">
                       {project.title}
                     </h3>
                   </div>
-                  
-                  <div className="flex flex-col gap-3 mt-auto pt-4 border-t-2 border-black/10">
+
+                  <div className="flex flex-col gap-3 mt-auto pt-4" style={{ borderTop: '1px solid var(--border)' }}>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-sm font-bold">
+                      <div className="flex items-center gap-1 text-sm" style={{ fontWeight: 600 }}>
                         <span className="text-lg">
-                          {userRatings[project.id] 
+                          {userRatings[project.id]
                             ? ((project.rating * project.ratingCount + userRatings[project.id]) / (project.ratingCount + 1)).toFixed(1)
                             : project.rating.toFixed(1)}
                         </span>
-                        <span className="text-black/50">({project.ratingCount + (userRatings[project.id] ? 1 : 0)} votos)</span>
+                        <span style={{ color: 'var(--muted)' }}>({project.ratingCount + (userRatings[project.id] ? 1 : 0)} votos)</span>
                       </div>
-                      
+
                       {project.demoUrl && (
-                        <a 
-                          href={project.demoUrl} 
-                          target="_blank" 
+                        <a
+                          href={project.demoUrl}
+                          target="_blank"
                           rel="noopener noreferrer"
-                          className={cn("p-2 border-2 border-black transition-colors", styles.secondaryButton)}
+                          data-hover
+                          className="p-2 transition-colors"
+                          style={{ border: '1px solid var(--border)' }}
                           title="Ver Demo"
                         >
                           <ExternalLink className="w-4 h-4" />
                         </a>
                       )}
                     </div>
-                    
-                    <div className={cn("flex items-center justify-between p-2 border-2 border-black", styles.softPanel)}>
-                      <span className={cn("text-xs font-bold uppercase", styles.pageSubtitle)}>Calificar:</span>
+
+                    <div
+                      className="flex items-center justify-between p-2"
+                      style={{ border: '1px solid var(--border)', background: 'var(--grey)' }}
+                    >
+                      <span className="t-eyebrow">Calificar:</span>
                       <div className="flex gap-1">
                         {[1, 2, 3, 4, 5].map((star) => {
                           const isRated = !!userRatings[project.id];
                           const ratingValue = userRatings[project.id] || Math.round(project.rating);
                           const isFilled = ratingValue >= star;
-                          
+
                           return (
                             <button
                               key={star}
                               onClick={() => handleRateProject(project.id, star)}
                               disabled={isRated}
-                              className={cn(
-                                "transition-colors",
-                                isFilled ? "text-yellow-400" : "text-zinc-300 hover:text-yellow-400"
-                              )}
+                              className="transition-colors"
+                              style={{ color: isFilled ? 'var(--accent)' : 'var(--muted)' }}
                             >
-                              <Star className={cn("w-5 h-5", isFilled ? "fill-yellow-400" : "")} />
+                              <Star className={cn("w-5 h-5", isFilled ? "fill-current" : "")} />
                             </button>
                           );
                         })}
@@ -357,10 +246,13 @@ export default function Portfolio() {
 
       {/* Testimonials Section */}
       <section>
-        <h2 className={cn("text-3xl font-bold mb-6", styles.sectionTitle)}>Testimonios</h2>
-        <div className={cn("relative p-8 md:p-12 overflow-hidden", styles.panel)}>
-          <div className={cn("absolute -top-4 -left-4 text-8xl font-serif opacity-50", theme === 'terminal' ? 'text-[#00ff00]' : theme === 'minimal' ? 'text-[#d8c3a5]' : 'text-yellow-300')}>"</div>
-          
+        <h2 className="t-section text-3xl mb-8">Testimonios</h2>
+        <div
+          className="relative p-8 md:p-12 overflow-hidden"
+          style={{ border: '1px solid var(--border)' }}
+        >
+          <div className="absolute -top-4 -left-4 text-8xl font-serif" style={{ color: 'var(--accent)', opacity: 0.3 }}>"</div>
+
           <AnimatePresence mode="wait">
             <motion.div
               key={currentTestimonial}
@@ -381,26 +273,30 @@ export default function Portfolio() {
               }}
               className="relative z-10 text-center max-w-3xl mx-auto cursor-grab active:cursor-grabbing"
             >
-              <p className={cn("text-xl md:text-2xl italic font-medium mb-8 pointer-events-none", styles.pageSubtitle)}>
+              <p className="t-body text-xl md:text-2xl italic mb-8 pointer-events-none">
                 {testimonials[currentTestimonial].text}
               </p>
-              <div className="inline-block border-t-4 border-black pt-4 pointer-events-none">
-                <p className={cn("font-bold uppercase font-brutal text-xl", styles.sectionTitle)}>{testimonials[currentTestimonial].name}</p>
-                <p className={cn("text-sm font-bold uppercase", styles.pageSubtitle)}>{testimonials[currentTestimonial].role}</p>
+              <div className="inline-block pt-4 pointer-events-none" style={{ borderTop: '1px solid var(--border)' }}>
+                <p className="t-section text-xl">{testimonials[currentTestimonial].name}</p>
+                <p className="t-eyebrow mt-1">{testimonials[currentTestimonial].role}</p>
               </div>
             </motion.div>
           </AnimatePresence>
-          
+
           <div className="flex justify-center gap-4 mt-8 relative z-10">
-            <button 
+            <button
+              data-hover
               onClick={() => setCurrentTestimonial(prev => prev === 0 ? testimonials.length - 1 : prev - 1)}
-              className={cn("p-3 transition-colors", styles.secondaryButton)}
+              className="p-3 transition-colors"
+              style={{ border: '1px solid var(--border)' }}
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
-            <button 
+            <button
+              data-hover
               onClick={() => setCurrentTestimonial(prev => prev === testimonials.length - 1 ? 0 : prev + 1)}
-              className={cn("p-3 transition-colors", styles.secondaryButton)}
+              className="p-3 transition-colors"
+              style={{ border: '1px solid var(--border)' }}
             >
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -410,16 +306,22 @@ export default function Portfolio() {
 
       {/* Timeline Section */}
       <section>
-        <h2 className={cn("text-3xl font-bold mb-6", styles.sectionTitle)}>Mi Trayectoria</h2>
-        <div className={cn("border-l-4 ml-4 md:ml-8 space-y-8 py-4", styles.timelineLine)}>
+        <h2 className="t-section text-3xl mb-8">Mi Trayectoria</h2>
+        <div className="ml-4 md:ml-8 space-y-8 py-4" style={{ borderLeft: '1px solid var(--border)' }}>
           {timeline.map((item, idx) => (
             <div key={idx} className="relative pl-8 md:pl-12">
-              <div className={cn("absolute -left-[14px] top-1 w-6 h-6 rounded-full", styles.timelineNode)} />
-              <span className={cn("inline-block px-2 py-1 font-bold text-sm mb-2 brutal-shadow-sm", styles.contrastPanel)}>
+              <div
+                className="absolute -left-[5px] top-2 w-[9px] h-[9px] rounded-full"
+                style={{ background: 'var(--accent)' }}
+              />
+              <span
+                className="inline-block px-3 py-1 text-xs mb-2"
+                style={{ background: 'var(--black)', color: 'var(--white)', fontWeight: 600, letterSpacing: '0.1em' }}
+              >
                 {item.year}
               </span>
-              <h3 className={cn("text-xl font-bold font-brutal uppercase mb-1", styles.sectionTitle)}>{item.title}</h3>
-              <p className={cn("font-medium", styles.pageSubtitle)}>{item.desc}</p>
+              <h3 className="t-section text-xl uppercase mb-1">{item.title}</h3>
+              <p className="t-body">{item.desc}</p>
             </div>
           ))}
         </div>
@@ -427,26 +329,26 @@ export default function Portfolio() {
 
       {/* FAQ Section */}
       <section>
-        <h2 className={cn("text-3xl font-bold mb-6", styles.sectionTitle)}>Preguntas Frecuentes</h2>
-        <div className="space-y-4">
+        <h2 className="t-section text-3xl mb-8">Preguntas Frecuentes</h2>
+        <div className="space-y-3">
           {faqs.map((faq, idx) => (
-            <div key={idx} className={cn(styles.panel)}>
-              <button 
+            <div key={idx} style={{ border: '1px solid var(--border)' }}>
+              <button
                 onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                className={cn("w-full flex justify-between items-center p-4 text-left font-bold uppercase font-brutal transition-colors", styles.sectionTitle)}
+                className="w-full flex justify-between items-center p-4 text-left transition-colors t-section text-base"
               >
                 {faq.q}
-                {openFaq === idx ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
+                {openFaq === idx ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
               </button>
               <AnimatePresence>
                 {openFaq === idx && (
-                  <motion.div 
+                  <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className={cn("p-4 border-t-4 border-black font-medium", styles.softPanel, styles.pageSubtitle)}>
+                    <div className="p-4 t-body" style={{ borderTop: '1px solid var(--border)', background: 'var(--grey)' }}>
                       {faq.a}
                     </div>
                   </motion.div>
@@ -458,26 +360,25 @@ export default function Portfolio() {
       </section>
 
       {/* CTA Section */}
-      <section className={cn("grid gap-6 lg:grid-cols-[0.95fr_1.05fr]", styles.panel)}>
-        <div className={cn("p-8 md:p-10", styles.accentPanel)}>
-          <p className={cn(
-            "text-xs uppercase tracking-[0.2em]",
-            theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium text-black/70' : 'font-bold'
-          )}>
+      <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]" style={{ border: '1px solid var(--border)' }}>
+        <div className="p-8 md:p-10" style={{ background: 'var(--accent)', color: 'var(--white)' }}>
+          <p className="t-eyebrow" style={{ color: 'rgba(255,255,255,0.7)' }}>
             siguiente paso
           </p>
-          <h2 className={cn("text-4xl font-bold mt-4 font-brutal uppercase", styles.sectionTitle)}>
+          <h2 className="t-section text-4xl mt-4 uppercase">
             {portfolioCopy?.ctaTitle}
           </h2>
         </div>
         <div className="p-8 md:p-10 flex flex-col justify-between">
-          <p className={cn("text-xl font-medium max-w-2xl", styles.pageSubtitle)}>
+          <p className="t-body text-xl max-w-2xl">
             {portfolioCopy?.ctaBody}
           </p>
           <div className="mt-8">
-            <button 
+            <button
+              data-hover
               onClick={() => setIsModalOpen(true)}
-              className={cn("inline-flex items-center gap-2 px-8 py-4 text-xl font-bold uppercase transition-transform", styles.primaryButton)}
+              className="inline-flex items-center gap-2 px-8 py-4 text-xl uppercase transition-transform"
+              style={{ background: 'var(--black)', color: 'var(--white)', fontWeight: 700 }}
             >
               {portfolioCopy?.ctaButton} <ArrowRight className="w-6 h-6" />
             </button>
@@ -489,67 +390,83 @@ export default function Portfolio() {
       <AnimatePresence>
         {selectedProject && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className={cn("w-full max-w-5xl relative flex flex-col md:flex-row overflow-hidden max-h-[90vh]", styles.modal)}
+              className="w-full max-w-5xl relative flex flex-col md:flex-row overflow-hidden max-h-[90vh]"
+              style={{ background: 'var(--white)', border: '1px solid var(--border)' }}
             >
-              <button 
-                onClick={() => setSelectedProject(null)}
-                className={cn("absolute top-4 right-4 z-10 p-2 border-2 border-black transition-colors", styles.secondaryButton)}
+              <button
+                onClick={closeProject}
+                className="absolute top-4 right-4 z-10 p-2 transition-colors"
+                style={{ border: '1px solid var(--border)', background: 'var(--white)' }}
               >
                 <X className="w-6 h-6" />
               </button>
-              
-              <div className={cn("w-full md:w-3/4 flex items-center justify-center p-4", styles.contrastPanel)}>
+
+              <div className="w-full md:w-3/4 flex items-center justify-center p-4" style={{ background: 'var(--grey)' }}>
                 {selectedProject.videoUrl ? (
-                  <video 
-                    src={selectedProject.videoUrl} 
-                    className="w-full h-full object-contain max-h-[60vh] md:max-h-[85vh] border-4 border-black"
+                  <video
+                    src={selectedProject.videoUrl}
+                    className="w-full h-full object-contain max-h-[60vh] md:max-h-[85vh]"
+                    style={{ border: '1px solid var(--border)' }}
                     controls
-                    autoPlay 
+                    autoPlay
                   />
                 ) : (
-                  <img 
-                    src={selectedProject.image} 
-                    alt={selectedProject.title} 
-                    className="w-full h-full object-contain max-h-[60vh] md:max-h-[85vh] border-4 border-black"
+                  <img
+                    src={selectedProject.image}
+                    alt={selectedProject.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-contain max-h-[60vh] md:max-h-[85vh]"
+                    style={{ border: '1px solid var(--border)' }}
                   />
                 )}
               </div>
-              
-              <div className={cn("w-full md:w-1/4 p-6 flex flex-col overflow-y-auto border-l-4 border-black", styles.panel)}>
-                <div className={cn("inline-block px-2 py-1 text-xs font-bold uppercase mb-4 border-2 border-black self-start", styles.chip)}>
+
+              <div
+                className="w-full md:w-1/4 p-6 flex flex-col overflow-y-auto"
+                style={{ borderLeft: '1px solid var(--border)' }}
+              >
+                <div
+                  className="inline-block px-2 py-1 text-xs uppercase mb-4 self-start"
+                  style={{ border: '1px solid var(--border)', fontWeight: 600 }}
+                >
                   {selectedProject.category}
                 </div>
-                <h2 className="text-2xl font-bold font-brutal uppercase mb-4">{selectedProject.title}</h2>
-                
+                <h2 className="t-section text-2xl uppercase mb-4">{selectedProject.title}</h2>
+
                 {selectedProject.longDescription && (
-                  <p className={cn("text-sm font-medium mb-6", styles.pageSubtitle)}>
+                  <p className="t-body text-sm mb-6">
                     {selectedProject.longDescription}
                   </p>
                 )}
-                
+
                 <div className="space-y-4 mt-auto">
                   {selectedProject.prompt && (
                     <>
                       <div>
-                        <h3 className="font-bold uppercase tracking-wider text-black/60 text-xs mb-1">Título del Prompt:</h3>
-                        <p className="font-bold text-lg">{selectedProject.promptTitle || 'Sin título'}</p>
+                        <h3 className="t-eyebrow mb-1">Titulo del Prompt:</h3>
+                        <p className="t-section text-lg">{selectedProject.promptTitle || 'Sin titulo'}</p>
                       </div>
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-bold uppercase tracking-wider text-black/60 text-xs">Prompt Utilizado:</h3>
-                          <button 
+                          <h3 className="t-eyebrow">Prompt Utilizado:</h3>
+                          <button
                             onClick={() => handleCopyPrompt(selectedProject.prompt)}
-                            className={cn("flex items-center gap-1 text-xs font-bold uppercase px-2 py-1 transition-colors", styles.primaryButton)}
+                            className="flex items-center gap-1 text-xs uppercase px-2 py-1 transition-colors"
+                            style={{ background: 'var(--accent)', color: 'var(--white)', fontWeight: 600 }}
                           >
                             {copiedPrompt ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                             {copiedPrompt ? 'Copiado' : 'Copiar'}
                           </button>
                         </div>
-                        <div className={cn("p-4 border-2 border-black font-mono text-sm break-words", styles.contrastPanel)}>
+                        <div
+                          className="p-4 font-mono text-sm break-words"
+                          style={{ background: 'var(--grey)', border: '1px solid var(--border)' }}
+                        >
                           {'> '} {selectedProject.prompt}
                         </div>
                       </div>
@@ -566,33 +483,58 @@ export default function Portfolio() {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className={cn("w-full max-w-lg relative p-6", styles.modal)}
+              className="w-full max-w-lg relative p-6"
+              style={{ background: 'var(--white)', border: '1px solid var(--border)' }}
             >
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
-                className={cn("absolute top-4 right-4 p-1 border-2 border-black transition-colors", styles.secondaryButton)}
+                className="absolute top-4 right-4 p-1 transition-colors"
+                style={{ border: '1px solid var(--border)' }}
               >
                 <X className="w-6 h-6" />
               </button>
-              <h2 className="text-3xl font-bold font-brutal uppercase mb-4">Hablemos</h2>
+              <h2 className="t-section text-3xl uppercase mb-4">Hablemos</h2>
               <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); alert('Mensaje enviado!'); setIsModalOpen(false); }}>
                 <div>
-                  <label className="block text-sm font-bold uppercase mb-1">Nombre</label>
-                  <input type="text" required className={styles.input} placeholder="Tu nombre..." />
+                  <label className="t-eyebrow block mb-1">Nombre</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full p-3 outline-none transition-colors"
+                    style={{ border: '1px solid var(--border)', background: 'var(--grey)', color: 'var(--black)' }}
+                    placeholder="Tu nombre..."
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold uppercase mb-1">Email</label>
-                  <input type="email" required className={styles.input} placeholder="tu@email.com" />
+                  <label className="t-eyebrow block mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    className="w-full p-3 outline-none transition-colors"
+                    style={{ border: '1px solid var(--border)', background: 'var(--grey)', color: 'var(--black)' }}
+                    placeholder="tu@email.com"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold uppercase mb-1">¿En qué te puedo ayudar?</label>
-                  <textarea required rows={4} className={cn(styles.input, "resize-none")} placeholder="Contame sobre tu proyecto..."></textarea>
+                  <label className="t-eyebrow block mb-1">En que te puedo ayudar?</label>
+                  <textarea
+                    required
+                    rows={4}
+                    className="w-full p-3 outline-none resize-none transition-colors"
+                    style={{ border: '1px solid var(--border)', background: 'var(--grey)', color: 'var(--black)' }}
+                    placeholder="Contame sobre tu proyecto..."
+                  ></textarea>
                 </div>
-                <button type="submit" className={cn("w-full py-3 font-bold uppercase text-lg transition-transform", styles.primaryButton)}>
+                <button
+                  type="submit"
+                  data-hover
+                  className="w-full py-3 uppercase text-lg transition-transform"
+                  style={{ background: 'var(--black)', color: 'var(--white)', fontWeight: 700 }}
+                >
                   Enviar Mensaje
                 </button>
               </form>

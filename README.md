@@ -29,6 +29,11 @@ Sitio para aportes, campañas, contenido para aportantes y administración bási
 - Estructura de features nuevas
 - Componentes, layouts y comportamiento del frontend
 
+## Agenda pública
+
+- La landing editorial vive en `/agenda-publica`
+- La configuración de links y assets está resumida en `README-agenda-publica.md`
+
 ## Mercado Pago
 
 - Configurá `MP_ACCESS_TOKEN` con un token real de Mercado Pago

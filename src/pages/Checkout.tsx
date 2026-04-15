@@ -1,19 +1,22 @@
 import React, { useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Coffee, CreditCard, ArrowLeft, Wand2, Upload, TicketPercent } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
-import { getThemedPageStyles } from '@/themes/pageStyles';
+import { getPageStyles } from '@/themes/pageStyles';
 import { formatCurrency } from '@/utils/currency';
+import InnerPageNav from '@/components/InnerPageNav';
 
 export default function Checkout() {
   const { campaignId } = useParams();
   const navigate = useNavigate();
-  const { campaigns, settings, theme, currency } = useAppContext();
+  const [searchParams] = useSearchParams();
+  const searchParamsKey = searchParams.toString();
+  const { campaigns, settings, currency } = useAppContext();
   const checkoutCopy = settings?.content.checkout.copy;
-  const styles = getThemedPageStyles(theme);
+  const styles = getPageStyles();
 
   const [amount, setAmount] = useState<number>(1000);
   const [customAmount, setCustomAmount] = useState<string>('');
@@ -36,6 +39,34 @@ export default function Checkout() {
   const suggestedAmounts = settings?.supportAmountsSuggested?.length
     ? settings.supportAmountsSuggested
     : [1000, 3000, 5000, 10000];
+
+  React.useEffect(() => {
+    const requestedCampaign = searchParams.get('campaign')?.trim() || campaignId || 'c3';
+    const requestedMode = searchParams.get('mode')?.trim();
+    const requestedAmountRaw = searchParams.get('amount');
+    const requestedAmount = requestedAmountRaw ? Number.parseInt(requestedAmountRaw, 10) : Number.NaN;
+    const hasRequestedAmount = Number.isFinite(requestedAmount) && requestedAmount > 0;
+    const nextIsEncargo = requestedMode === 'encargo';
+
+    let nextAmount = hasRequestedAmount ? requestedAmount : suggestedAmounts[0] ?? 1000;
+    if (nextIsEncargo) {
+      nextAmount = Math.max(nextAmount, 5000);
+    }
+
+    setSelectedCampaign(requestedCampaign);
+    setIsEncargo(nextIsEncargo);
+    setAmount(nextAmount);
+    setCustomAmount(suggestedAmounts.includes(nextAmount) ? '' : String(nextAmount));
+    setErrors((prev) => ({
+      ...prev,
+      amount: nextAmount < 100 ? 'El monto mínimo es $100' : undefined,
+    }));
+
+    if (!nextIsEncargo) {
+      setEncargoImage(null);
+      setEncargoText('');
+    }
+  }, [campaignId, searchParamsKey, suggestedAmounts]);
 
   const selectedCampaignData = useMemo(
     () => campaigns.find((campaign) => campaign.id === selectedCampaign),
@@ -156,75 +187,45 @@ export default function Checkout() {
 
   return (
     <div className={cn('theme-page theme-adapt max-w-7xl mx-auto px-4 sm:px-6 pb-32 sm:pb-16', styles.shell)}>
+      <InnerPageNav label="encargos" />
       <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
           <button
             onClick={() => navigate(-1)}
-            className={cn(
-              'flex items-center gap-2 transition-colors mt-4 sm:mt-0',
-              styles.pageSubtitle,
-              theme === 'minimal' ? 'normal-case tracking-normal font-medium' : 'font-bold uppercase'
-            )}
+            className="flex items-center gap-2 transition-colors mt-4 sm:mt-0 text-[10px] font-mono tracking-[0.22em] uppercase text-[var(--muted)] hover:text-[var(--accent)]"
+            data-hover
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Volver</span>
+            <ArrowLeft className="w-4 h-4" />
+            <span>volver</span>
           </button>
 
-          <div className={cn('p-6 md:p-8', styles.panel)}>
-            <div className="space-y-4">
-              <div
-                className={cn(
-                  'inline-flex items-center gap-3 px-4 py-2 border',
-                  styles.softPanel,
-                  theme === 'minimal' ? 'rounded-full border-black/10 shadow-none' : '',
-                  theme === 'terminal' ? 'rounded-none' : ''
-                )}
-              >
-                <Coffee className="w-4 h-4" />
-                <span className={cn(theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium' : 'text-xs font-bold uppercase tracking-[0.2em]')}>
-                  apoyo directo
-                </span>
-              </div>
-              <h1
-                className={cn(
-                  'text-4xl md:text-6xl font-bold',
-                  styles.pageTitle,
-                  theme === 'minimal' && 'leading-[0.92]',
-                  theme === 'terminal' && 'text-3xl md:text-5xl'
-                )}
-              >
-                {checkoutCopy?.title}
-              </h1>
-              <p className={cn('max-w-2xl text-lg', styles.pageSubtitle)}>
-                {checkoutCopy?.subtitle}
-              </p>
-            </div>
+          <div className="pt-2">
+            <p className="t-eyebrow mb-3">
+              <Coffee className="inline w-3 h-3 mr-1 text-[var(--accent)] align-baseline" />
+              Apoyo directo
+            </p>
+            <h1 className="t-hero text-[clamp(2.5rem,9vw,6rem)] text-[var(--black)]">
+              {checkoutCopy?.title || 'Invitame un cafecito'}
+            </h1>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className={cn('p-6 md:p-8 space-y-5', styles.panel)}>
-              <div>
-                <p
-                  className={cn(
-                    'text-xs uppercase tracking-[0.2em]',
-                    styles.pageSubtitle,
-                    theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium' : 'font-bold'
-                  )}
-                >
-                  dónde cae tu aporte
-                </p>
-                <h2 className={cn('text-2xl font-bold mt-2', styles.sectionTitle)}>Destino</h2>
-              </div>
+              <h2 className="t-section text-[clamp(1.5rem,3vw,2rem)] text-[var(--black)]">
+                <span className="text-[var(--accent)] font-mono text-[11px] tracking-[0.22em] mr-3">01</span>
+                Destino
+              </h2>
 
               <div className="grid gap-3">
                 {campaigns.filter((campaign) => campaign.active).map((campaign) => (
                   <label
                     key={campaign.id}
+                    data-hover
                     className={cn(
-                      'group grid gap-3 p-4 cursor-pointer transition-all md:grid-cols-[auto_1fr_auto] md:items-center',
-                      selectedCampaign === campaign.id ? styles.accentPanel : styles.softPanel,
-                      theme === 'minimal' && 'border border-black/10 shadow-none',
-                      theme === 'terminal' && 'rounded-none'
+                      'group grid gap-3 p-4 cursor-pointer transition-all md:grid-cols-[auto_1fr_auto] md:items-center border border-[var(--border)]',
+                      selectedCampaign === campaign.id
+                        ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+                        : 'bg-[var(--grey)] hover:border-[var(--accent)]'
                     )}
                   >
                     <input
@@ -238,20 +239,20 @@ export default function Checkout() {
                     <div
                       className={cn(
                         'w-5 h-5 flex items-center justify-center shrink-0 border-2',
-                        selectedCampaign === campaign.id ? 'border-current bg-white/90' : 'border-current/40 bg-transparent'
+                        selectedCampaign === campaign.id ? 'border-white bg-white/90' : 'border-[var(--muted)] bg-transparent'
                       )}
                     >
-                      {selectedCampaign === campaign.id && <div className="w-2.5 h-2.5 bg-current" />}
+                      {selectedCampaign === campaign.id && <div className="w-2.5 h-2.5 bg-[var(--accent)]" />}
                     </div>
                     <div>
-                      <p className={cn('font-bold uppercase', theme === 'minimal' ? 'normal-case text-base' : '')}>
+                      <p className="font-bold uppercase">
                         {campaign.title}
                       </p>
-                      <p className={cn('text-sm mt-1', selectedCampaign === campaign.id ? 'opacity-80' : styles.pageSubtitle)}>
+                      <p className={cn('text-sm mt-1', selectedCampaign === campaign.id ? 'text-white/80' : 'text-[var(--muted)]')}>
                         {campaign.description}
                       </p>
                     </div>
-                    <div className={cn('text-sm font-bold uppercase', selectedCampaign === campaign.id ? 'opacity-90' : styles.pageSubtitle)}>
+                    <div className={cn('text-sm font-bold uppercase', selectedCampaign === campaign.id ? 'text-white/90' : 'text-[var(--muted)]')}>
                       {campaign.goal > 0 ? formatCurrency(campaign.raised, currency) : 'Meta abierta'}
                     </div>
                   </label>
@@ -260,18 +261,10 @@ export default function Checkout() {
             </div>
 
             <div className={cn('p-6 md:p-8 space-y-5', styles.panel)}>
-              <div>
-                <p
-                  className={cn(
-                    'text-xs uppercase tracking-[0.2em]',
-                    styles.pageSubtitle,
-                    theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium' : 'font-bold'
-                  )}
-                >
-                  elegí el tamaño del empujón
-                </p>
-                <h2 className={cn('text-2xl font-bold mt-2', styles.sectionTitle)}>Monto</h2>
-              </div>
+              <h2 className="t-section text-[clamp(1.5rem,3vw,2rem)] text-[var(--black)]">
+                <span className="text-[var(--accent)] font-mono text-[11px] tracking-[0.22em] mr-3">02</span>
+                Monto
+              </h2>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {suggestedAmounts.map((value) => (
@@ -279,11 +272,12 @@ export default function Checkout() {
                     key={value}
                     type="button"
                     onClick={() => handleAmountSelect(value)}
+                    data-hover
                     className={cn(
-                      'py-4 px-3 font-bold text-lg transition-all active:scale-95 border',
-                      amount === value && !customAmount ? styles.accentPanel : styles.softPanel,
-                      theme === 'minimal' && 'shadow-none border-black/10',
-                      theme === 'terminal' && 'rounded-none'
+                      'py-4 px-3 font-bold text-lg transition-all active:scale-95 border border-[var(--border)]',
+                      amount === value && !customAmount
+                        ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+                        : 'bg-[var(--grey)] text-[var(--black)] hover:border-[var(--accent)]'
                     )}
                   >
                     ${value.toLocaleString('es-AR')}
@@ -292,7 +286,7 @@ export default function Checkout() {
               </div>
 
               <div className="relative">
-                <span className={cn('absolute left-5 top-1/2 -translate-y-1/2 font-bold text-lg', theme === 'terminal' ? 'text-[#00ff00]' : '')}>
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 font-bold text-lg text-[var(--muted)]">
                   $
                 </span>
                 <input
@@ -307,7 +301,7 @@ export default function Checkout() {
 
               <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
                 <div className="space-y-2">
-                  <label className={cn('text-sm font-bold uppercase tracking-wider', theme === 'minimal' ? 'normal-case tracking-[0.04em]' : '')}>
+                  <label className="t-eyebrow">
                     Código de descuento
                   </label>
                   <input
@@ -321,7 +315,8 @@ export default function Checkout() {
                 <button
                   type="button"
                   onClick={applyDiscount}
-                  className={cn('px-6 py-4 font-bold uppercase transition-transform active:scale-95', styles.secondaryButton)}
+                  data-hover
+                  className="px-6 py-4 font-bold uppercase transition-all active:scale-95 bg-[var(--grey)] text-[var(--black)] border border-[var(--border)] hover:bg-[var(--black)] hover:text-[var(--white)]"
                 >
                   <span className="inline-flex items-center gap-2">
                     <TicketPercent className="w-4 h-4" />
@@ -330,13 +325,13 @@ export default function Checkout() {
                 </button>
               </div>
               {discountMessage && (
-                <p className={cn('text-sm font-bold uppercase', discountPercent > 0 ? 'text-[#00FF00]' : 'text-red-500')}>
+                <p className={cn('text-sm font-bold uppercase', discountPercent > 0 ? 'text-[var(--accent)]' : 'text-red-500')}>
                   {discountMessage}
                 </p>
               )}
             </div>
 
-            <div className={cn('p-6 md:p-8 space-y-5 transition-all', isEncargo ? styles.softPanel : styles.panel)}>
+            <div className={cn('p-6 md:p-8 space-y-5 transition-all border border-[var(--border)]', isEncargo ? 'bg-[var(--grey)]' : 'bg-[var(--grey)]')}>
               <label className="flex items-start gap-4 cursor-pointer">
                 <input
                   type="checkbox"
@@ -349,16 +344,16 @@ export default function Checkout() {
                       setErrors((prev) => ({ ...prev, amount: undefined }));
                     }
                   }}
-                  className="mt-1 w-5 h-5"
+                  className="mt-1 w-5 h-5 accent-[var(--accent)]"
                 />
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Wand2 className="w-5 h-5" />
-                    <span className={cn('font-bold uppercase text-lg', theme === 'minimal' ? 'normal-case' : '')}>
+                    <Wand2 className="w-5 h-5 text-[var(--accent)]" />
+                    <span className="font-bold uppercase text-lg text-[var(--black)]">
                       {checkoutCopy?.encargoTitle}
                     </span>
                   </div>
-                  <p className={cn('text-sm', styles.pageSubtitle)}>
+                  <p className="text-sm t-body">
                     Activá esto si además del aporte querés dejar un pedido concreto.
                   </p>
                 </div>
@@ -368,19 +363,22 @@ export default function Checkout() {
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
-                  className="space-y-4 pt-4 border-t border-current/20"
+                  className="space-y-4 pt-4 border-t border-[var(--border)]"
                 >
-                  <p className={cn('font-medium', styles.pageSubtitle)}>{checkoutCopy?.encargoDescription}</p>
+                  <p className="font-medium t-body">{checkoutCopy?.encargoDescription}</p>
 
                   <div className="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
-                    <label className={cn('cursor-pointer inline-flex items-center gap-2 px-4 py-3 border font-bold uppercase transition-colors', styles.secondaryButton)}>
+                    <label
+                      data-hover
+                      className="cursor-pointer inline-flex items-center gap-2 px-4 py-3 border border-[var(--border)] font-bold uppercase transition-colors bg-[var(--grey)] text-[var(--black)] hover:bg-[var(--black)] hover:text-[var(--white)]"
+                    >
                       <Upload className="w-5 h-5" />
                       Subir imagen
                       <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                     </label>
                     {encargoImage && (
-                      <div className={cn('w-24 h-24 overflow-hidden border', styles.panel)}>
-                        <img src={encargoImage} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="w-24 h-24 overflow-hidden border border-[var(--border)]">
+                        <img src={encargoImage} alt="Preview" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       </div>
                     )}
                   </div>
@@ -399,16 +397,8 @@ export default function Checkout() {
 
             <div className={cn('p-6 md:p-8 space-y-5', styles.panel)}>
               <div>
-                <p
-                  className={cn(
-                    'text-xs uppercase tracking-[0.2em]',
-                    styles.pageSubtitle,
-                    theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium' : 'font-bold'
-                  )}
-                >
-                  si querés dejar algo más
-                </p>
-                <h2 className={cn('text-2xl font-bold mt-2', styles.sectionTitle)}>Mensaje</h2>
+                <p className="t-eyebrow">si querés dejar algo más</p>
+                <h2 className="text-2xl t-section text-[var(--black)] mt-2">Mensaje</h2>
               </div>
 
               <input
@@ -431,7 +421,7 @@ export default function Checkout() {
             </div>
 
             {submitError && (
-              <div className="p-4 border-4 border-red-500 bg-red-50 text-red-700 font-bold">
+              <div className="p-4 border border-red-500 bg-red-50 text-red-700 font-bold">
                 {submitError}
               </div>
             )}
@@ -439,28 +429,21 @@ export default function Checkout() {
             <div
               className={cn(
                 'fixed bottom-0 left-0 right-0 p-4 z-40 sm:static sm:p-0',
-                theme === 'minimal'
-                  ? 'bg-[#f7f4ee]/96 border-t border-black/10 backdrop-blur-xl'
-                  : 'bg-white border-t-4 border-black sm:bg-transparent sm:border-none'
+                'bg-[var(--white)] border-t border-[var(--border)] sm:bg-transparent sm:border-none'
               )}
             >
               <div className="max-w-xl mx-auto">
                 <button
                   type="submit"
                   disabled={isProcessing || amount < 100 || !!errors.name || !!errors.message || !!errors.amount}
-                  className={cn(
-                    'w-full py-5 font-bold text-xl transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed',
-                    styles.primaryButton
-                  )}
+                  data-hover
+                  className="w-full py-5 font-bold text-xl transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed bg-[var(--accent)] text-white hover:opacity-90"
                 >
                   {isProcessing ? (
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                      className={cn(
-                        'w-6 h-6 border-2 rounded-full',
-                        theme === 'terminal' ? 'border-[#00ff00]/30 border-t-[#00ff00]' : 'border-black/30 border-t-black'
-                      )}
+                      className="w-6 h-6 border-2 rounded-full border-white/30 border-t-white"
                     />
                   ) : (
                     <>
@@ -470,14 +453,8 @@ export default function Checkout() {
                   )}
                 </button>
 
-                <p
-                  className={cn(
-                    'text-center text-xs mt-3 flex items-center justify-center gap-1',
-                    styles.pageSubtitle,
-                    theme !== 'minimal' && 'font-bold uppercase'
-                  )}
-                >
-                  <span className={cn('inline-block w-2 h-2 rounded-full', theme === 'terminal' ? 'bg-[#00ff00] border border-[#00ff00]' : 'bg-[#00FF00] border border-black')} />
+                <p className="text-center text-xs mt-3 flex items-center justify-center gap-1 t-eyebrow">
+                  <span className="inline-block w-2 h-2 rounded-full bg-[var(--accent)]" />
                   Pago seguro con Mercado Pago
                 </p>
               </div>
@@ -486,59 +463,46 @@ export default function Checkout() {
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24">
-          <div className={cn('p-6 md:p-7', styles.contrastPanel)}>
-            <p
-              className={cn(
-                'text-xs uppercase tracking-[0.2em]',
-                theme === 'minimal' ? 'normal-case tracking-[0.04em] text-white/65 font-medium' : 'text-white/55 font-bold'
-              )}
-            >
+          <div className="p-6 md:p-7 bg-[var(--black)] text-[var(--white)] border border-[var(--border)]">
+            <p className="t-eyebrow text-[var(--white)]/55">
               resumen en vivo
             </p>
             <h2 className="mt-3 text-3xl font-bold">{selectedCampaignData?.title || 'Aporte libre'}</h2>
-            <p className="mt-3 text-sm leading-relaxed text-white/72">
+            <p className="mt-3 text-sm leading-relaxed text-[var(--white)]/72">
               {selectedCampaignData?.description || 'Tu aporte suma al proyecto y ayuda a que siga saliendo contenido.'}
             </p>
             <div className="mt-6 space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-white/55">Subtotal</span>
+                <span className="text-[var(--white)]/55">Subtotal</span>
                 <span className="font-bold">{amount.toLocaleString('es-AR')}</span>
               </div>
               {discountPercent > 0 && (
-                <div className="flex justify-between text-sm text-[#00FF00]">
+                <div className="flex justify-between text-sm text-[var(--accent)]">
                   <span>Descuento</span>
                   <span className="font-bold">-{(amount * (discountPercent / 100)).toLocaleString('es-AR')}</span>
                 </div>
               )}
-              <div className="flex justify-between text-lg pt-3 border-t border-white/12">
+              <div className="flex justify-between text-lg pt-3 border-t border-[var(--white)]/12">
                 <span>Total</span>
                 <span className="font-bold">{finalAmount.toLocaleString('es-AR')}</span>
               </div>
             </div>
           </div>
 
-          <div className={cn('p-6', styles.softPanel)}>
-            <p
-              className={cn(
-                'text-xs uppercase tracking-[0.2em]',
-                styles.pageSubtitle,
-                theme === 'minimal' ? 'normal-case tracking-[0.04em]' : 'font-bold'
-              )}
-            >
-              cómo funciona
-            </p>
+          <div className="p-6 bg-[var(--grey)] border border-[var(--border)]">
+            <p className="t-eyebrow">cómo funciona</p>
             <div className="mt-4 space-y-4">
               <div>
-                <p className="font-bold">1. Elegís misión y monto</p>
-                <p className={cn('text-sm mt-1', styles.pageSubtitle)}>Podés apoyar algo puntual o sumar sin vueltas.</p>
+                <p className="font-bold text-[var(--black)]">1. Elegís misión y monto</p>
+                <p className="text-sm mt-1 t-body">Podés apoyar algo puntual o sumar sin vueltas.</p>
               </div>
               <div>
-                <p className="font-bold">2. Dejás mensaje o pedido</p>
-                <p className={cn('text-sm mt-1', styles.pageSubtitle)}>Si querés, podés convertirlo en un encargo.</p>
+                <p className="font-bold text-[var(--black)]">2. Dejás mensaje o pedido</p>
+                <p className="text-sm mt-1 t-body">Si querés, podés convertirlo en un encargo.</p>
               </div>
               <div>
-                <p className="font-bold">3. Vas a Mercado Pago</p>
-                <p className={cn('text-sm mt-1', styles.pageSubtitle)}>El pago se procesa afuera y después volvés acá.</p>
+                <p className="font-bold text-[var(--black)]">3. Vas a Mercado Pago</p>
+                <p className="text-sm mt-1 t-body">El pago se procesa afuera y después volvés acá.</p>
               </div>
             </div>
           </div>

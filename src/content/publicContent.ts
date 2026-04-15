@@ -6,14 +6,43 @@ import {
 export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
   home: {
     hero: {
-      eyebrow: 'un rincón para bancar, mirar y llevarse cosas',
-      title: 'bancá lo que hago\ny llevate algo\nen el proceso',
+      eyebrow: 'pasen y vean',
+      title: 'si me bancás\nalgo te llevás',
       subtitle:
-        'Si alguna vez te dieron ganas de invitarme un cafecito, pedirme algo con IA o simplemente ver en qué ando, todo eso vive acá.',
-      primaryCtaLabel: 'Aportar un cafecito',
+        'Stickers, wallpapers y los delirios que vas a querer mandar al grupo.',
+      primaryCtaLabel: 'Elegir pack',
       primaryCtaHref: '/checkout',
-      secondaryCtaLabel: 'Ver lo que hago',
-      secondaryCtaHref: '/portfolio',
+      secondaryCtaLabel: 'Qué hay adentro',
+      secondaryCtaHref: '/vip',
+    },
+    supportOffer: {
+      eyebrow: 'tres formas de entrar',
+      title: 'Elegí cuánto bancás',
+      subtitle:
+        'Cada nivel desbloquea packs distintos. Sin vueltas.',
+      items: [
+        {
+          amount: 1000,
+          label: 'Morerial',
+          benefit: 'entrás al ecosistema y te llevás los packs de entrada',
+        },
+        {
+          amount: 5000,
+          label: 'Cómplice',
+          benefit: 'te llevás todos los packs y los recursos marcados',
+        },
+        {
+          amount: 25000,
+          label: 'Mesaza',
+          benefit: 'todo lo subido, mención personal y acceso directo',
+        },
+      ],
+    },
+    featuredMission: {
+      eyebrow: '#trending',
+      title: 'Lo que está en cancha',
+      subtitle:
+        'El frente caliente del momento.',
     },
     supportModes: [
       {
@@ -64,18 +93,18 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
       },
     ],
     sections: {
-      supportEyebrow: 'elegí por dónde entrar',
+      supportEyebrow: 'por dónde entrar',
       supportTitle: 'tres formas de bancar',
       supportSubtitle:
-        'A veces querés sumar sin más, a veces querés llevarte algo, y a veces solo querés ver qué estuve haciendo.',
+        'Sumás, te llevás o chusmeás. Elegís vos.',
       rewardsEyebrow: 'qué te llevás',
-      rewardsTitle: 'recompensas y niveles',
+      rewardsTitle: 'niveles de cómplice',
       rewardsSubtitle:
-        'Acá se muestran beneficios concretos que hoy sí existen en la plataforma. Nada de promesas sin implementar.',
-      discoveryEyebrow: 'además del pago',
+        'Morerial, Cómplice o Mesaza. Elegís cuánto entrás y te llevás los packs que correspondan.',
+      discoveryEyebrow: 'sin pagar nada',
       discoveryTitle: 'para seguir chusmeando',
       discoverySubtitle:
-        'No todo pasa por aportar. También podés mirar, leer, votar y ver en qué ando.',
+        'Mirá, leé, votá, caé en alguna rareza.',
     },
     courses: {
       eyebrow: 'se viene',
@@ -85,21 +114,27 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
       items: [
         {
           badge: 'Próximamente',
+          status: 'lista de espera',
           title: 'IA para crear mejor',
           description: 'Una guía para bajar ideas, prompts y flujos a cosas concretas y publicables.',
           href: '#',
+          ctaLabel: 'Avisame',
         },
         {
           badge: 'Próximamente',
+          status: 'próximamente',
           title: 'Imágenes, video y experimentos',
           description: 'Procesos para mezclar herramientas, corregir resultados y salir con algo usable.',
           href: '#',
+          ctaLabel: 'Ver más',
         },
         {
           badge: 'Próximamente',
+          status: 'próximamente',
           title: 'Internet, identidad y obra',
           description: 'Cómo convertir herramientas nuevas en una voz propia en vez de hacer ruido genérico.',
           href: '#',
+          ctaLabel: 'Ver más',
         },
       ],
     },
@@ -108,14 +143,48 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
       title: 'Música',
       subtitle:
         'Canciones, pruebas, videos y cosas que fui sacando o armando con ayuda de herramientas como SUNO.',
-      spotifyUrl: '',
-      appleMusicUrl: '',
-      youtubeChannelUrl: '',
+      featuredText:
+        'Subí tus audios a una URL pública o cargalos desde admin. El player tiene visualizador en vivo y también te deja probar MP3 locales en el momento.',
+      spotifyUrl: 'https://open.spotify.com/artist/balosky',
+      appleMusicUrl: 'https://music.apple.com/artist/balosky',
+      youtubeChannelUrl: 'https://youtube.com/@santiagobalosky',
+      tracks: [
+        {
+          category: 'Electronica',
+          title: 'Tema principal',
+          artist: 'Santi Balosky',
+          audioUrl: '',
+          coverImage: '',
+          accentColor: '#00FFB2',
+        },
+        {
+          category: 'Musica de peliculas',
+          title: 'Lado B',
+          artist: 'Santi Balosky',
+          audioUrl: '',
+          coverImage: '',
+          accentColor: '#FF5DA2',
+        },
+        {
+          category: 'Ambient',
+          title: 'Outro',
+          artist: 'Santi Balosky',
+          audioUrl: '',
+          coverImage: '',
+          accentColor: '#7C5CFF',
+        },
+      ],
       videos: [
         { title: 'Tema 01', youtubeUrl: '' },
         { title: 'Tema 02', youtubeUrl: '' },
         { title: 'Tema 03', youtubeUrl: '' },
       ],
+    },
+    community: {
+      eyebrow: 'la comunidad',
+      title: 'La gente ya está bancando',
+      subtitle:
+        'Mensajes, aportes y respuestas. Todo suma.',
     },
   },
   checkout: {
@@ -158,6 +227,20 @@ export const normalizePublicContent = (
       ...DEFAULT_PUBLIC_CONTENT.home.hero,
       ...(content?.home?.hero ?? {}),
     },
+    supportOffer: {
+      ...DEFAULT_PUBLIC_CONTENT.home.supportOffer,
+      ...(content?.home?.supportOffer ?? {}),
+      items: normalizeArray(content?.home?.supportOffer?.items, DEFAULT_PUBLIC_CONTENT.home.supportOffer.items).map(
+        (item, index) => ({
+          ...DEFAULT_PUBLIC_CONTENT.home.supportOffer.items[index],
+          ...item,
+        })
+      ),
+    },
+    featuredMission: {
+      ...DEFAULT_PUBLIC_CONTENT.home.featuredMission,
+      ...(content?.home?.featuredMission ?? {}),
+    },
     supportModes: normalizeArray(content?.home?.supportModes, DEFAULT_PUBLIC_CONTENT.home.supportModes).map(
       (item, index) => ({
         ...DEFAULT_PUBLIC_CONTENT.home.supportModes[index],
@@ -188,12 +271,22 @@ export const normalizePublicContent = (
     music: {
       ...DEFAULT_PUBLIC_CONTENT.home.music,
       ...(content?.home?.music ?? {}),
+      tracks: normalizeArray(content?.home?.music?.tracks, DEFAULT_PUBLIC_CONTENT.home.music.tracks).map(
+        (item, index) => ({
+          ...DEFAULT_PUBLIC_CONTENT.home.music.tracks[index],
+          ...item,
+        })
+      ),
       videos: normalizeArray(content?.home?.music?.videos, DEFAULT_PUBLIC_CONTENT.home.music.videos).map(
         (item, index) => ({
           ...DEFAULT_PUBLIC_CONTENT.home.music.videos[index],
           ...item,
         })
       ),
+    },
+    community: {
+      ...DEFAULT_PUBLIC_CONTENT.home.community,
+      ...(content?.home?.community ?? {}),
     },
   },
   checkout: {

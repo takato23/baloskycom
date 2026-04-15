@@ -1,182 +1,210 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Coffee, Heart, Palette, MessageSquare, Lock, Briefcase, ArrowRight } from 'lucide-react';
+import { GraduationCap, Music, Wand2, Lightbulb, Briefcase, ArrowRight, Sun, Moon } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
+import { MusicPlayerProvider } from '@/context/MusicPlayerContext';
+import MusicPlayerDock from '@/components/music/MusicPlayerDock';
+import KonamiEasterEgg from '@/components/effects/KonamiEasterEgg';
+import { useMagnetic } from '@/hooks/useMagnetic';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 export default function Layout() {
   const location = useLocation();
   const isHome = location.pathname === '/';
-  const { theme, currency, setCurrency, settings } = useAppContext();
-  const isMinimal = theme === 'minimal';
-  const isTerminal = theme === 'terminal';
-  const isAtmospheric = theme === 'atmospheric';
-  const isCyber = theme === 'cybergrid';
+  const isAgendaPublica = location.pathname === '/agenda-publica';
+  const { settings, darkMode, toggleDarkMode } = useAppContext();
+
+  const footerTitleRef = useMagnetic<HTMLParagraphElement>(200, 0.3);
+  const reducedMotion = usePrefersReducedMotion();
+
+  const [navHidden, setNavHidden] = useState(false);
+  const [scrolledPast, setScrolledPast] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setTransitioning(true);
+    const timer = setTimeout(() => setTransitioning(false), 600);
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
+
+  // Single consolidated scroll listener: nav hide + scrolledPast flag + desktop skew
+  useEffect(() => {
+    const isDesktop = window.innerWidth >= 769;
+    const skewEnabled = isDesktop && !reducedMotion;
+
+    let lastY = window.scrollY;
+    let rafPending = false;
+    let skewRaf = 0;
+    let currentSkew = 0;
+    let settling = false;
+
+    const settleSkew = () => {
+      currentSkew += (0 - currentSkew) * 0.1;
+      if (contentRef.current) {
+        contentRef.current.style.transform = Math.abs(currentSkew) > 0.01
+          ? `skewY(${currentSkew}deg)` : '';
+      }
+      if (Math.abs(currentSkew) > 0.01) {
+        skewRaf = requestAnimationFrame(settleSkew);
+      } else {
+        settling = false;
+        if (contentRef.current) contentRef.current.style.transform = '';
+      }
+    };
+
+    const flush = () => {
+      rafPending = false;
+      const y = window.scrollY;
+      const velocity = y - lastY;
+
+      setNavHidden(y > lastY && y > 200);
+      setScrolledPast(y > window.innerHeight * 0.5);
+
+      if (skewEnabled && contentRef.current) {
+        const target = Math.max(-1.5, Math.min(1.5, velocity * 0.05));
+        currentSkew += (target - currentSkew) * 0.15;
+        contentRef.current.style.transform = `skewY(${currentSkew}deg)`;
+        if (!settling) {
+          settling = true;
+          cancelAnimationFrame(skewRaf);
+          skewRaf = requestAnimationFrame(settleSkew);
+        }
+      }
+
+      lastY = y;
+    };
+
+    const onScroll = () => {
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(flush);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(skewRaf);
+      if (contentRef.current) contentRef.current.style.transform = '';
+    };
+  }, [reducedMotion]);
 
   const navItems = [
-    { path: '/', icon: Heart, label: 'Apoyar' },
-    { path: '/wall', icon: MessageSquare, label: 'Muro' },
-    { path: '/vip', icon: Lock, label: 'Exclusivo' },
-    { path: '/portfolio', icon: Briefcase, label: 'Portfolio' },
-    { path: '/gallery', icon: Palette, label: 'IA' },
-    { path: '/blog', icon: MessageSquare, label: 'Blog' },
+    { to: '/#courses', icon: GraduationCap, label: 'Cursos' },
+    { to: '/#music', icon: Music, label: 'Música' },
+    { to: '/checkout', icon: Wand2, label: 'Encargos' },
+    { to: '/portfolio', icon: Briefcase, label: 'Portfolio' },
+    { to: '/ideas', icon: Lightbulb, label: 'Ideas' },
   ];
 
-  return (
-    <div className={cn(
-      "theme-shell min-h-screen flex flex-col transition-colors duration-500"
-    )} data-theme={theme}>
-      {/* Header */}
-      <header className={cn(
-        "theme-header sticky top-0 z-50 backdrop-blur-xl border-b-2",
-        isMinimal && "border-b border-black/10 bg-[#f7f4ee]/92",
-        isTerminal && "border-b border-[#00ff00] bg-black/95",
-        isAtmospheric && "border-b border-white/10 bg-[#05050a]/70",
-        isCyber && "border-b border-cyan-400/30 bg-[#08111d]/90"
-      )}>
-        <div className={cn(
-          "max-w-7xl mx-auto px-4 sm:px-6 h-[4.5rem] min-h-[4.5rem] flex items-center justify-between gap-6",
-          isMinimal && "max-w-[88rem]",
-          isTerminal && "font-mono"
-        )}>
-          <div className="flex items-center gap-4">
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className={cn(
-                "theme-accent-block w-10 h-10 flex items-center justify-center transition-colors border-2",
-                isMinimal && "rounded-xl border-black/15 bg-[#161616] text-white",
-                isTerminal && "rounded-none border-[#00ff00] bg-black text-[#00ff00]",
-                isAtmospheric && "rounded-2xl border-white/15 bg-white/10 text-white",
-                isCyber && "rounded-xl border-cyan-300/30 bg-pink-500 text-white"
-              )}>
-                <Coffee className="w-5 h-5" />
-              </div>
-              <div className="leading-none">
-                <span className={cn(
-                  "block font-bold tracking-tight",
-                  "font-brutal uppercase text-2xl",
-                  isMinimal && "font-serif normal-case tracking-[-0.03em] text-[1.75rem]",
-                  isTerminal && "font-mono tracking-[0.18em] text-lg",
-                  isAtmospheric && "font-display text-[1.7rem] tracking-[-0.04em]",
-                  isCyber && "tracking-[0.08em]"
-                )}>
-                  {settings?.creatorName || 'Santi Balosky'}
-                </span>
-                <span className={cn(
-                  "theme-muted hidden md:block text-[11px] font-bold uppercase tracking-[0.22em]",
-                  isMinimal && "normal-case tracking-[0.04em] text-[12px] font-medium",
-                  isTerminal && "font-mono tracking-[0.18em] text-[10px]",
-                  isAtmospheric && "normal-case tracking-[0.04em] font-medium text-[12px]"
-                )}>
-                  videos, canciones, ia y delirio
-                </span>
-              </div>
-            </Link>
+  useEffect(() => {
+    if (!location.hash) return;
 
-            <div className={cn(
-              "theme-panel hidden lg:flex items-center gap-2 px-3 py-1.5 border-2 brutal-shadow-sm",
-              isMinimal && "rounded-full border-black/10 shadow-none bg-white",
-              isTerminal && "rounded-none border-[#00ff00] shadow-none bg-black",
-              isAtmospheric && "rounded-full border-white/10 shadow-none bg-white/5",
-              isCyber && "rounded-full border-cyan-400/30 shadow-none bg-cyan-400/8"
-            )}>
-              <div className="w-2 h-2 rounded-full bg-[#00FF00] animate-pulse" />
-              <span className={cn(
-                "text-[10px] font-bold uppercase tracking-[0.18em]",
-                isMinimal && "normal-case tracking-[0.04em] font-medium",
-                isTerminal && "font-mono",
-                isAtmospheric && "normal-case tracking-[0.04em] font-medium",
-                isCyber && "tracking-[0.12em]"
-              )}>
-                Disponible para encargos y proyectos
-              </span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4 sm:gap-6">
-            <nav className={cn(
-              "hidden md:flex items-center gap-2",
-              isMinimal && "gap-1 rounded-full border border-black/10 bg-white/90 px-2 py-1 shadow-sm",
-              isTerminal && "gap-0 border border-[#00ff00] bg-black",
-              isAtmospheric && "gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1",
-              isCyber && "gap-1 rounded-full border border-cyan-400/20 bg-[#091726] px-2 py-1"
-            )}>
+    const id = location.hash.replace('#', '');
+    requestAnimationFrame(() => {
+      const element = document.getElementById(id);
+      if (element) {
+        const header = document.querySelector('header');
+        const headerHeight = header instanceof HTMLElement ? header.offsetHeight : 72;
+        const targetTop =
+          window.scrollY + element.getBoundingClientRect().top - headerHeight - 20;
+
+        window.scrollTo({
+          top: Math.max(targetTop, 0),
+          behavior: 'smooth',
+        });
+      }
+    });
+  }, [location.hash, location.pathname]);
+
+  return (
+    <MusicPlayerProvider content={settings?.content.home.music}>
+      <div className="theme-shell min-h-screen flex flex-col transition-colors duration-500 bg-[var(--white)] text-[var(--black)] overflow-x-hidden">
+      {/* Page transition wipe */}
+      <div
+        className={cn(
+          "fixed inset-0 z-[9999] pointer-events-none",
+          transitioning ? "page-wipe-active" : "page-wipe-idle"
+        )}
+      >
+        <div className="page-wipe-bar" />
+      </div>
+
+      <header className={cn("theme-header sticky top-0 z-50 backdrop-blur-xl border-b border-[var(--black)]/10 bg-[var(--white)]/90 transition-transform duration-300", navHidden ? '-translate-y-full' : 'translate-y-0')}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-[4.5rem] min-h-[4.5rem] flex items-center justify-between gap-6">
+          <Link to="/" className="flex items-baseline gap-0.5 group shrink-0">
+            <span
+              className="font-black tracking-[-0.04em] text-[1.75rem] sm:text-[2rem] leading-none text-[var(--black)] transition-colors group-hover:text-[var(--accent)]"
+              style={{ fontFamily: 'var(--font-display, Inter Tight), Inter, sans-serif' }}
+            >
+              balosky
+            </span>
+            <span className="font-black text-[1.75rem] sm:text-[2rem] leading-none text-[var(--accent)]">
+              *
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <nav className="hidden md:flex items-center gap-0.5">
               {navItems.map((item) => {
-                const isActive = location.pathname === item.path;
+                const isActive = item.to.startsWith('/#')
+                  ? location.pathname === '/' && location.hash === item.to.slice(1)
+                  : location.pathname === item.to;
                 return (
                   <Link
-                    key={item.path}
-                    to={item.path}
+                    key={item.to}
+                    to={item.to}
                     className={cn(
-                      "text-sm font-medium transition-all",
-                      "font-brutal uppercase text-base px-3 py-2 border-2",
-                      isActive && "theme-nav-active brutal-shadow-sm",
-                      !isActive && "theme-nav-idle border-transparent",
-                      isMinimal && "font-sans normal-case tracking-normal text-[14px] border rounded-full px-4 py-2 shadow-none",
-                      isMinimal && isActive && "bg-[#161616] text-white border-[#161616]",
-                      isMinimal && !isActive && "hover:bg-[#f3ece2] border-transparent",
-                      isTerminal && "font-mono text-[11px] tracking-[0.18em] rounded-none border-y-0 border-l-0 last:border-r-0 shadow-none px-3",
-                      isTerminal && isActive && "bg-[#00ff00] text-black border-[#00ff00]",
-                      isTerminal && !isActive && "text-[#00ff00] hover:bg-[#071907] border-[#00ff00]",
-                      isAtmospheric && "font-sans normal-case tracking-normal text-[14px] rounded-full border px-4 py-2 shadow-none",
-                      isAtmospheric && isActive && "bg-white text-black border-white",
-                      isAtmospheric && !isActive && "hover:bg-white/10 border-transparent",
-                      isCyber && "font-sans uppercase tracking-[0.12em] text-[12px] rounded-full border px-4 py-2 shadow-none",
-                      isCyber && isActive && "bg-pink-500 text-white border-pink-300",
-                      isCyber && !isActive && "hover:bg-cyan-400/10 border-transparent"
+                      "text-[13px] font-medium tracking-tight px-3 py-2 transition-colors relative",
+                      isActive
+                        ? "text-[var(--accent)]"
+                        : "text-[var(--black)]/60 hover:text-[var(--black)]"
                     )}
                   >
                     {item.label}
+                    {isActive && (
+                      <motion.span
+                        layoutId="nav-underline"
+                        className="absolute left-3 right-3 bottom-1 h-[2px] bg-[var(--accent)]"
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      />
+                    )}
                   </Link>
                 );
               })}
             </nav>
 
-            <div className={cn(
-              "hidden sm:flex rounded-full p-1",
-              "theme-panel border-2 brutal-shadow-sm",
-              isMinimal && "border-black/10 shadow-none bg-white",
-              isTerminal && "rounded-none border-[#00ff00] shadow-none bg-black",
-              isAtmospheric && "border-white/10 shadow-none bg-white/5",
-              isCyber && "border-cyan-400/20 shadow-none bg-[#091726]"
-            )}>
-              {(['ARS', 'USD', 'CRYPTO'] as const).map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCurrency(c)}
-                  className={cn(
-                    "px-3 py-1 text-xs font-bold rounded-full transition-all",
-                    currency === c ? "bg-black text-[#00FF00]" : "text-black hover:bg-zinc-200"
-                  )}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={toggleDarkMode}
+              className="w-9 h-9 flex items-center justify-center text-[var(--black)]/60 hover:text-[var(--black)] transition-colors"
+              aria-label="Toggle dark mode"
+            >
+              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
 
             <Link
               to="/checkout"
-              className={cn(
-                "theme-cta-primary hidden sm:inline-flex items-center gap-2 px-4 py-2 font-brutal uppercase border-2 brutal-shadow-sm transition-colors",
-                isMinimal && "font-sans normal-case rounded-full border-black/15 shadow-sm px-5",
-                isTerminal && "font-mono rounded-none border-[#00ff00] shadow-none tracking-[0.18em] text-[11px]",
-                isAtmospheric && "font-sans normal-case rounded-full border-white/10 shadow-none",
-                isCyber && "rounded-full border-pink-300/40 shadow-none tracking-[0.12em] text-[12px]"
-              )}
+              className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--accent)] text-black border border-[var(--accent)] text-sm font-semibold tracking-tight hover:bg-[var(--black)] hover:text-[var(--accent)] transition-colors"
             >
-              Aportar <ArrowRight className="w-4 h-4" />
+              Bancame <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className={cn(
-        "flex-1 w-full",
-        isHome ? "py-0" : "max-w-6xl mx-auto px-4 sm:px-6 py-8"
-      )}>
+      <main
+        ref={contentRef}
+        style={{ transformOrigin: 'center center' }}
+        className={cn(
+          "flex-1 w-full",
+          isHome || isAgendaPublica ? "py-0" : "max-w-6xl mx-auto px-4 sm:px-6 py-8"
+        )}
+      >
         <motion.div
-          key={location.pathname + theme}
+          key={location.pathname}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
@@ -187,142 +215,123 @@ export default function Layout() {
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className={cn(
-        "theme-header sm:hidden fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t pb-safe z-50 border-t-4",
-        isMinimal && "border-t border-black/10 bg-[#f7f4ee]/94",
-        isTerminal && "border-t border-[#00ff00] bg-black/96",
-        isAtmospheric && "border-t border-white/10 bg-[#05050a]/88",
-        isCyber && "border-t border-cyan-400/20 bg-[#08111d]/95"
-      )}>
-        <div className="flex items-center justify-around h-20 px-2 pb-4">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex flex-col items-center justify-center w-full h-full gap-1 transition-all relative",
-                  isActive ? "opacity-100" : "opacity-50 hover:opacity-80",
-                  "font-brutal uppercase text-black",
-                  isMinimal && "font-sans normal-case",
-                  isTerminal && "font-mono tracking-[0.14em] text-[#00ff00]",
-                  isAtmospheric && "font-sans normal-case text-white",
-                  isCyber && "text-[#e0f2fe] tracking-[0.12em]"
-                )}
-              >
-                {isActive && (
-                  <motion.div 
-                    layoutId="mobile-nav-indicator"
-                    className={cn(
-                      "absolute inset-1 rounded-2xl -z-10",
-                      "theme-accent-block border-2",
-                      isMinimal && "rounded-2xl border-black/10 bg-[#161616] text-white",
-                      isTerminal && "rounded-none border-[#00ff00] bg-[#00ff00] text-black",
-                      isAtmospheric && "border-white/20 bg-white text-black",
-                      isCyber && "border-pink-300 bg-pink-500 text-white"
-                    )}
-                  />
-                )}
-                <Icon className={cn(
-                  "w-6 h-6",
-                  isTerminal && !isActive && "text-[#00ff00]",
-                  isAtmospheric && !isActive && "text-white",
-                  isCyber && !isActive && "text-[#e0f2fe]"
-                )} />
-                <span className={cn(
-                  "text-[10px] font-medium",
-                  isMinimal && "text-[11px]",
-                  isTerminal && "font-mono",
-                  isCyber && "tracking-[0.08em]"
-                )}>{item.label}</span>
-              </Link>
-            );
-          })}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50">
+        {/* Gradient fade above nav */}
+        <div className="h-6 bg-gradient-to-t from-[var(--white)] to-transparent pointer-events-none" />
+        <div className="bg-[var(--white)]/95 backdrop-blur-2xl border-t border-[var(--border-solid)] pb-safe">
+          <div className="flex items-center justify-around px-3 py-2">
+            {navItems.map((item) => {
+              const isActive = item.to === '/'
+                ? location.pathname === '/'
+                : item.to.startsWith('/#')
+                  ? location.pathname === '/' && location.hash === item.to.slice(1)
+                  : location.pathname === item.to;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-0.5 py-2 px-3 rounded-2xl transition-all duration-200 relative active:scale-90",
+                    isActive
+                      ? "text-[var(--accent)]"
+                      : "text-[var(--black)]/40 active:text-[var(--black)]/70"
+                  )}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="mobile-nav-pill"
+                      className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-5 h-[3px] rounded-full bg-[var(--accent)]"
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  )}
+                  <Icon className={cn("w-5 h-5 transition-transform duration-200", isActive && "scale-110")} />
+                  <span className={cn(
+                    "text-[9px] font-bold uppercase tracking-[0.08em] transition-all duration-200",
+                    isActive ? "opacity-100" : "opacity-60"
+                  )}>
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </nav>
 
-      {/* Footer */}
-      <footer className={cn(
-        "theme-footer border-t mt-auto pb-24 sm:pb-10 pt-10 text-sm px-4 sm:px-6",
-        isMinimal && "border-t border-black/10 bg-[#f1ebe1]",
-        isTerminal && "border-t border-[#00ff00] bg-black",
-        isAtmospheric && "border-t border-white/10 bg-[#090912]",
-        isCyber && "border-t border-cyan-400/20 bg-[#09101a]"
-      )}>
-        <div className="max-w-7xl mx-auto grid gap-8 md:grid-cols-[1.2fr_1fr] items-start">
-          <div className="space-y-3">
-            <p className={cn(
-              "font-brutal uppercase text-2xl",
-              isMinimal && "font-serif normal-case tracking-[-0.03em]",
-              isTerminal && "font-mono tracking-[0.16em] text-base",
-              isAtmospheric && "font-display normal-case",
-              isCyber && "tracking-[0.08em]"
-            )}>
-              Bancando el delirio
-            </p>
-            <p className="theme-muted max-w-xl text-sm sm:text-base font-medium">
-              Un lugar para bancar lo que hago, mirar mis proyectos y caer en alguna que otra rareza.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "theme-panel theme-panel-hover px-3 py-2 border-2 font-bold uppercase text-xs tracking-[0.16em] transition-colors",
-                    isMinimal && "rounded-full border-black/10 normal-case tracking-normal text-[13px] shadow-none",
-                    isTerminal && "rounded-none border-[#00ff00] font-mono tracking-[0.14em] shadow-none",
-                    isAtmospheric && "rounded-full border-white/10 normal-case tracking-normal shadow-none",
-                    isCyber && "rounded-full border-cyan-400/20 shadow-none tracking-[0.1em]"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
+      <footer className="bg-[var(--black)] text-[var(--white)] mt-auto" style={{ padding: 'clamp(40px, 8vh, 100px) clamp(20px, 4vw, 80px)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 100px)' }}>
+      <div className="max-w-[1400px] mx-auto grid gap-[60px] md:grid-cols-[1.2fr_1fr] items-start">
+        <div>
+          <p
+            ref={footerTitleRef}
+            className="t-hero text-[clamp(2rem,5vw,4rem)] leading-none mb-6"
+            data-magnetic
+          >
+            Gracias por<br />bancar este<br /><em className="text-[var(--accent)] not-italic">delirio.</em>
+          </p>
+          <p className="t-body max-w-xl" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            Cada aporte empuja algo.
+          </p>
+        </div>
 
-          <div className="space-y-3 md:text-right">
-            <p className="font-brutal uppercase text-xl">Links</p>
-            <div className="flex flex-wrap gap-2 md:justify-end">
+        <div className="flex flex-col gap-8 md:items-end">
+          <div className="flex flex-wrap gap-x-5 gap-y-2 md:justify-end">
+            {navItems.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="link-underline relative text-[11px] font-medium tracking-[0.2em] uppercase transition-colors text-[rgba(255,255,255,0.45)] hover:text-[var(--accent)]"
+                data-hover
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+          {Object.keys(settings?.socialLinks || {}).length > 0 && (
+            <div className="flex flex-wrap gap-x-5 gap-y-2 md:justify-end pt-8 border-t border-[rgba(255,255,255,0.06)] w-full">
               {Object.entries(settings?.socialLinks || {}).map(([key, value]) => (
                 <a
                   key={key}
                   href={value}
                   target="_blank"
                   rel="noreferrer"
-                  className={cn(
-                    "theme-cta-secondary px-3 py-2 border-2 font-bold uppercase text-xs tracking-[0.16em] transition-colors",
-                    isMinimal && "rounded-full border-black/10 normal-case tracking-normal text-[13px]",
-                    isTerminal && "rounded-none border-[#00ff00] font-mono tracking-[0.14em]",
-                    isAtmospheric && "rounded-full border-white/10 normal-case tracking-normal",
-                    isCyber && "rounded-full border-cyan-400/20 tracking-[0.1em]"
-                  )}
+                  className="link-underline relative text-[11px] font-medium tracking-[0.2em] uppercase transition-colors text-[rgba(255,255,255,0.45)] hover:text-[var(--accent)]"
+                  data-hover
                 >
                   {key}
                 </a>
               ))}
-              <Link
-                to="/admin/login"
-                className={cn(
-                  "theme-panel theme-panel-hover px-3 py-2 border-2 font-bold uppercase text-xs tracking-[0.16em] transition-colors",
-                  isMinimal && "rounded-full border-black/10 normal-case tracking-normal text-[13px] shadow-none",
-                  isTerminal && "rounded-none border-[#00ff00] font-mono tracking-[0.14em] shadow-none",
-                  isAtmospheric && "rounded-full border-white/10 normal-case tracking-normal shadow-none",
-                  isCyber && "rounded-full border-cyan-400/20 shadow-none tracking-[0.1em]"
-                )}
-              >
-                Admin
-              </Link>
             </div>
-            <p className="theme-muted text-xs font-bold uppercase tracking-[0.18em]">
-              {settings?.legalText || 'Pago seguro simulado (MVP)'} © {new Date().getFullYear()}
-            </p>
-          </div>
+          )}
         </div>
+      </div>
+      <div className="max-w-[1400px] mx-auto mt-[60px] pt-6 border-t border-[rgba(255,255,255,0.06)] flex flex-wrap items-center justify-between gap-4">
+        <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-[rgba(255,255,255,0.2)]">
+          &copy; {new Date().getFullYear()} balosky &mdash; {settings?.legalText || 'Pago seguro con Mercado Pago'}
+        </p>
+        <Link
+          to="/admin/login"
+          className="text-[11px] font-medium uppercase tracking-[0.15em] text-[rgba(255,255,255,0.2)] hover:text-[rgba(255,255,255,0.5)] transition-colors"
+        >
+          Admin
+        </Link>
+      </div>
       </footer>
-    </div>
+      <MusicPlayerDock hidden={isHome || isAgendaPublica} />
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        className={cn(
+          "fixed right-4 sm:right-6 z-[9998] w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--black)] text-[var(--white)] transition-all duration-300 hover:bg-[var(--accent)] hover:text-white",
+          "bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:bottom-6",
+          scrolledPast ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"
+        )}
+        data-hover
+        aria-label="Back to top"
+      >
+        ↑
+      </button>
+      <KonamiEasterEgg />
+      </div>
+    </MusicPlayerProvider>
   );
 }

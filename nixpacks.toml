@@ -1,0 +1,15 @@
+# Configuración del builder de Railway (Nixpacks).
+# Asegura que se buildee el frontend antes de arrancar el server
+# y que better-sqlite3 tenga las toolchains nativas para compilar.
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
+
+[phases.install]
+cmds = ["npm ci --include=dev"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"

@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { api } from '@/services/api';
 import { SiteSettings } from '@/types';
-import { THEME_OPTIONS } from '@/themes/registry';
 import { cn } from '@/lib/utils';
 import { normalizeSiteSettings } from '@/content/publicContent';
 
@@ -13,7 +12,7 @@ const inputClassName =
 const textareaClassName = `${inputClassName} resize-none`;
 
 export default function AdminSettings() {
-  const { settings: contextSettings, setTheme, refreshData } = useAppContext();
+  const { settings: contextSettings, refreshData } = useAppContext();
   const [formData, setFormData] = useState<SiteSettings | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -52,11 +51,6 @@ export default function AdminSettings() {
     setFormData((prev) => (prev ? { ...prev, [field]: value } : null));
   };
 
-  const handleThemeSelect = (themeId: SiteSettings['defaultTheme']) => {
-    setFormData((prev) => (prev ? { ...prev, defaultTheme: themeId } : null));
-    setTheme(themeId);
-  };
-
   const handleHeroChange = (
     field: keyof SiteSettings['content']['home']['hero'],
     value: string
@@ -71,6 +65,78 @@ export default function AdminSettings() {
                 ...prev.content.home,
                 hero: {
                   ...prev.content.home.hero,
+                  [field]: value,
+                },
+              },
+            },
+          }
+        : null
+    );
+  };
+
+  const handleSupportOfferMetaChange = (
+    field: keyof Omit<SiteSettings['content']['home']['supportOffer'], 'items'>,
+    value: string
+  ) => {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            content: {
+              ...prev.content,
+              home: {
+                ...prev.content.home,
+                supportOffer: {
+                  ...prev.content.home.supportOffer,
+                  [field]: value,
+                },
+              },
+            },
+          }
+        : null
+    );
+  };
+
+  const handleSupportOfferItemChange = (
+    index: number,
+    field: keyof SiteSettings['content']['home']['supportOffer']['items'][number],
+    value: string | number
+  ) => {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            content: {
+              ...prev.content,
+              home: {
+                ...prev.content.home,
+                supportOffer: {
+                  ...prev.content.home.supportOffer,
+                  items: prev.content.home.supportOffer.items.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, [field]: value } : item
+                  ),
+                },
+              },
+            },
+          }
+        : null
+    );
+  };
+
+  const handleFeaturedMissionChange = (
+    field: keyof SiteSettings['content']['home']['featuredMission'],
+    value: string
+  ) => {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            content: {
+              ...prev.content,
+              home: {
+                ...prev.content.home,
+                featuredMission: {
+                  ...prev.content.home.featuredMission,
                   [field]: value,
                 },
               },
@@ -199,7 +265,7 @@ export default function AdminSettings() {
   };
 
   const handleMusicMetaChange = (
-    field: keyof Omit<SiteSettings['content']['home']['music'], 'videos'>,
+    field: keyof Omit<SiteSettings['content']['home']['music'], 'videos' | 'tracks'>,
     value: string
   ) => {
     setFormData((prev) =>
@@ -213,6 +279,32 @@ export default function AdminSettings() {
                 music: {
                   ...prev.content.home.music,
                   [field]: value,
+                },
+              },
+            },
+          }
+        : null
+    );
+  };
+
+  const handleMusicTrackChange = (
+    index: number,
+    field: keyof SiteSettings['content']['home']['music']['tracks'][number],
+    value: string
+  ) => {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            content: {
+              ...prev.content,
+              home: {
+                ...prev.content.home,
+                music: {
+                  ...prev.content.home.music,
+                  tracks: prev.content.home.music.tracks.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, [field]: value } : item
+                  ),
                 },
               },
             },
@@ -239,6 +331,29 @@ export default function AdminSettings() {
                   videos: prev.content.home.music.videos.map((item, itemIndex) =>
                     itemIndex === index ? { ...item, [field]: value } : item
                   ),
+                },
+              },
+            },
+          }
+        : null
+    );
+  };
+
+  const handleCommunityChange = (
+    field: keyof SiteSettings['content']['home']['community'],
+    value: string
+  ) => {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            content: {
+              ...prev.content,
+              home: {
+                ...prev.content.home,
+                community: {
+                  ...prev.content.home.community,
+                  [field]: value,
                 },
               },
             },
@@ -320,7 +435,6 @@ export default function AdminSettings() {
     try {
       const normalized = normalizeSiteSettings(formData);
       await api.updateSettings(normalized);
-      setTheme(normalized.defaultTheme);
       await refreshData();
       setMessage('Configuración guardada correctamente');
     } catch (error) {
@@ -493,54 +607,6 @@ export default function AdminSettings() {
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
-        <div className="space-y-2">
-          <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Templates del Sitio</h2>
-          <p className="text-sm text-zinc-400">
-            Cambiás el diseño sin tocar la copy. Los textos que editás abajo se usan en todos los templates.
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {THEME_OPTIONS.map((themeOption) => {
-            const isActive = formData.defaultTheme === themeOption.id;
-
-            return (
-              <button
-                key={themeOption.id}
-                type="button"
-                onClick={() => handleThemeSelect(themeOption.id)}
-                className={cn(
-                  'text-left rounded-2xl border p-4 transition-all',
-                  isActive
-                    ? 'border-violet-400 bg-violet-500/10 shadow-[0_0_0_1px_rgba(167,139,250,0.45)]'
-                    : 'border-zinc-800 bg-zinc-950 hover:border-zinc-600'
-                )}
-              >
-                <div
-                  className="h-28 rounded-xl border border-white/10"
-                  style={{ background: themeOption.preview }}
-                />
-                <div className="mt-4 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-white font-bold">{themeOption.name}</p>
-                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-zinc-500 mt-1">
-                      {themeOption.shortLabel}
-                    </p>
-                  </div>
-                  {isActive && (
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-violet-500 text-white">
-                      <Check className="w-4 h-4" />
-                    </span>
-                  )}
-                </div>
-                <p className="mt-3 text-sm text-zinc-400 leading-relaxed">{themeOption.description}</p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-8">
         <div className="space-y-2">
           <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Home</h2>
@@ -619,6 +685,74 @@ export default function AdminSettings() {
         </div>
 
         <div className="space-y-6">
+          <h3 className="text-lg font-bold text-white">Oferta principal de apoyo</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Eyebrow</label>
+              <input
+                type="text"
+                value={formData.content.home.supportOffer.eyebrow}
+                onChange={(e) => handleSupportOfferMetaChange('eyebrow', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Título</label>
+              <input
+                type="text"
+                value={formData.content.home.supportOffer.title}
+                onChange={(e) => handleSupportOfferMetaChange('title', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-bold text-zinc-400">Subtítulo</label>
+              <textarea
+                value={formData.content.home.supportOffer.subtitle}
+                onChange={(e) => handleSupportOfferMetaChange('subtitle', e.target.value)}
+                rows={3}
+                className={textareaClassName}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-6">
+            {formData.content.home.supportOffer.items.map((item, index) => (
+              <div key={index} className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 grid gap-4">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Monto {index + 1}
+                </p>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <input
+                    type="number"
+                    value={item.amount}
+                    onChange={(e) => handleSupportOfferItemChange(index, 'amount', Number(e.target.value))}
+                    placeholder="Monto"
+                    className={inputClassName}
+                  />
+                  <input
+                    type="text"
+                    value={item.label}
+                    onChange={(e) => handleSupportOfferItemChange(index, 'label', e.target.value)}
+                    placeholder="Label"
+                    className={inputClassName}
+                  />
+                  <div className="sm:col-span-3">
+                    <textarea
+                      value={item.benefit}
+                      onChange={(e) => handleSupportOfferItemChange(index, 'benefit', e.target.value)}
+                      rows={2}
+                      placeholder="Beneficio"
+                      className={textareaClassName}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
           <h3 className="text-lg font-bold text-white">Formas de bancar</h3>
           <div className="grid gap-6">
             {formData.content.home.supportModes.map((mode, index) => (
@@ -667,6 +801,39 @@ export default function AdminSettings() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-white">Misión destacada</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Eyebrow</label>
+              <input
+                type="text"
+                value={formData.content.home.featuredMission.eyebrow}
+                onChange={(e) => handleFeaturedMissionChange('eyebrow', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Título</label>
+              <input
+                type="text"
+                value={formData.content.home.featuredMission.title}
+                onChange={(e) => handleFeaturedMissionChange('title', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-bold text-zinc-400">Subtítulo</label>
+              <textarea
+                value={formData.content.home.featuredMission.subtitle}
+                onChange={(e) => handleFeaturedMissionChange('subtitle', e.target.value)}
+                rows={3}
+                className={textareaClassName}
+              />
+            </div>
           </div>
         </div>
 
@@ -794,6 +961,13 @@ export default function AdminSettings() {
                   />
                   <input
                     type="text"
+                    value={course.status}
+                    onChange={(e) => handleCourseChange(index, 'status', e.target.value)}
+                    placeholder="Estado"
+                    className={inputClassName}
+                  />
+                  <input
+                    type="text"
                     value={course.title}
                     onChange={(e) => handleCourseChange(index, 'title', e.target.value)}
                     placeholder="Título"
@@ -814,6 +988,15 @@ export default function AdminSettings() {
                       value={course.href}
                       onChange={(e) => handleCourseChange(index, 'href', e.target.value)}
                       placeholder="Link"
+                      className={inputClassName}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <input
+                      type="text"
+                      value={course.ctaLabel}
+                      onChange={(e) => handleCourseChange(index, 'ctaLabel', e.target.value)}
+                      placeholder="Texto del botón"
                       className={inputClassName}
                     />
                   </div>
@@ -853,6 +1036,15 @@ export default function AdminSettings() {
                 className={textareaClassName}
               />
             </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-bold text-zinc-400">Texto destacado</label>
+              <textarea
+                value={formData.content.home.music.featuredText}
+                onChange={(e) => handleMusicMetaChange('featuredText', e.target.value)}
+                rows={3}
+                className={textareaClassName}
+              />
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-zinc-400">Spotify URL</label>
               <input
@@ -883,6 +1075,71 @@ export default function AdminSettings() {
           </div>
 
           <div className="grid gap-6">
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-400">
+                Temas del player
+              </h4>
+              <p className="text-sm text-zinc-500">
+                Pegá URLs públicas de audio. Si el hosting expone CORS, el visualizador también va a reaccionar.
+              </p>
+            </div>
+
+            {formData.content.home.music.tracks.map((track, index) => (
+              <div key={index} className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 grid gap-4">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Track {index + 1}
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input
+                    type="text"
+                    value={track.category}
+                    onChange={(e) => handleMusicTrackChange(index, 'category', e.target.value)}
+                    placeholder="Categoria (Electronica, Musica de peliculas, etc)"
+                    className={inputClassName}
+                  />
+                  <input
+                    type="text"
+                    value={track.title}
+                    onChange={(e) => handleMusicTrackChange(index, 'title', e.target.value)}
+                    placeholder="Titulo"
+                    className={inputClassName}
+                  />
+                  <input
+                    type="text"
+                    value={track.artist}
+                    onChange={(e) => handleMusicTrackChange(index, 'artist', e.target.value)}
+                    placeholder="Artista"
+                    className={inputClassName}
+                  />
+                  <div className="sm:col-span-2">
+                    <input
+                      type="text"
+                      value={track.audioUrl}
+                      onChange={(e) => handleMusicTrackChange(index, 'audioUrl', e.target.value)}
+                      placeholder="https://tu-cdn.com/tema.mp3"
+                      className={inputClassName}
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={track.coverImage}
+                    onChange={(e) => handleMusicTrackChange(index, 'coverImage', e.target.value)}
+                    placeholder="Cover image URL (opcional)"
+                    className={inputClassName}
+                  />
+                  <input
+                    type="text"
+                    value={track.accentColor}
+                    onChange={(e) => handleMusicTrackChange(index, 'accentColor', e.target.value)}
+                    placeholder="#00FFB2"
+                    className={inputClassName}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-6">
             {formData.content.home.music.videos.map((video, index) => (
               <div key={index} className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5 grid gap-4">
                 <p className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">
@@ -906,6 +1163,39 @@ export default function AdminSettings() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-white">Comunidad</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Eyebrow</label>
+              <input
+                type="text"
+                value={formData.content.home.community.eyebrow}
+                onChange={(e) => handleCommunityChange('eyebrow', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Título</label>
+              <input
+                type="text"
+                value={formData.content.home.community.title}
+                onChange={(e) => handleCommunityChange('title', e.target.value)}
+                className={inputClassName}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-bold text-zinc-400">Subtítulo</label>
+              <textarea
+                value={formData.content.home.community.subtitle}
+                onChange={(e) => handleCommunityChange('subtitle', e.target.value)}
+                rows={3}
+                className={textareaClassName}
+              />
+            </div>
           </div>
         </div>
       </div>

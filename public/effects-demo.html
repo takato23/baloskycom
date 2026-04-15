@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SANTI BALOSKY — Premium Portfolio Effects</title>
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+  a { color: #FA5D29; text-decoration: none; }
+
+  /* ===== 1. LOADING SCREEN ===== */
+  #loading-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    pointer-events: all;
+  }
+  #loading-screen.splitting {
+    pointer-events: none;
+  }
+  #loading-screen .curtain-left,
+  #loading-screen .curtain-right {
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    background: #000;
+    transition: transform 0.8s cubic-bezier(0.76, 0, 0.24, 1);
+    z-index: 2;
+  }
+  #loading-screen .curtain-left { left: 0; }
+  #loading-screen .curtain-right { right: 0; }
+  #loading-screen.splitting .curtain-left  { transform: translateX(-105%); }
+  #loading-screen.splitting .curtain-right { transform: translateX(105%); }
+  #loading-screen.done { display: none; }
+  #ascii-canvas {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ===== 2. ASCII IMAGE REVEAL — CARD STYLES ===== */
+  .cards-section {
+    padding: 80px 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .cards-section h2 {
+    font-size: 2rem;
+    color: #FA5D29;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+  }
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 32px;
+  }
+  .ascii-card {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border: 2px solid #FA5D29;
+    cursor: crosshair;
+    background: #000;
+  }
+  .ascii-card canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .ascii-card .card-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.9));
+    font-size: 0.85rem;
+    color: #FA5D29;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ===== 3. VISUALIZER SECTION ===== */
+  .visualizer-section {
+    padding: 80px 40px;
+    text-align: center;
+  }
+  .visualizer-section h2 {
+    font-size: 2rem;
+    color: #FA5D29;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+  }
+  #visualizer-canvas {
+    display: block;
+    margin: 0 auto;
+    border: 2px solid #FA5D29;
+    width: 100%;
+    max-width: 1000px;
+    height: 400px;
+  }
+
+  /* ===== 4. MARQUEE ===== */
+  .marquee-section {
+    padding: 60px 0;
+    overflow: hidden;
+    border-top: 2px solid #FA5D29;
+    border-bottom: 2px solid #FA5D29;
+  }
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee-scroll 30s linear infinite;
+  }
+  .marquee-track:hover {
+    animation-play-state: paused;
+  }
+  .marquee-content {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding-right: 0; /* no extra gap, items handle it */
+  }
+  .marquee-item {
+    white-space: nowrap;
+    font-size: 1.3rem;
+    font-family: 'Courier New', monospace;
+    color: #FA5D29;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    padding: 0 20px;
+  }
+  .marquee-separator {
+    color: #FA5D29;
+    opacity: 0.5;
+    font-size: 1.3rem;
+    padding: 0 8px;
+    user-select: none;
+  }
+  @keyframes marquee-scroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* ===== PAGE SECTIONS ===== */
+  .hero-section {
+    min-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 100px 40px 60px;
+  }
+  .hero-section h1 {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    color: #FA5D29;
+    text-transform: uppercase;
+    letter-spacing: 8px;
+    margin-bottom: 16px;
+  }
+  .hero-section p {
+    font-size: 1.1rem;
+    color: #888;
+    max-width: 600px;
+    line-height: 1.8;
+  }
+  .section-divider {
+    width: 60px;
+    height: 2px;
+    background: #FA5D29;
+    margin: 60px auto;
+  }
+  .footer {
+    text-align: center;
+    padding: 40px;
+    color: #555;
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     1. LOADING SCREEN WITH ASCII MORPHING
+     ============================================================ -->
+<div id="loading-screen">
+  <div class="curtain-left"></div>
+  <div class="curtain-right"></div>
+  <canvas id="ascii-canvas"></canvas>
+</div>
+
+<!-- ============================================================
+     PAGE CONTENT (hidden behind loader)
+     ============================================================ -->
+
+<section class="hero-section">
+  <h1>Santi Balosky</h1>
+  <p>Creative developer, designer, and visual artist crafting digital experiences that blur the line between code and art.</p>
+</section>
+
+<!-- ============================================================
+     4. HORIZONTAL INFINITE MARQUEE
+     ============================================================ -->
+<section class="marquee-section">
+  <div class="marquee-track" id="marquee-track">
+    <!-- JS will duplicate content here -->
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ============================================================
+     2. ASCII IMAGE REVEAL CARDS
+     ============================================================ -->
+<section class="cards-section">
+  <h2>Selected Works</h2>
+  <div class="cards-grid" id="cards-grid">
+    <!-- Cards built by JS -->
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ============================================================
+     3. AUDIO-REACTIVE VISUALIZER
+     ============================================================ -->
+<section class="visualizer-section">
+  <h2>Audio Visualizer</h2>
+  <canvas id="visualizer-canvas"></canvas>
+</section>
+
+<div class="section-divider"></div>
+
+<footer class="footer">
+  SANTI BALOSKY &mdash; 2026 &mdash; ALL RIGHTS RESERVED
+</footer>
+
+<!-- ============================================================
+     ALL SCRIPTS — VANILLA JS + CANVAS
+     ============================================================ -->
+<script>
+/* =============================================================
+   EFFECT 1: LOADING SCREEN — ASCII ART MORPHING + CURTAIN SPLIT
+   =============================================================
+   - Renders "SANTI BALOSKY" in large block ASCII letters on a canvas.
+   - Letters dissolve into particles that drift and fade.
+   - After ~1.7s of dissolving, the black overlay splits open like curtains.
+   - Total duration ~2.5s.
+*/
+(function loadingScreen() {
+  const canvas = document.getElementById('ascii-canvas');
+  const ctx = canvas.getContext('2d');
+  const loader = document.getElementById('loading-screen');
+
+  // Sizing
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.min(window.innerWidth, 1200);
+  const H = 300;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+
+  // Render text to get pixel positions
+  const fontSize = Math.min(72, W * 0.065);
+  ctx.fillStyle = '#FA5D29';
+  ctx.font = `bold ${fontSize}px "Courier New", monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('SANTI BALOSKY', W / 2, H / 2);
+
+  // Sample pixels to build particle list
+  const imageData = ctx.getImageData(0, 0, W * dpr, H * dpr);
+  const pixels = imageData.data;
+  const particles = [];
+  const step = 4; // sample every Nth pixel for performance
+
+  for (let y = 0; y < H * dpr; y += step) {
+    for (let x = 0; x < W * dpr; x += step) {
+      const i = (y * W * dpr + x) * 4;
+      if (pixels[i + 3] > 128) {
+        // ASCII character set for visual variety
+        const chars = '@#%&$8BOo*+=-:. ';
+        const brightness = pixels[i] / 255;
+        const charIndex = Math.floor((1 - brightness) * (chars.length - 1));
+        particles.push({
+          x: x / dpr,
+          y: y / dpr,
+          originX: x / dpr,
+          originY: y / dpr,
+          char: chars[Math.max(0, charIndex)],
+          alpha: 1,
+          vx: (Math.random() - 0.5) * 3,
+          vy: (Math.random() - 0.5) * 3 - 1,
+          dissolveDelay: Math.random() * 800 + 400, // ms before this particle starts dissolving
+          dissolved: false,
+          size: Math.max(6, step / dpr * 1.2),
+        });
+      }
+    }
+  }
+
+  let startTime = null;
+  const DISSOLVE_START = 600;   // ms: when dissolving begins
+  const SPLIT_START = 1700;     // ms: when curtains begin to split
+  const FADE_COMPLETE = 2500;   // ms: when loader is fully removed
+
+  function animate(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const elapsed = timestamp - startTime;
+
+    ctx.clearRect(0, 0, W, H);
+
+    for (const p of particles) {
+      const timeSinceDissolve = elapsed - DISSOLVE_START;
+
+      if (timeSinceDissolve > p.dissolveDelay && !p.dissolved) {
+        p.dissolved = true;
+      }
+
+      if (p.dissolved) {
+        const dissolveDuration = timeSinceDissolve - p.dissolveDelay;
+        const t = Math.min(dissolveDuration / 800, 1);
+        p.x += p.vx * 0.5;
+        p.y += p.vy * 0.5;
+        p.alpha = 1 - t;
+
+        // Morph char as it dissolves
+        const morphChars = '@#%&*+=-:. ';
+        const mi = Math.floor(t * (morphChars.length - 1));
+        p.char = morphChars[mi];
+      }
+
+      if (p.alpha <= 0) continue;
+
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = '#FA5D29';
+      ctx.font = `${p.size}px "Courier New", monospace`;
+      ctx.fillText(p.char, p.x, p.y);
+      ctx.restore();
+    }
+
+    // Trigger curtain split
+    if (elapsed >= SPLIT_START && !loader.classList.contains('splitting')) {
+      loader.classList.add('splitting');
+    }
+
+    if (elapsed >= FADE_COMPLETE) {
+      loader.classList.add('done');
+      document.body.style.overflow = '';
+      return;
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  document.body.style.overflow = 'hidden';
+  requestAnimationFrame(animate);
+})();
+
+
+/* =============================================================
+   EFFECT 2: ASCII IMAGE REVEAL — MOUSE-FOLLOWING CIRCULAR REVEAL
+   =============================================================
+   - Each card shows an image rendered as ASCII characters by default.
+   - On hover, a ~150px radius soft circle around the cursor reveals
+     the real image. The rest remains ASCII.
+   - On mouse leave, the reveal smoothly fades away.
+*/
+(function asciiImageReveal() {
+  // Generate colorful procedural images since we can't rely on external URLs
+  function generateProceduralImage(seed, width, height) {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = width;
+    offscreen.height = height;
+    const octx = offscreen.getContext('2d');
+
+    // Base gradient
+    const hue1 = (seed * 47) % 360;
+    const hue2 = (hue1 + 120) % 360;
+    const grad = octx.createLinearGradient(0, 0, width, height);
+    grad.addColorStop(0, `hsl(${hue1}, 70%, 30%)`);
+    grad.addColorStop(0.5, `hsl(${(hue1 + hue2) / 2}, 60%, 20%)`);
+    grad.addColorStop(1, `hsl(${hue2}, 70%, 25%)`);
+    octx.fillStyle = grad;
+    octx.fillRect(0, 0, width, height);
+
+    // Abstract shapes
+    for (let i = 0; i < 12; i++) {
+      const x = ((seed * 31 + i * 73) % width);
+      const y = ((seed * 17 + i * 53) % height);
+      const r = 20 + ((seed * 13 + i * 41) % 80);
+      const h = (hue1 + i * 30) % 360;
+      octx.beginPath();
+      octx.arc(x, y, r, 0, Math.PI * 2);
+      octx.fillStyle = `hsla(${h}, 80%, 50%, 0.3)`;
+      octx.fill();
+    }
+
+    // Orange accent lines
+    octx.strokeStyle = '#FA5D29';
+    octx.lineWidth = 2;
+    for (let i = 0; i < 5; i++) {
+      const x1 = (seed * 19 + i * 97) % width;
+      const y1 = (seed * 23 + i * 67) % height;
+      const x2 = (seed * 41 + i * 83) % width;
+      const y2 = (seed * 37 + i * 71) % height;
+      octx.beginPath();
+      octx.moveTo(x1, y1);
+      octx.lineTo(x2, y2);
+      octx.stroke();
+    }
+
+    return offscreen;
+  }
+
+  const cardData = [
+    { title: 'Neon Drift', seed: 1 },
+    { title: 'Void Echo', seed: 2 },
+    { title: 'Solar Fracture', seed: 3 },
+  ];
+
+  const REVEAL_RADIUS = 150;
+  const ASCII_CHARS = ' .:-=+*#%@';
+  const CHAR_SIZE = 8;
+
+  const grid = document.getElementById('cards-grid');
+
+  cardData.forEach((data) => {
+    const card = document.createElement('div');
+    card.className = 'ascii-card';
+    const cvs = document.createElement('canvas');
+    const label = document.createElement('div');
+    label.className = 'card-label';
+    label.textContent = data.title;
+    card.appendChild(cvs);
+    card.appendChild(label);
+    grid.appendChild(card);
+
+    // State
+    const state = {
+      mouseX: -1000,
+      mouseY: -1000,
+      currentRadius: 0,
+      targetRadius: 0,
+      active: false,
+      img: null,
+      ready: false,
+    };
+
+    function initCard() {
+      const rect = card.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.floor(rect.width);
+      const h = Math.floor(rect.height);
+      cvs.width = w * dpr;
+      cvs.height = h * dpr;
+      cvs.style.width = w + 'px';
+      cvs.style.height = h + 'px';
+
+      state.img = generateProceduralImage(data.seed, w * dpr, h * dpr);
+      state.ready = true;
+      state.w = w;
+      state.h = h;
+      state.dpr = dpr;
+    }
+
+    // Wait until layout is settled
+    setTimeout(initCard, 100);
+    window.addEventListener('resize', () => { state.ready = false; setTimeout(initCard, 100); });
+
+    card.addEventListener('mouseenter', () => { state.active = true; state.targetRadius = REVEAL_RADIUS; });
+    card.addEventListener('mouseleave', () => { state.active = false; state.targetRadius = 0; });
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      state.mouseX = e.clientX - rect.left;
+      state.mouseY = e.clientY - rect.top;
+    });
+
+    function render() {
+      if (!state.ready) { requestAnimationFrame(render); return; }
+
+      const cctx = cvs.getContext('2d');
+      const { w, h, dpr } = state;
+
+      // Smooth radius interpolation
+      state.currentRadius += (state.targetRadius - state.currentRadius) * 0.12;
+      if (Math.abs(state.currentRadius - state.targetRadius) < 0.5) {
+        state.currentRadius = state.targetRadius;
+      }
+
+      cctx.save();
+      cctx.scale(dpr, dpr);
+      cctx.clearRect(0, 0, w, h);
+
+      // Draw the real image scaled to card
+      cctx.drawImage(state.img, 0, 0, state.img.width, state.img.height, 0, 0, w, h);
+
+      // Read pixel data for ASCII conversion
+      const imgData = cctx.getImageData(0, 0, w * dpr, h * dpr);
+      const pxData = imgData.data;
+
+      // Clear and draw ASCII base
+      cctx.fillStyle = '#0a0a0a';
+      cctx.fillRect(0, 0, w, h);
+
+      const cols = Math.floor(w / CHAR_SIZE);
+      const rows = Math.floor(h / CHAR_SIZE);
+      cctx.font = `${CHAR_SIZE * 1.1}px "Courier New", monospace`;
+      cctx.textBaseline = 'middle';
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const px = Math.floor(col * CHAR_SIZE * dpr + CHAR_SIZE * dpr / 2);
+          const py = Math.floor(row * CHAR_SIZE * dpr + CHAR_SIZE * dpr / 2);
+          const idx = (py * w * dpr + px) * 4;
+
+          const r = pxData[idx] || 0;
+          const g = pxData[idx + 1] || 0;
+          const b = pxData[idx + 2] || 0;
+          const brightness = (r + g + b) / (3 * 255);
+          const charIdx = Math.floor(brightness * (ASCII_CHARS.length - 1));
+
+          const cx = col * CHAR_SIZE + CHAR_SIZE / 2;
+          const cy = row * CHAR_SIZE + CHAR_SIZE / 2;
+
+          cctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+          cctx.fillText(ASCII_CHARS[charIdx], col * CHAR_SIZE, cy);
+        }
+      }
+
+      // If reveal is active, punch a circular hole and show real image
+      if (state.currentRadius > 1) {
+        cctx.save();
+
+        // Create radial gradient mask for soft edge
+        const mx = state.mouseX;
+        const my = state.mouseY;
+        const rad = state.currentRadius;
+
+        // Clip to circular region, draw real image
+        cctx.beginPath();
+        cctx.arc(mx, my, rad + 30, 0, Math.PI * 2);
+        cctx.closePath();
+        cctx.clip();
+
+        // Draw full image in clipped area
+        cctx.drawImage(state.img, 0, 0, state.img.width, state.img.height, 0, 0, w, h);
+
+        // Soft edge: draw a ring of semi-transparent black to feather the edge
+        const edgeGrad = cctx.createRadialGradient(mx, my, rad * 0.85, mx, my, rad + 30);
+        edgeGrad.addColorStop(0, 'rgba(10,10,10,0)');
+        edgeGrad.addColorStop(1, 'rgba(10,10,10,1)');
+        cctx.fillStyle = edgeGrad;
+        cctx.fillRect(mx - rad - 40, my - rad - 40, (rad + 40) * 2, (rad + 40) * 2);
+
+        cctx.restore();
+      }
+
+      cctx.restore();
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+  });
+})();
+
+
+/* =============================================================
+   EFFECT 3: AUDIO-REACTIVE VISUALIZER (PROCEDURAL / FAKE)
+   =============================================================
+   - Frequency bars at the bottom
+   - Waveform line through the middle
+   - Floating particles
+   - All driven by layered Perlin-ish noise, no audio input
+   - Color: #FA5D29 on black
+*/
+(function audioVisualizer() {
+  const canvas = document.getElementById('visualizer-canvas');
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Simple noise function (value noise with smooth interpolation)
+  const noiseGrid = {};
+  function hashNoise(x, y) {
+    const key = `${x},${y}`;
+    if (noiseGrid[key] === undefined) {
+      noiseGrid[key] = Math.random();
+    }
+    return noiseGrid[key];
+  }
+
+  function smoothstep(t) {
+    return t * t * (3 - 2 * t);
+  }
+
+  function valueNoise(x, y) {
+    const ix = Math.floor(x);
+    const iy = Math.floor(y);
+    const fx = smoothstep(x - ix);
+    const fy = smoothstep(y - iy);
+
+    const a = hashNoise(ix, iy);
+    const b = hashNoise(ix + 1, iy);
+    const c = hashNoise(ix, iy + 1);
+    const d = hashNoise(ix + 1, iy + 1);
+
+    const top = a + (b - a) * fx;
+    const bot = c + (d - c) * fx;
+    return top + (bot - top) * fy;
+  }
+
+  function fbm(x, y, octaves) {
+    let val = 0, amp = 1, freq = 1, total = 0;
+    for (let i = 0; i < octaves; i++) {
+      val += valueNoise(x * freq, y * freq) * amp;
+      total += amp;
+      amp *= 0.5;
+      freq *= 2.1;
+    }
+    return val / total;
+  }
+
+  // Particles
+  const PARTICLE_COUNT = 60;
+  const particles = [];
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particles.push({
+      x: Math.random(),
+      y: Math.random(),
+      size: 1 + Math.random() * 2.5,
+      speed: 0.0002 + Math.random() * 0.0005,
+      phase: Math.random() * Math.PI * 2,
+      alpha: 0.2 + Math.random() * 0.5,
+    });
+  }
+
+  const BAR_COUNT = 64;
+  let time = 0;
+
+  function draw() {
+    const rect = canvas.getBoundingClientRect();
+    const W = rect.width;
+    const H = rect.height;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+
+    time += 0.008;
+
+    // --- Frequency Bars (bottom) ---
+    const barWidth = W / BAR_COUNT;
+    const maxBarHeight = H * 0.45;
+
+    for (let i = 0; i < BAR_COUNT; i++) {
+      // Multiple noise layers for organic feel
+      const n1 = fbm(i * 0.15 + time * 1.2, time * 0.8, 3);
+      const n2 = fbm(i * 0.08 + time * 0.5 + 100, time * 1.5 + 50, 2);
+      const n3 = Math.sin(time * 2 + i * 0.3) * 0.15 + 0.15;
+
+      // Bass emphasis (lower indices = more energy)
+      const bassBoost = Math.max(0, 1 - i / (BAR_COUNT * 0.3));
+      const energy = (n1 * 0.5 + n2 * 0.3 + n3) * (0.6 + bassBoost * 0.6);
+      const barH = energy * maxBarHeight;
+
+      const x = i * barWidth;
+      const y = H - barH;
+
+      // Gradient per bar
+      const grad = ctx.createLinearGradient(x, H, x, y);
+      grad.addColorStop(0, 'rgba(250, 93, 41, 0.9)');
+      grad.addColorStop(0.5, 'rgba(250, 93, 41, 0.6)');
+      grad.addColorStop(1, 'rgba(250, 93, 41, 0.15)');
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(x + 1, y, barWidth - 2, barH);
+
+      // Bright cap on top of each bar
+      ctx.fillStyle = 'rgba(250, 93, 41, 0.95)';
+      ctx.fillRect(x + 1, y, barWidth - 2, 2);
+    }
+
+    // --- Waveform Line (middle) ---
+    const waveY = H * 0.4;
+    const waveAmplitude = H * 0.12;
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(250, 93, 41, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#FA5D29';
+    ctx.shadowBlur = 12;
+
+    for (let x = 0; x <= W; x += 2) {
+      const t = x / W;
+      const n1 = fbm(t * 4 + time * 1.8, time * 0.6 + 200, 4);
+      const n2 = Math.sin(t * Math.PI * 6 + time * 3) * 0.2;
+      const n3 = fbm(t * 8 + time * 2.5 + 50, time * 1.2 + 300, 2) * 0.3;
+      const y = waveY + (n1 + n2 + n3 - 0.5) * waveAmplitude * 2;
+
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Secondary thinner waveform
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(250, 93, 41, 0.3)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 3) {
+      const t = x / W;
+      const n = fbm(t * 6 + time * 2.2 + 500, time * 0.9 + 400, 3);
+      const y = waveY + 20 + (n - 0.5) * waveAmplitude * 1.5;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // --- Floating Particles ---
+    for (const p of particles) {
+      p.x += p.speed;
+      p.y += Math.sin(time * 2 + p.phase) * 0.0003;
+
+      if (p.x > 1.05) { p.x = -0.05; p.y = Math.random(); }
+
+      // Pulse alpha with the "beat"
+      const pulse = fbm(p.x * 3 + time * 1.5, p.y * 3 + time, 2);
+      const alpha = p.alpha * (0.5 + pulse * 0.5);
+
+      const sx = p.x * W;
+      const sy = p.y * H;
+
+      ctx.beginPath();
+      ctx.arc(sx, sy, p.size + pulse * 2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(250, 93, 41, ${alpha})`;
+      ctx.fill();
+
+      // Glow
+      ctx.beginPath();
+      ctx.arc(sx, sy, p.size * 3 + pulse * 4, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(250, 93, 41, ${alpha * 0.15})`;
+      ctx.fill();
+    }
+
+    // --- Subtle scan line overlay ---
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+    for (let y = 0; y < H; y += 3) {
+      ctx.fillRect(0, y, W, 1);
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  requestAnimationFrame(draw);
+})();
+
+
+/* =============================================================
+   EFFECT 4: HORIZONTAL INFINITE MARQUEE
+   =============================================================
+   - Pure CSS animation with JS content duplication for seamless loop
+   - Pauses subtly on hover
+   - Items separated by decorative separators
+*/
+(function marquee() {
+  const items = [
+    'Web Design',
+    'Creative Dev',
+    'UI/UX',
+    'Motion Graphics',
+    'Branding',
+    'Photography',
+    'Digital Art',
+    'Typography',
+    'Open for Work',
+    'Buenos Aires',
+    'React',
+    'Canvas API',
+    'Three.js',
+    'Blender',
+    'Figma',
+  ];
+
+  const track = document.getElementById('marquee-track');
+
+  function buildContent() {
+    const container = document.createElement('div');
+    container.className = 'marquee-content';
+
+    items.forEach((text, i) => {
+      const span = document.createElement('span');
+      span.className = 'marquee-item';
+      span.textContent = text;
+      container.appendChild(span);
+
+      // Separator after each item
+      const sep = document.createElement('span');
+      sep.className = 'marquee-separator';
+      sep.textContent = '\u2014'; // em dash
+      container.appendChild(sep);
+    });
+
+    return container;
+  }
+
+  // We need at least 2 copies for a seamless loop.
+  // The CSS animation shifts by -50% (i.e., one full copy width).
+  track.appendChild(buildContent());
+  track.appendChild(buildContent());
+})();
+</script>
+</body>
+</html>

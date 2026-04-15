@@ -7,7 +7,8 @@ import {
   SupporterMessage,
   SiteSettings,
   Product,
-  Membership
+  Membership,
+  Idea
 } from '@/types';
 
 // ==========================================
@@ -128,6 +129,38 @@ export const api = {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to delete product');
+  },
+
+  // Ideas
+  getIdeas: async (): Promise<Idea[]> => {
+    const res = await fetch(`${API_URL}/ideas`);
+    if (!res.ok) throw new Error('Failed to fetch ideas');
+    return res.json();
+  },
+  createIdea: async (idea: Partial<Idea>): Promise<Idea> => {
+    const res = await fetch(`${API_URL}/ideas`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(idea)
+    });
+    if (!res.ok) throw new Error('Failed to create idea');
+    return res.json();
+  },
+  updateIdea: async (id: string, updates: Partial<Idea>): Promise<Idea> => {
+    const res = await fetch(`${API_URL}/ideas/${id}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(updates)
+    });
+    if (!res.ok) throw new Error('Failed to update idea');
+    return res.json();
+  },
+  deleteIdea: async (id: string): Promise<void> => {
+    const res = await fetch(`${API_URL}/ideas/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to delete idea');
   },
 
   // Memberships

@@ -6,12 +6,12 @@ import { cn } from '@/lib/utils';
 import html2canvas from 'html2canvas';
 import { useSound } from '@/hooks/useSound';
 import { getUserTier } from '@/utils/tiers';
-import { getThemedPageStyles } from '@/themes/pageStyles';
+import { getPageStyles } from '@/themes/pageStyles';
 
 export default function Profile() {
-  const { userProfile, rewards, supporters, campaigns, currency, theme, newlyUnlockedRewards, clearNewlyUnlockedRewards, settings } = useAppContext();
+  const { userProfile, rewards, supporters, campaigns, currency, newlyUnlockedRewards, clearNewlyUnlockedRewards, settings } = useAppContext();
   const { playSound } = useSound();
-  const styles = getThemedPageStyles(theme);
+  const styles = getPageStyles();
 
 
   const userContributions = supporters.filter(s => s.name === userProfile.name);
@@ -203,9 +203,10 @@ export default function Profile() {
             "w-24 h-24 sm:w-32 sm:h-32 shrink-0 overflow-hidden",
             "border-4 border-black brutal-shadow-sm"
           )}>
-            <img 
-              src={settings.creatorAvatar || "/images/santi-avatar.jpeg"} 
+            <img
+              src={settings.creatorAvatar || "/images/santi-avatar.jpeg"}
               alt={settings.creatorName}
+              decoding="async"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
@@ -448,10 +449,9 @@ export default function Profile() {
           <div className={cn("absolute left-10 top-10 bottom-10 w-0.5", styles.timelineLine)} />
           <div className="space-y-8 relative">
             {[
-              { level: 'Supporter', amount: 1000 },
-              { level: 'Super Fan', amount: 5000 },
-              { level: 'Mecenas', amount: 10000 },
-              { level: 'Leyenda', amount: 25000 },
+              { level: 'Morerial', amount: 1000 },
+              { level: 'Cómplice', amount: 5000 },
+              { level: 'Mesaza', amount: 25000 },
             ].map((milestone, idx) => {
               const isReached = userProfile.totalContributed >= milestone.amount;
               return (

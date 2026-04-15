@@ -1,9 +1,38 @@
+# deps / builds
 node_modules/
 build/
 dist/
 coverage/
-.DS_Store
-*.log
+
+# env
 .env*
 !.env.example
+
+# data (SQLite local)
+data/
+
+# plataformas / herramientas
 .vercel
+.claude/
+.playwright-mcp/
+output/
+
+# macOS
+.DS_Store
+._*
+
+# logs
+*.log
+
+# screenshots y debug artifacts (no subir a git)
+/*.png
+/*.jpg
+/*.jpeg
+
+# scripts one-off
+update.py
+update_brutalist.py
+
+# reports / notas
+informe-balosky.md
+README-agenda-publica.md

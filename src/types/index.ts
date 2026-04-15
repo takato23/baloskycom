@@ -1,5 +1,4 @@
 export type CampaignStatus = 'active' | 'paused' | 'completed' | 'archived';
-export type ThemeId = 'brutalist' | 'minimal' | 'atmospheric' | 'cybergrid' | 'terminal';
 
 export interface StretchGoal {
   amount: number;
@@ -40,6 +39,20 @@ export interface Product {
   active: boolean;
   featured: boolean;
   sortOrder: number;
+}
+
+export interface Idea {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  coverImage?: string | null;
+  category?: string | null;
+  tags?: string[];
+  active: boolean;
+  featured: boolean;
+  sortOrder: number;
+  createdAt: string;
 }
 
 export interface Membership {
@@ -84,7 +97,7 @@ export interface SiteSettings {
   primaryCTA: string;
   secondaryCTA: string;
   socialLinks: Record<string, string>;
-  defaultTheme: ThemeId;
+  darkModeDefault: boolean;
   visibleSections: string[];
   highlightedCampaignId?: string;
   supportAmountsSuggested: number[];
@@ -130,11 +143,32 @@ export interface HomeSectionContent {
   discoverySubtitle: string;
 }
 
+export interface HomeSupportOfferItemContent {
+  amount: number;
+  label: string;
+  benefit: string;
+}
+
+export interface HomeSupportOfferContent {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  items: HomeSupportOfferItemContent[];
+}
+
+export interface HomeFeaturedMissionContent {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+}
+
 export interface HomeCourseItemContent {
   badge: string;
+  status: string;
   title: string;
   description: string;
   href: string;
+  ctaLabel: string;
 }
 
 export interface HomeCoursesContent {
@@ -149,14 +183,31 @@ export interface HomeMusicVideoContent {
   youtubeUrl: string;
 }
 
+export interface HomeMusicTrackContent {
+  category: string;
+  title: string;
+  artist: string;
+  audioUrl: string;
+  coverImage: string;
+  accentColor: string;
+}
+
 export interface HomeMusicContent {
   eyebrow: string;
   title: string;
   subtitle: string;
+  featuredText: string;
   spotifyUrl: string;
   appleMusicUrl: string;
   youtubeChannelUrl: string;
+  tracks: HomeMusicTrackContent[];
   videos: HomeMusicVideoContent[];
+}
+
+export interface HomeCommunityContent {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
 }
 
 export interface CheckoutCopy {
@@ -181,11 +232,14 @@ export interface VipCopy {
 
 export interface HomeContentSettings {
   hero: HomeHeroContent;
+  supportOffer: HomeSupportOfferContent;
+  featuredMission: HomeFeaturedMissionContent;
   supportModes: HomeSupportModeContent[];
   discoveryCards: HomeDiscoveryCardContent[];
   sections: HomeSectionContent;
   courses: HomeCoursesContent;
   music: HomeMusicContent;
+  community: HomeCommunityContent;
 }
 
 export interface PublicContentSettings {

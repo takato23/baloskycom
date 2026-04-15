@@ -17,11 +17,11 @@ export default function Gallery() {
   return (
     <div className="theme-page theme-adapt max-w-6xl mx-auto space-y-12 pb-32 sm:pb-16 px-4 sm:px-0 font-sans">
       <div className="space-y-4">
-        <h1 className="text-4xl sm:text-6xl font-bold font-brutal uppercase text-black flex items-center gap-4">
-          <Sparkles className="w-10 h-10 sm:w-14 sm:h-14 text-[#FF00FF]" />
+        <h1 className="text-4xl sm:text-6xl t-hero text-[var(--black)] flex items-center gap-4">
+          <Sparkles className="w-10 h-10 sm:w-14 sm:h-14 text-[var(--accent)]" />
           Galería IA
         </h1>
-        <p className="text-xl text-black/80 font-bold max-w-2xl">
+        <p className="text-xl t-body max-w-2xl">
           Explorá mis creaciones generadas con Inteligencia Artificial. Podés ver los prompts exactos que usé y votar por tus favoritas.
         </p>
       </div>
@@ -33,44 +33,49 @@ export default function Gallery() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="bg-white border-4 border-black brutal-shadow flex flex-col group"
+            data-hover
+            className="bg-[var(--grey)] border border-[var(--border)] flex flex-col group"
           >
-            <div className="relative aspect-square overflow-hidden border-b-4 border-black">
-              <img 
-                src={image.imageUrl} 
+            <div className="relative aspect-square overflow-hidden border-b border-[var(--border)]">
+              <img
+                src={image.imageUrl}
                 alt={image.title}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute top-4 right-4 bg-white border-4 border-black px-3 py-1 font-bold flex items-center gap-2">
-                <Heart className="w-4 h-4 text-[#FF00FF] fill-[#FF00FF]" />
+              <div className="absolute top-4 right-4 bg-[var(--white)] border border-[var(--border)] px-3 py-1 font-bold flex items-center gap-2 text-[var(--black)]">
+                <Heart className="w-4 h-4 text-[var(--accent)] fill-[var(--accent)]" />
                 {image.votes}
               </div>
             </div>
-            
+
             <div className="p-6 flex flex-col flex-1 space-y-4">
-              <h3 className="text-2xl font-bold uppercase font-brutal">{image.title}</h3>
-              
-              <div className="bg-zinc-100 border-2 border-black p-4 relative group/prompt flex-1">
-                <p className="font-mono text-sm text-black/80 break-words">
+              <h3 className="text-2xl font-bold uppercase font-display tracking-tight text-[var(--black)]">{image.title}</h3>
+
+              <div className="bg-[var(--white)] border border-[var(--border)] p-4 relative group/prompt flex-1">
+                <p className="font-mono text-sm text-[var(--muted)] break-words">
                   {image.prompt}
                 </p>
                 <button
                   onClick={() => handleCopyPrompt(image.id, image.prompt)}
-                  className="absolute top-2 right-2 p-2 bg-white border-2 border-black hover:bg-[#00FF00] transition-colors"
+                  data-hover
+                  className="absolute top-2 right-2 p-2 bg-[var(--grey)] border border-[var(--border)] hover:bg-[var(--accent)] hover:text-white hover:border-[var(--accent)] transition-colors"
                   title="Copiar prompt"
                 >
                   {copiedId === image.id ? (
-                    <Check className="w-4 h-4 text-black" />
+                    <Check className="w-4 h-4" />
                   ) : (
-                    <Copy className="w-4 h-4 text-black" />
+                    <Copy className="w-4 h-4" />
                   )}
                 </button>
               </div>
 
               <button
                 onClick={() => voteGalleryImage(image.id)}
-                className="w-full py-3 bg-[#FF00FF] text-white font-bold uppercase border-4 border-black brutal-shadow-sm hover:translate-y-1 hover:shadow-none transition-all flex items-center justify-center gap-2"
+                data-hover
+                className="w-full py-3 bg-[var(--accent)] text-white font-bold uppercase border border-[var(--accent)] hover:opacity-90 transition-all flex items-center justify-center gap-2"
               >
                 <Heart className="w-5 h-5" />
                 Votar

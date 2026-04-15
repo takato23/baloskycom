@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { api } from '@/services/api';
-import { SiteSettings, Currency, Poll, Post, GalleryImage, BlogPost, ThemeId } from '@/types';
+import { SiteSettings, Currency, Poll, Post, GalleryImage, BlogPost } from '@/types';
 import { normalizeSiteSettings } from '@/content/publicContent';
 
 // Keep existing UI types for now to avoid breaking themes
@@ -42,14 +42,12 @@ export type UserProfile = {
   purchases: any[]; // We'll use any for now to avoid circular deps or complex imports, or just import Purchase
 };
 
-export type Theme = ThemeId;
-
 interface AppState {
   campaigns: Campaign[];
   rewards: Reward[];
   supporters: Supporter[];
   userProfile: UserProfile;
-  theme: Theme;
+  darkMode: boolean;
   settings: SiteSettings | null;
   isLoading: boolean;
   currency: Currency;
@@ -59,7 +57,7 @@ interface AppState {
   blogPosts: BlogPost[];
   newlyUnlockedRewards: string[];
   clearNewlyUnlockedRewards: () => void;
-  setTheme: (theme: Theme) => void;
+  toggleDarkMode: () => void;
   setCurrency: (currency: Currency) => void;
   addContribution: (amount: number, name: string, message: string, campaignId?: string) => void;
   updateCampaign: (campaign: Campaign) => void;
@@ -125,7 +123,7 @@ const mockPosts: Post[] = [
     id: '3',
     title: 'Espacio reservado para recursos reales',
     content: 'Cuando haya un archivo, guía o material concreto para compartir, se publica acá con su acceso correspondiente. Hasta entonces conviene mostrar este bloque como contenido reservado, no como una descarga inventada.',
-    imageUrl: 'https://images.unsplash.com/photo-1605806616949-1e87b487cb2a?q=80&w=800&auto=format&fit=crop',
+    imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=800&auto=format&fit=crop',
     isLocked: true,
     minContributionRequired: 5000,
     createdAt: new Date(Date.now() - 259200000).toISOString(),
@@ -150,7 +148,7 @@ const mockGalleryImages: GalleryImage[] = [
   {
     id: 'g1',
     title: 'Neon Samurai',
-    imageUrl: 'https://images.unsplash.com/photo-1605806616949-1e87b487cb2a?q=80&w=800&auto=format&fit=crop',
+    imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=800&auto=format&fit=crop',
     prompt: '/imagine prompt: A neon samurai standing in a futuristic Tokyo street, raining, cinematic lighting, 8k, highly detailed --ar 16:9',
     votes: 120,
     createdAt: new Date(Date.now() - 86400000).toISOString()
@@ -206,7 +204,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [supporters, setSupporters] = useState<Supporter[]>([]);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile>(initialUserProfile);
-  const [theme, setTheme] = useState<Theme>('brutalist');
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('darkMode');
+    if (saved !== null) return saved === 'true';
+    return true;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [currency, setCurrency] = useState<Currency>('ARS');
   const [polls, setPolls] = useState<Poll[]>(mockPolls);
@@ -259,10 +261,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         .map(r => r.id);
         
       const badges = [];
-      if (totalContributed >= 1000) badges.push('Supporter');
-      if (totalContributed >= 5000) badges.push('Super Fan');
-      if (totalContributed >= 10000) badges.push('Mecenas');
-      if (totalContributed >= 25000) badges.push('Leyenda');
+      if (totalContributed >= 1000) badges.push('Morerial');
+      if (totalContributed >= 5000) badges.push('Cómplice');
+      if (totalContributed >= 25000) badges.push('Mesaza');
 
       setUserProfile({
         ...initialUserProfile,
@@ -277,9 +278,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       });
 
       setSettings(normalizedSettings);
-      if (normalizedSettings.defaultTheme) {
-        setTheme(normalizedSettings.defaultTheme as Theme);
-      }
     } catch (error) {
       console.error("Failed to load data", error);
     } finally {
@@ -290,6 +288,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Dark mode: sync to DOM + localStorage
+  useEffect(() => {
+    document.documentElement.setAttribute('data-mode', darkMode ? 'dark' : 'light');
+    localStorage.setItem('darkMode', String(darkMode));
+  }, [darkMode]);
+
+  const toggleDarkMode = () => setDarkMode(prev => !prev);
 
   const shareCampaign = async (campaign: Campaign) => {
     const url = `${window.location.origin}/checkout/${campaign.id}`;
@@ -345,10 +351,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const newBadges = [];
-    if (newTotal >= 1000) newBadges.push('Supporter');
-    if (newTotal >= 5000) newBadges.push('Super Fan');
-    if (newTotal >= 10000) newBadges.push('Mecenas');
-    if (newTotal >= 25000) newBadges.push('Leyenda');
+    if (newTotal >= 1000) newBadges.push('Morerial');
+    if (newTotal >= 5000) newBadges.push('Cómplice');
+    if (newTotal >= 25000) newBadges.push('Mesaza');
 
     setUserProfile({
       ...userProfile,
@@ -444,14 +449,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
+  const contextValue = useMemo(() => ({
+    campaigns, rewards, supporters, userProfile, darkMode, settings, isLoading, currency, polls, posts,
+    galleryImages, blogPosts,
+    newlyUnlockedRewards, clearNewlyUnlockedRewards,
+    toggleDarkMode, setCurrency, addContribution, updateCampaign, shareCampaign, refreshData: loadData, votePoll, likePost, addComment,
+    voteGalleryImage, addBlogComment
+  }), [
+    campaigns, rewards, supporters, userProfile, darkMode, settings, isLoading, currency, polls, posts,
+    galleryImages, blogPosts, newlyUnlockedRewards,
+  ]);
+
   return (
-    <AppContext.Provider value={{ 
-      campaigns, rewards, supporters, userProfile, theme, settings, isLoading, currency, polls, posts,
-      galleryImages, blogPosts,
-      newlyUnlockedRewards, clearNewlyUnlockedRewards,
-      setTheme, setCurrency, addContribution, updateCampaign, shareCampaign, refreshData: loadData, votePoll, likePost, addComment,
-      voteGalleryImage, addBlogComment
-    }}>
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );

@@ -8,24 +8,24 @@ export interface FanTier {
 
 export const FAN_TIERS: FanTier[] = [
   {
-    id: 'amigo',
-    name: 'Amigo',
+    id: 'morerial',
+    name: 'Morerial',
     minAmount: 1000,
-    benefits: ['Tu perfil pasa al nivel Amigo', 'Desbloqueás publicaciones para aportantes desde este monto'],
+    benefits: ['Entrás al ecosistema', 'Desbloqueás los packs de entrada y las publicaciones para aportantes'],
     color: 'bg-yellow-300'
   },
   {
-    id: 'colaborador',
-    name: 'Colaborador',
+    id: 'complice',
+    name: 'Cómplice',
     minAmount: 5000,
-    benefits: ['Tu perfil pasa al nivel Colaborador', 'Desbloqueás publicaciones y recursos marcados desde este monto'],
+    benefits: ['Sos cómplice oficial', 'Te llevás los packs completos y los recursos marcados'],
     color: 'bg-[#00FF00]'
   },
   {
-    id: 'mecenas',
-    name: 'Mecenas',
+    id: 'mesaza',
+    name: 'Mesaza',
     minAmount: 25000,
-    benefits: ['Tu perfil pasa al nivel Mecenas', 'Desbloqueás todo el contenido bloqueado cargado en la plataforma'],
+    benefits: ['Sos Mesaza', 'Te llevás todo lo que hay subido, más mención personal'],
     color: 'bg-[#FF00FF]'
   }
 ];

@@ -5,12 +5,12 @@ import { useAppContext } from '@/context/AppContext';
 import { formatCurrency } from '@/utils/currency';
 import { useSound } from '@/hooks/useSound';
 import { cn } from '@/lib/utils';
-import { getThemedPageStyles } from '@/themes/pageStyles';
+import { getPageStyles } from '@/themes/pageStyles';
 
 export default function VipFeed() {
-  const { posts, polls, userProfile, currency, votePoll, likePost, addComment, settings, theme } = useAppContext();
+  const { posts, polls, userProfile, currency, votePoll, likePost, addComment, settings } = useAppContext();
   const vipCopy = settings?.content.vip.copy;
-  const styles = getThemedPageStyles(theme);
+  const styles = getPageStyles();
 
   const [activeTab, setActiveTab] = useState<'posts' | 'polls'>('posts');
   const [activeCommentPost, setActiveCommentPost] = useState<string | null>(null);
@@ -48,39 +48,32 @@ export default function VipFeed() {
 
   return (
     <div className={cn('theme-page theme-adapt max-w-7xl mx-auto px-4 sm:px-6 space-y-8 pb-12', styles.shell)}>
-      <section className={cn('p-6 md:p-8', styles.panel)}>
+      <section className="p-6 md:p-8 bg-[var(--grey)] border border-[var(--border)]">
         <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
           <div className="space-y-5">
-            <div className={cn(
-              'inline-flex items-center gap-3 px-4 py-2 border',
-              styles.softPanel,
-              theme === 'minimal' ? 'rounded-full border-black/10 shadow-none' : '',
-              theme === 'terminal' ? 'rounded-none' : ''
-            )}>
-              <Sparkles className="w-4 h-4" />
-              <span className={cn(theme === 'minimal' ? 'normal-case tracking-[0.04em] font-medium' : 'text-xs font-bold uppercase tracking-[0.2em]')}>
-                acceso para aportantes
-              </span>
+            <div className="inline-flex items-center gap-3 px-4 py-2 border border-[var(--border)] bg-[var(--white)]">
+              <Sparkles className="w-4 h-4 text-[var(--accent)]" />
+              <span className="t-eyebrow">acceso para aportantes</span>
             </div>
-            <h1 className={cn('text-4xl md:text-6xl font-bold', styles.pageTitle, theme === 'minimal' && 'leading-[0.92]')}>
+            <h1 className="text-4xl md:text-6xl t-hero text-[var(--black)]">
               {vipCopy?.title}
             </h1>
-            <p className={cn('max-w-2xl text-lg', styles.pageSubtitle)}>
+            <p className="max-w-2xl text-lg t-body">
               {vipCopy?.subtitle}
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className={cn('p-5', styles.softPanel)}>
-              <p className="text-xs uppercase tracking-[0.18em] opacity-60">posts</p>
-              <p className="mt-2 text-3xl font-bold">{posts.length}</p>
+            <div className="p-5 bg-[var(--white)] border border-[var(--border)]">
+              <p className="t-eyebrow">posts</p>
+              <p className="mt-2 text-3xl font-bold text-[var(--black)]">{posts.length}</p>
             </div>
-            <div className={cn('p-5', styles.softPanel)}>
-              <p className="text-xs uppercase tracking-[0.18em] opacity-60">desbloqueados</p>
-              <p className="mt-2 text-3xl font-bold">{unlockedPosts}</p>
+            <div className="p-5 bg-[var(--white)] border border-[var(--border)]">
+              <p className="t-eyebrow">desbloqueados</p>
+              <p className="mt-2 text-3xl font-bold text-[var(--black)]">{unlockedPosts}</p>
             </div>
-            <div className={cn('p-5', styles.contrastPanel)}>
-              <p className="text-xs uppercase tracking-[0.18em] opacity-60">tu nivel</p>
+            <div className="p-5 bg-[var(--black)] text-[var(--white)] border border-[var(--border)]">
+              <p className="t-eyebrow text-[var(--white)]/60">tu nivel</p>
               <p className="mt-2 text-2xl font-bold">{formatCurrency(userProfile.totalContributed, currency)}</p>
             </div>
           </div>
@@ -90,22 +83,24 @@ export default function VipFeed() {
       <div className="flex justify-center gap-3 mb-2">
         <button
           onClick={() => setActiveTab('posts')}
+          data-hover
           className={cn(
-            'px-6 py-3 font-bold transition-all border',
-            activeTab === 'posts' ? styles.accentPanel : styles.secondaryButton,
-            theme === 'minimal' ? 'rounded-full shadow-none normal-case' : '',
-            theme === 'terminal' ? 'rounded-none' : ''
+            'px-6 py-3 font-bold transition-all border border-[var(--border)]',
+            activeTab === 'posts'
+              ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+              : 'bg-[var(--grey)] text-[var(--black)] hover:bg-[var(--black)] hover:text-[var(--white)]'
           )}
         >
           Publicaciones
         </button>
         <button
           onClick={() => setActiveTab('polls')}
+          data-hover
           className={cn(
-            'px-6 py-3 font-bold transition-all border',
-            activeTab === 'polls' ? styles.accentPanel : styles.secondaryButton,
-            theme === 'minimal' ? 'rounded-full shadow-none normal-case' : '',
-            theme === 'terminal' ? 'rounded-none' : ''
+            'px-6 py-3 font-bold transition-all border border-[var(--border)]',
+            activeTab === 'polls'
+              ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+              : 'bg-[var(--grey)] text-[var(--black)] hover:bg-[var(--black)] hover:text-[var(--white)]'
           )}
         >
           Encuestas
@@ -122,19 +117,17 @@ export default function VipFeed() {
                 key={post.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={cn('overflow-hidden relative', styles.panel)}
+                data-hover
+                className="overflow-hidden relative bg-[var(--grey)] border border-[var(--border)]"
               >
                 {!isUnlocked && (
-                  <div className={cn(
-                    'absolute inset-0 z-20 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center',
-                    theme === 'minimal' ? 'bg-[#f7f4ee]/92' : 'bg-white/90'
-                  )}>
-                    <Lock className="w-12 h-12 mb-4" />
-                    <h3 className={cn('text-xl font-bold mb-2', styles.sectionTitle)}>Contenido bloqueado</h3>
-                    <p className={cn('mb-6 max-w-md', styles.pageSubtitle)}>
+                  <div className="absolute inset-0 z-20 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center bg-[var(--white)]/90">
+                    <Lock className="w-12 h-12 mb-4 text-[var(--muted)]" />
+                    <h3 className="text-xl font-bold mb-2 t-section text-[var(--black)]">Contenido bloqueado</h3>
+                    <p className="mb-6 max-w-md t-body">
                       Este post se desbloquea a partir de {formatCurrency(post.minContributionRequired, currency)}.
                     </p>
-                    <button className={cn('px-6 py-3 font-bold transition-colors uppercase', styles.primaryButton)}>
+                    <button data-hover className="px-6 py-3 font-bold transition-colors uppercase bg-[var(--accent)] text-white hover:opacity-90">
                       Aportar ahora
                     </button>
                   </div>
@@ -144,31 +137,32 @@ export default function VipFeed() {
                   <div className="p-6 md:p-7">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <div className={cn('w-10 h-10 flex items-center justify-center font-bold', styles.softPanel)}>
+                        <div className="w-10 h-10 flex items-center justify-center font-bold bg-[var(--white)] border border-[var(--border)] text-[var(--black)]">
                           SB
                         </div>
                         <div>
-                          <h3 className={cn('font-bold uppercase', theme === 'minimal' ? 'normal-case' : '')}>Santi Balosky</h3>
-                          <p className={cn('text-xs', styles.pageSubtitle)}>{new Date(post.createdAt).toLocaleDateString()}</p>
+                          <h3 className="font-bold uppercase text-[var(--black)]">Santi Balosky</h3>
+                          <p className="text-xs text-[var(--muted)]">{new Date(post.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                       {post.isLocked && (
-                        <div className={cn('px-3 py-1 text-xs font-bold flex items-center gap-1 uppercase', styles.badge)}>
+                        <div className="px-3 py-1 text-xs font-bold flex items-center gap-1 uppercase bg-[var(--accent)] text-white">
                           <Unlock className="w-3 h-3" /> Exclusivo
                         </div>
                       )}
                     </div>
 
-                    <h2 className={cn('text-2xl font-bold mb-4', styles.sectionTitle, theme === 'minimal' ? 'normal-case' : '')}>
+                    <h2 className="text-2xl font-bold mb-4 t-section text-[var(--black)]">
                       {post.title}
                     </h2>
-                    <p className={cn('leading-relaxed mb-6', styles.pageSubtitle)}>{post.content}</p>
+                    <p className="leading-relaxed mb-6 t-body">{post.content}</p>
 
                     {post.type === 'ai-prompt' && post.aiPrompt && (
                       <div className="mb-6">
                         <button
                           onClick={() => togglePrompt(post.id)}
-                          className={cn('flex items-center gap-2 px-4 py-2 font-bold uppercase text-sm transition-transform', styles.secondaryButton)}
+                          data-hover
+                          className="flex items-center gap-2 px-4 py-2 font-bold uppercase text-sm transition-all bg-[var(--grey)] text-[var(--black)] border border-[var(--border)] hover:bg-[var(--black)] hover:text-[var(--white)]"
                         >
                           {revealedPrompts.has(post.id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           {revealedPrompts.has(post.id) ? 'Ocultar Prompt' : 'Revelar Prompt'}
@@ -178,7 +172,7 @@ export default function VipFeed() {
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
-                            className={cn('mt-4 p-4 font-mono text-sm break-all', styles.contrastPanel)}
+                            className="mt-4 p-4 font-mono text-sm break-all bg-[var(--black)] text-[var(--white)] border border-[var(--border)]"
                           >
                             {post.aiPrompt}
                           </motion.div>
@@ -192,7 +186,8 @@ export default function VipFeed() {
                           href={post.downloadUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={cn('inline-flex items-center gap-2 px-6 py-3 font-bold uppercase transition-transform', styles.primaryButton)}
+                          data-hover
+                          className="inline-flex items-center gap-2 px-6 py-3 font-bold uppercase transition-all bg-[var(--accent)] text-white hover:opacity-90"
                         >
                           <Download className="w-5 h-5" />
                           Descargar recurso
@@ -200,40 +195,40 @@ export default function VipFeed() {
                       </div>
                     )}
 
-                    <div className="flex items-center gap-6 pt-4 border-t border-current/15">
+                    <div className="flex items-center gap-6 pt-4 border-t border-[var(--border)]">
                       <button
                         onClick={() => handleLike(post.id)}
-                        className={cn('flex items-center gap-2 transition-colors', styles.pageSubtitle)}
+                        className="flex items-center gap-2 transition-colors text-[var(--muted)] hover:text-[var(--accent)]"
                       >
                         <Heart className="w-5 h-5" />
                         <span className="font-medium">{post.likes}</span>
                       </button>
                       <button
                         onClick={() => setActiveCommentPost(activeCommentPost === post.id ? null : post.id)}
-                        className={cn('flex items-center gap-2 transition-colors', styles.pageSubtitle)}
+                        className="flex items-center gap-2 transition-colors text-[var(--muted)] hover:text-[var(--accent)]"
                       >
                         <MessageCircle className="w-5 h-5" />
                         <span className="font-medium">{post.comments?.length || 0} comentarios</span>
                       </button>
-                      <button className={cn('flex items-center gap-2 transition-colors ml-auto', styles.pageSubtitle)}>
+                      <button className="flex items-center gap-2 transition-colors ml-auto text-[var(--muted)] hover:text-[var(--accent)]">
                         <Share2 className="w-5 h-5" />
                       </button>
                     </div>
 
                     {activeCommentPost === post.id && (
-                      <div className="mt-4 pt-4 border-t border-current/15">
+                      <div className="mt-4 pt-4 border-t border-[var(--border)]">
                         <div className="space-y-4 mb-4 max-h-60 overflow-y-auto pr-2">
                           {post.comments?.map((comment) => (
-                            <div key={comment.id} className={cn('p-3 border', styles.softPanel)}>
+                            <div key={comment.id} className="p-3 border border-[var(--border)] bg-[var(--white)]">
                               <div className="flex justify-between items-center mb-1">
-                                <span className="font-bold text-sm uppercase">{comment.author}</span>
-                                <span className={cn('text-xs', styles.pageSubtitle)}>{new Date(comment.createdAt).toLocaleDateString()}</span>
+                                <span className="font-bold text-sm uppercase text-[var(--black)]">{comment.author}</span>
+                                <span className="text-xs text-[var(--muted)]">{new Date(comment.createdAt).toLocaleDateString()}</span>
                               </div>
-                              <p className="text-sm font-medium">{comment.text}</p>
+                              <p className="text-sm font-medium text-[var(--black)]">{comment.text}</p>
                             </div>
                           ))}
                           {(!post.comments || post.comments.length === 0) && (
-                            <p className={cn('text-sm italic', styles.pageSubtitle)}>Sé el primero en comentar.</p>
+                            <p className="text-sm italic t-body">Sé el primero en comentar.</p>
                           )}
                         </div>
                         <div className="flex gap-2">
@@ -259,7 +254,8 @@ export default function VipFeed() {
                                 playSound('pop');
                               }
                             }}
-                            className={cn('px-4 py-2 font-bold uppercase', styles.primaryButton)}
+                            data-hover
+                            className="px-4 py-2 font-bold uppercase bg-[var(--accent)] text-white hover:opacity-90 transition-all"
                           >
                             Enviar
                           </button>
@@ -268,14 +264,14 @@ export default function VipFeed() {
                     )}
                   </div>
 
-                  <div className="border-l border-current/12 p-5 lg:p-6">
-                    <div className={cn('h-full p-5 flex flex-col justify-between', styles.softPanel)}>
+                  <div className="border-l border-[var(--border)] p-5 lg:p-6">
+                    <div className="h-full p-5 flex flex-col justify-between bg-[var(--white)] border border-[var(--border)]">
                       <div>
-                        <p className={cn('text-xs uppercase tracking-[0.18em]', styles.pageSubtitle)}>acceso</p>
-                        <p className="mt-3 text-3xl font-bold">
+                        <p className="t-eyebrow">acceso</p>
+                        <p className="mt-3 text-3xl font-bold text-[var(--black)]">
                           {isUnlocked ? 'Abierto' : formatCurrency(post.minContributionRequired, currency)}
                         </p>
-                        <p className={cn('mt-3 text-sm leading-relaxed', styles.pageSubtitle)}>
+                        <p className="mt-3 text-sm leading-relaxed t-body">
                           {isUnlocked
                             ? 'Ya tenés acceso a esta publicación con tu nivel actual.'
                             : 'Todavía no llegás a este nivel. Cuando lo alcances, se desbloquea.'}
@@ -284,7 +280,7 @@ export default function VipFeed() {
 
                       {post.imageUrl && (
                         <div className="mt-6">
-                          <img src={post.imageUrl} alt={post.title} className="w-full aspect-[4/3] object-cover border border-current/15" />
+                          <img src={post.imageUrl} alt={post.title} loading="lazy" decoding="async" className="w-full aspect-[4/3] object-cover border border-[var(--border)]" />
                         </div>
                       )}
                     </div>
@@ -307,12 +303,12 @@ export default function VipFeed() {
                 key={poll.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={cn('p-6 md:p-7', styles.panel)}
+                className="p-6 md:p-7 bg-[var(--grey)] border border-[var(--border)]"
               >
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className={cn('text-xl font-bold', styles.sectionTitle)}>{poll.question}</h2>
+                  <h2 className="text-xl font-bold t-section text-[var(--black)]">{poll.question}</h2>
                   {!poll.active && (
-                    <span className={cn('px-3 py-1 text-xs font-bold uppercase', styles.contrastPanel)}>Cerrada</span>
+                    <span className="px-3 py-1 text-xs font-bold uppercase bg-[var(--black)] text-[var(--white)]">Cerrada</span>
                   )}
                 </div>
 
@@ -325,9 +321,10 @@ export default function VipFeed() {
                         key={option.id}
                         onClick={() => poll.active && !hasVoted && handleVote(poll.id, option.id)}
                         disabled={!poll.active || hasVoted}
+                        data-hover
                         className={cn(
-                          'w-full relative overflow-hidden p-4 text-left transition-all border',
-                          hasVoted ? styles.softPanel : styles.panel
+                          'w-full relative overflow-hidden p-4 text-left transition-all border border-[var(--border)]',
+                          hasVoted ? 'bg-[var(--white)]' : 'bg-[var(--grey)] hover:border-[var(--accent)]'
                         )}
                       >
                         {hasVoted && (
@@ -335,19 +332,19 @@ export default function VipFeed() {
                             initial={{ width: 0 }}
                             animate={{ width: `${percentage}%` }}
                             transition={{ duration: 1, ease: 'easeOut' }}
-                            className="absolute inset-0 z-0 bg-[#00FF00]/25"
+                            className="absolute inset-0 z-0 bg-[var(--accent)]/15"
                           />
                         )}
                         <div className="relative z-10 flex justify-between items-center gap-4">
-                          <span className="font-medium">{option.text}</span>
-                          {hasVoted && <span className="font-bold">{percentage}%</span>}
+                          <span className="font-medium text-[var(--black)]">{option.text}</span>
+                          {hasVoted && <span className="font-bold text-[var(--accent)]">{percentage}%</span>}
                         </div>
                       </button>
                     );
                   })}
                 </div>
 
-                <div className={cn('mt-6 text-sm flex justify-between', styles.pageSubtitle)}>
+                <div className="mt-6 text-sm flex justify-between t-body">
                   <span>{totalVotes} votos totales</span>
                   {hasVoted && <span>Ya votaste</span>}
                 </div>

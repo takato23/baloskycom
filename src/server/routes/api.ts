@@ -249,6 +249,74 @@ router.delete('/products/:id', requireAuth, (req, res) => {
   res.json({ success: true });
 });
 
+// --- IDEAS ---
+const mapIdeaRow = (row: any) => ({
+  ...row,
+  tags: row?.tags ? (() => { try { return JSON.parse(row.tags); } catch { return []; } })() : [],
+  active: Boolean(row?.active),
+  featured: Boolean(row?.featured)
+});
+
+router.get('/ideas', (_req, res) => {
+  const ideas = db.prepare('SELECT * FROM ideas ORDER BY sortOrder ASC, createdAt DESC').all();
+  res.json(ideas.map(mapIdeaRow));
+});
+
+router.post('/ideas', requireAuth, (req, res) => {
+  const i = req.body;
+  const id = `idea_${Date.now()}`;
+  const createdAt = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO ideas (id, title, description, url, coverImage, category, tags, active, featured, sortOrder, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    i.title,
+    i.description,
+    i.url,
+    i.coverImage || null,
+    i.category || null,
+    i.tags ? JSON.stringify(i.tags) : null,
+    i.active === false ? 0 : 1,
+    i.featured ? 1 : 0,
+    i.sortOrder || 0,
+    createdAt
+  );
+
+  const row = db.prepare('SELECT * FROM ideas WHERE id = ?').get(id);
+  res.json(mapIdeaRow(row));
+});
+
+router.put('/ideas/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  const i = req.body;
+  db.prepare(`
+    UPDATE ideas
+    SET title = ?, description = ?, url = ?, coverImage = ?, category = ?, tags = ?, active = ?, featured = ?, sortOrder = ?
+    WHERE id = ?
+  `).run(
+    i.title,
+    i.description,
+    i.url,
+    i.coverImage || null,
+    i.category || null,
+    i.tags ? JSON.stringify(i.tags) : null,
+    i.active === false ? 0 : 1,
+    i.featured ? 1 : 0,
+    i.sortOrder || 0,
+    id
+  );
+  const row = db.prepare('SELECT * FROM ideas WHERE id = ?').get(id);
+  res.json(mapIdeaRow(row));
+});
+
+router.delete('/ideas/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  db.prepare('DELETE FROM ideas WHERE id = ?').run(id);
+  res.json({ success: true });
+});
+
 // --- MEMBERSHIPS ---
 router.get('/memberships', (req, res) => {
   const memberships = db.prepare('SELECT * FROM memberships ORDER BY sortOrder ASC').all();
@@ -357,7 +425,10 @@ router.get('/rewards', (req, res) => {
 
 // --- MESSAGES ---
 router.get('/messages', (req, res) => {
-  const messages = db.prepare('SELECT * FROM messages ORDER BY createdAt DESC').all();
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '200'), 10) || 200, 1), 500);
+  const messages = db
+    .prepare('SELECT * FROM messages ORDER BY createdAt DESC LIMIT ?')
+    .all(limit);
   res.json(messages.map((m: any) => ({
     ...m,
     isAnonymous: Boolean(m.isAnonymous),

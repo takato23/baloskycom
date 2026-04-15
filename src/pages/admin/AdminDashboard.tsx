@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Check, X, Eye, EyeOff, Wand2 } from 'lucide-react';
 import { api } from '@/services/api';
-import { Campaign, SupporterMessage, Product, Membership } from '@/types';
+import { Campaign, SupporterMessage, Product, Membership, Idea } from '@/types';
 import { Modal } from '@/components/Modal';
 
 export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab?: string }) {
@@ -10,6 +10,7 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
   const [messages, setMessages] = useState<SupporterMessage[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [ideas, setIdeas] = useState<Idea[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
@@ -22,6 +23,10 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
   const [editingMembership, setEditingMembership] = useState<Partial<Membership> | null>(null);
 
+  const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
+  const [editingIdea, setEditingIdea] = useState<Partial<Idea> | null>(null);
+  const [ideaTagsInput, setIdeaTagsInput] = useState('');
+
   useEffect(() => {
     setActiveTab(defaultTab);
   }, [defaultTab]);
@@ -29,16 +34,18 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [c, m, p, mem] = await Promise.all([
+        const [c, m, p, mem, i] = await Promise.all([
           api.getCampaigns(),
           api.getMessages(),
           api.getProducts(),
-          api.getMemberships()
+          api.getMemberships(),
+          api.getIdeas()
         ]);
         setCampaigns(c);
         setMessages(m);
         setProducts(p);
         setMemberships(mem);
+        setIdeas(i);
       } catch (error) {
         console.error('Error fetching admin data:', error);
       } finally {
@@ -108,6 +115,54 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
       setEditingMembership(null);
     } catch (error) {
       console.error('Error saving membership:', error);
+    }
+  };
+
+  const openIdeaModal = (idea: Partial<Idea> | null) => {
+    if (idea === null) {
+      setEditingIdea({ active: true, featured: false, sortOrder: 0 });
+      setIdeaTagsInput('');
+    } else {
+      setEditingIdea(idea);
+      setIdeaTagsInput((idea.tags || []).join(', '));
+    }
+    setIsIdeaModalOpen(true);
+  };
+
+  const handleSaveIdea = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingIdea) return;
+    try {
+      const payload: Partial<Idea> = {
+        ...editingIdea,
+        tags: ideaTagsInput
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      };
+      if (editingIdea.id) {
+        const updated = await api.updateIdea(editingIdea.id, payload);
+        setIdeas(ideas.map((i) => (i.id === updated.id ? updated : i)));
+      } else {
+        const created = await api.createIdea(payload);
+        setIdeas([...ideas, created]);
+      }
+      setIsIdeaModalOpen(false);
+      setEditingIdea(null);
+      setIdeaTagsInput('');
+    } catch (error) {
+      console.error('Error saving idea:', error);
+    }
+  };
+
+  const handleDeleteIdea = async (id: string) => {
+    if (window.confirm('¿Eliminar esta idea?')) {
+      try {
+        await api.deleteIdea(id);
+        setIdeas(ideas.filter((i) => i.id !== id));
+      } catch (error) {
+        console.error('Error deleting idea:', error);
+      }
     }
   };
 
@@ -315,6 +370,76 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Ideas Tab */}
+      {activeTab === 'ideas' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-display font-bold text-white">Ideas</h2>
+              <p className="text-sm text-zinc-500 mt-1">
+                Webapps, investigaciones de ChatGPT, experimentos — cada idea es una tarjeta que linkea afuera.
+              </p>
+            </div>
+            <button
+              onClick={() => openIdeaModal(null)}
+              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva Idea
+            </button>
+          </div>
+
+          <div className="grid gap-4">
+            {ideas.map(idea => (
+              <div key={idea.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-lg font-bold text-white truncate">{idea.title}</h3>
+                    {idea.featured && (
+                      <span className="px-2 py-0.5 bg-violet-500/20 text-violet-300 text-[10px] font-bold rounded-full uppercase tracking-wide">Destacada</span>
+                    )}
+                    {!idea.active && (
+                      <span className="px-2 py-0.5 bg-zinc-700 text-zinc-300 text-[10px] font-bold rounded-full uppercase tracking-wide">Oculta</span>
+                    )}
+                  </div>
+                  <p className="text-zinc-400 text-sm mt-1 truncate">
+                    {idea.category ? `${idea.category} • ` : ''}{idea.url}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={idea.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                    title="Abrir"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </a>
+                  <button
+                    onClick={() => openIdeaModal(idea)}
+                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteIdea(idea.id)}
+                    className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {ideas.length === 0 && (
+              <div className="border border-dashed border-zinc-800 rounded-2xl p-10 text-center text-sm text-zinc-500">
+                Todavía no publicaste ninguna idea.
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -571,6 +696,120 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <button type="button" onClick={() => setIsMembershipModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-white">Cancelar</button>
+            <button type="submit" className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl">Guardar</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Idea Modal */}
+      <Modal
+        isOpen={isIdeaModalOpen}
+        onClose={() => { setIsIdeaModalOpen(false); setEditingIdea(null); setIdeaTagsInput(''); }}
+        title={editingIdea?.id ? 'Editar Idea' : 'Nueva Idea'}
+      >
+        <form onSubmit={handleSaveIdea} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Título</label>
+            <input
+              type="text"
+              required
+              value={editingIdea?.title || ''}
+              onChange={e => setEditingIdea({ ...editingIdea, title: e.target.value })}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white"
+              placeholder="Simulador de Fases Lunares"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Descripción</label>
+            <textarea
+              required
+              rows={3}
+              value={editingIdea?.description || ''}
+              onChange={e => setEditingIdea({ ...editingIdea, description: e.target.value })}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white resize-none"
+              placeholder="De qué va esta idea, por qué la hiciste, qué vas a encontrar si entrás..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">URL externa</label>
+            <input
+              type="url"
+              required
+              value={editingIdea?.url || ''}
+              onChange={e => setEditingIdea({ ...editingIdea, url: e.target.value })}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white"
+              placeholder="https://..."
+            />
+            <p className="text-xs text-zinc-500 mt-1">A dónde manda el click en la tarjeta (Vercel, ChatGPT share, Notion, etc.).</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">URL de la imagen (opcional)</label>
+            <input
+              type="url"
+              value={editingIdea?.coverImage || ''}
+              onChange={e => setEditingIdea({ ...editingIdea, coverImage: e.target.value })}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white"
+              placeholder="https://..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1">Categoría</label>
+              <input
+                type="text"
+                value={editingIdea?.category || ''}
+                onChange={e => setEditingIdea({ ...editingIdea, category: e.target.value })}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white"
+                placeholder="Webapp, Investigación, Experimento..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1">Orden</label>
+              <input
+                type="number"
+                value={editingIdea?.sortOrder ?? 0}
+                onChange={e => setEditingIdea({ ...editingIdea, sortOrder: Number(e.target.value) })}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Tags (separados por coma)</label>
+            <input
+              type="text"
+              value={ideaTagsInput}
+              onChange={e => setIdeaTagsInput(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white"
+              placeholder="astronomía, experimento, vercel"
+            />
+          </div>
+
+          <div className="flex items-center gap-6 pt-2">
+            <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <input
+                type="checkbox"
+                checked={editingIdea?.active !== false}
+                onChange={e => setEditingIdea({ ...editingIdea, active: e.target.checked })}
+              />
+              Visible en el sitio
+            </label>
+            <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <input
+                type="checkbox"
+                checked={Boolean(editingIdea?.featured)}
+                onChange={e => setEditingIdea({ ...editingIdea, featured: e.target.checked })}
+              />
+              Destacada
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <button type="button" onClick={() => { setIsIdeaModalOpen(false); setEditingIdea(null); setIdeaTagsInput(''); }} className="px-4 py-2 text-zinc-400 hover:text-white">Cancelar</button>
             <button type="submit" className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl">Guardar</button>
           </div>
         </form>

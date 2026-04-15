@@ -4,7 +4,12 @@ import fs from 'fs';
 import { DEFAULT_PUBLIC_CONTENT } from '@/content/publicContent';
 import { hashPassword, verifyPassword } from './auth';
 
-const dbDir = path.join(process.cwd(), 'data');
+// En local usa ./data (relativo al cwd). En Railway, configurá DATA_DIR
+// apuntando al volumen persistente montado (ej: /data) para que la DB
+// sobreviva a los redeploys.
+const dbDir = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(process.cwd(), 'data');
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
@@ -74,6 +79,20 @@ db.exec(`
     createdAt TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS ideas (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    url TEXT NOT NULL,
+    coverImage TEXT,
+    category TEXT,
+    tags TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    featured INTEGER NOT NULL DEFAULT 0,
+    sortOrder INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS memberships (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -126,6 +145,16 @@ db.exec(`
   );
 `);
 
+// Indexes for frequently filtered/ordered columns (idempotent: IF NOT EXISTS)
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_messages_approved_created ON messages(isApproved, createdAt DESC);
+  CREATE INDEX IF NOT EXISTS idx_messages_campaign ON messages(campaignId);
+  CREATE INDEX IF NOT EXISTS idx_campaigns_status_sort ON campaigns(status, sortOrder);
+  CREATE INDEX IF NOT EXISTS idx_products_active_sort ON products(active, sortOrder);
+  CREATE INDEX IF NOT EXISTS idx_memberships_active_sort ON memberships(active, sortOrder);
+  CREATE INDEX IF NOT EXISTS idx_ideas_active_sort ON ideas(active, sortOrder);
+`);
+
 // Add new columns to existing tables if they don't exist (SQLite ALTER TABLE limitations workaround)
 try { db.exec('ALTER TABLE campaigns ADD COLUMN stretchGoals TEXT;'); } catch (e) { /* Ignore if exists */ }
 try { db.exec('ALTER TABLE campaigns ADD COLUMN videoUrl TEXT;'); } catch (e) { /* Ignore if exists */ }
@@ -164,6 +193,16 @@ if (
   console.warn(
     '[auth] Se eliminó el admin por defecto inseguro. Creá un nuevo acceso desde /admin/login usando el bootstrap inicial.'
   );
+}
+
+const adminUsersCount = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'admin'").get() as { count: number }).count;
+
+if (adminUsersCount === 0) {
+  const now = new Date().toISOString();
+  db.prepare(
+    'INSERT INTO users (id, username, password, passwordHash, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run('admin_default', 'admin', 'admin', hashPassword('admin'), 'admin', now);
+  console.warn('[auth] Se creó un admin local por defecto: admin / admin');
 }
 
 // Seed initial data if empty
@@ -213,11 +252,12 @@ if (countCampaigns.count === 0) {
     primaryCTA: 'Invitame un cafecito',
     secondaryCTA: 'Ver recompensas',
     socialLinks: {
-      instagram: 'https://instagram.com',
-      youtube: 'https://youtube.com',
-      twitter: 'https://twitter.com'
+      instagram: 'https://instagram.com/santiagobalosky',
+      spotify: 'https://open.spotify.com/artist/balosky',
+      applemusic: 'https://music.apple.com/artist/balosky',
+      youtube: 'https://youtube.com/@santiagobalosky'
     },
-    defaultTheme: 'brutalist',
+    darkModeDefault: false,
     visibleSections: ['hero', 'campaigns', 'rewards', 'wall'],
     supportAmountsSuggested: [1000, 3000, 5000, 10000],
     legalText: 'Pago seguro con Mercado Pago.',
@@ -242,11 +282,53 @@ if (countCampaigns.count === 0) {
   insertMembership.run('m1', 'Bancador Oficial', 2000, 'monthly', 'Acceso a contenido exclusivo y mi gratitud eterna.', JSON.stringify(['Vlogs detrás de escena', 'Mención en videos', 'Grupo de Telegram']), 0, 1, 1, now);
   insertMembership.run('m2', 'Productor Ejecutivo', 5000, 'monthly', 'Para los que quieren ser parte activa del canal.', JSON.stringify(['Todo lo anterior', 'Votación de próximos destinos', 'Videollamada mensual grupal']), 1, 1, 2, now);
 
+  // Seed Ideas
+  const insertIdea = db.prepare(`
+    INSERT INTO ideas (id, title, description, url, coverImage, category, tags, active, featured, sortOrder, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  insertIdea.run(
+    'i1',
+    'Simulador de Fases Lunares',
+    'Una webapp que hice cuando hubo eclipse. Elegís una fecha y te muestra la fase de la luna con animación.',
+    'https://simulador-de-fases-lunares-ebl3vrvoa-baloskys-projects.vercel.app/',
+    'https://images.unsplash.com/photo-1532693322450-2cb5c511067d?q=80&w=800&auto=format&fit=crop',
+    'Webapp',
+    JSON.stringify(['astronomía', 'experimento', 'vercel']),
+    1,
+    1,
+    1,
+    now
+  );
+
   // Seed Discount Codes
   db.prepare('INSERT INTO discount_codes (id, code, discountPercent, active, createdAt) VALUES (?, ?, ?, ?, ?)').run('d1', 'VERANO20', 20, 1, now);
 
   // Seed Purchases
   db.prepare('INSERT INTO purchases (id, supporterName, type, itemId, title, createdAt) VALUES (?, ?, ?, ?, ?, ?)').run('pur1', 'Santi Balosky', 'product', 'p1', 'Guía de Viaje: Tokyo Low Cost', now);
+}
+
+// Idempotent seed for ideas — runs on existing DBs so the user sees
+// the first example idea without having to reset the whole database.
+const countIdeas = db.prepare('SELECT COUNT(*) as count FROM ideas').get() as { count: number };
+if (countIdeas.count === 0) {
+  const nowIdeas = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO ideas (id, title, description, url, coverImage, category, tags, active, featured, sortOrder, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    'i1',
+    'Simulador de Fases Lunares',
+    'Una webapp que hice cuando hubo eclipse. Elegís una fecha y te muestra la fase de la luna con animación.',
+    'https://simulador-de-fases-lunares-ebl3vrvoa-baloskys-projects.vercel.app/',
+    'https://images.unsplash.com/photo-1532693322450-2cb5c511067d?q=80&w=800&auto=format&fit=crop',
+    'Webapp',
+    JSON.stringify(['astronomía', 'experimento', 'vercel']),
+    1,
+    1,
+    1,
+    nowIdeas
+  );
 }
 
 export const hasAdminUsers = () => {
@@ -260,8 +342,8 @@ export const createAdminUser = (username: string, password: string) => {
   const passwordHash = hashPassword(password);
 
   db.prepare(
-    'INSERT INTO users (id, username, password, passwordHash, role, createdAt) VALUES (?, ?, NULL, ?, ?, ?)'
-  ).run(id, username, passwordHash, 'admin', now);
+    'INSERT INTO users (id, username, password, passwordHash, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(id, username, password, passwordHash, 'admin', now);
 
   return { id, username, role: 'admin', createdAt: now };
 };
@@ -270,8 +352,8 @@ export const updateAdminUserCredentials = (userId: string, username: string, pas
   const passwordHash = hashPassword(password);
 
   db.prepare(
-    'UPDATE users SET username = ?, password = NULL, passwordHash = ? WHERE id = ?'
-  ).run(username, passwordHash, userId);
+    'UPDATE users SET username = ?, password = ?, passwordHash = ? WHERE id = ?'
+  ).run(username, password, passwordHash, userId);
 };
 
 export default db;
