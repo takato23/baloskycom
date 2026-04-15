@@ -1,8 +1,7 @@
 import {
   PublicContentSettings,
   SiteSettings,
-} from '@/types';
-
+} from '../types/index.js';
 export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
   home: {
     hero: {
