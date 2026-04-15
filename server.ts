@@ -1,5 +1,4 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -25,8 +24,8 @@ async function setupVite() {
   if (viteLocked || process.env.NODE_ENV === 'production') return;
   viteLocked = true;
 
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
+  const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({server: { middlewareMode: true },
     appType: 'spa',
   });
   app.use(vite.middlewares);
