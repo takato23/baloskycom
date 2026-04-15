@@ -1,9 +1,7 @@
 import express from 'express';
-import db, { createAdminUser, hasAdminUsers, updateAdminUserCredentials } from '../db';
-import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
+import db, { createAdminUser, hasAdminUsers, updateAdminUserCredentials } from '../db.js';import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
 import jwt from 'jsonwebtoken';
-import { verifyPassword } from '../auth';
-
+import { verifyPassword } from '../auth.js';
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-local-dev';
 
