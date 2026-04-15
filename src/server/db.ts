@@ -1,7 +1,6 @@
 import postgres from 'postgres';
 import { DEFAULT_PUBLIC_CONTENT } from '@/content/publicContent';
-import { hashPassword, verifyPassword } from './auth';
-
+import { hashPassword, verifyPassword } from './auth.js';
 // Map of camelCase column names to snake_case for conversions
 const COLUMN_MAP: Record<string, string> = {
   shortDescription: 'short_description',
