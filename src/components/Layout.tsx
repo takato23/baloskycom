@@ -7,6 +7,8 @@ import { motion } from 'motion/react';
 import { MusicPlayerProvider } from '@/context/MusicPlayerContext';
 import MusicPlayerDock from '@/components/music/MusicPlayerDock';
 import KonamiEasterEgg from '@/components/effects/KonamiEasterEgg';
+import ModoHomerEasterEgg from '@/components/effects/ModoHomerEasterEgg';
+import MascotCompanion from '@/components/effects/MascotCompanion';
 import { useMagnetic } from '@/hooks/useMagnetic';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
@@ -134,7 +136,13 @@ export default function Layout() {
 
       <header className={cn("theme-header sticky top-0 z-50 backdrop-blur-xl border-b border-[var(--black)]/10 bg-[var(--white)]/90 transition-transform duration-300", navHidden ? '-translate-y-full' : 'translate-y-0')}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-[4.5rem] min-h-[4.5rem] flex items-center justify-between gap-6">
-          <Link to="/" className="flex items-baseline gap-0.5 group shrink-0">
+          <Link
+            to="/"
+            className="flex items-baseline gap-0.5 group shrink-0"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('balosky:logo-click'));
+            }}
+          >
             <span
               className="font-black tracking-[-0.04em] text-[1.75rem] sm:text-[2rem] leading-none text-[var(--black)] transition-colors group-hover:text-[var(--accent)]"
               style={{ fontFamily: 'var(--font-display, Inter Tight), Inter, sans-serif' }}
@@ -331,6 +339,8 @@ export default function Layout() {
         ↑
       </button>
       <KonamiEasterEgg />
+      <ModoHomerEasterEgg />
+      <MascotCompanion />
       </div>
     </MusicPlayerProvider>
   );
