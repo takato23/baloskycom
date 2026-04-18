@@ -1244,42 +1244,15 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Fallback if no URLs configured */}
+                  {/* Fallback if no URLs configured — show a "próximamente" placeholder
+                      instead of dead href="#" links that lead nowhere. */}
                   {!music.spotifyUrl && !music.appleMusicUrl && !music.youtubeChannelUrl && (
-                    <>
-                      <a
-                        href="#"
-                        className="flex items-center justify-between p-5 border border-[var(--border)] hover:border-[#1DB954] hover:bg-[#1DB954]/5 transition-all"
-                        data-hover
-                      >
-                        <span className="font-bold tracking-tight">Spotify</span>
-                        <ExternalLink size={16} className="text-[var(--muted)]" />
-                      </a>
-                      <a
-                        href="#"
-                        className="flex items-center justify-between p-5 border border-[var(--border)] hover:border-[var(--black)] transition-all"
-                        data-hover
-                      >
-                        <span className="font-bold tracking-tight">Apple Music</span>
-                        <ExternalLink size={16} className="text-[var(--muted)]" />
-                      </a>
-                      <a
-                        href="#"
-                        className="flex items-center justify-between p-5 border border-[var(--border)] hover:border-[#FF0000] hover:bg-[#FF0000]/5 transition-all"
-                        data-hover
-                      >
-                        <span className="font-bold tracking-tight">YouTube</span>
-                        <ExternalLink size={16} className="text-[var(--muted)]" />
-                      </a>
-                      <a
-                        href="#"
-                        className="flex items-center justify-between p-5 border border-[var(--border)] hover:border-[var(--accent)] transition-all"
-                        data-hover
-                      >
-                        <span className="font-bold tracking-tight">SoundCloud</span>
-                        <ExternalLink size={16} className="text-[var(--muted)]" />
-                      </a>
-                    </>
+                    <div className="p-8 border border-dashed border-[var(--border)] text-center">
+                      <p className="font-bold tracking-tight text-lg mb-1">próximamente</p>
+                      <p className="text-xs text-[var(--muted)] font-mono tracking-[0.14em] uppercase">
+                        estamos subiendo la música a las plataformas
+                      </p>
+                    </div>
                   )}
                 </div>
               </motion.div>

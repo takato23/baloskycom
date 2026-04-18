@@ -1,350 +1,873 @@
-import React, { useMemo, useState } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { ArrowLeft, CreditCard, Wand2 } from 'lucide-react';
-import { useAppContext } from '@/context/AppContext';
-import { cn } from '@/lib/utils';
+import { useEffect, useMemo, useState, FormEvent } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@/services/api';
-import { getPageStyles } from '@/themes/pageStyles';
-import InnerPageNav from '@/components/InnerPageNav';
 
 /**
- * Checkout — refactor "1 botón = 1 acción" (abril 2026).
+ * Checkout — "single question per screen" flow (mockup-2 port).
  *
- * Antes este componente manejaba 4 secciones (destino / monto / encargo /
- * mensaje) con sidebar sticky, código de descuento y upload de imagen. La
- * mayoría de ese flujo no tenía sentido porque cada CTA del home ya sabe
- * exactamente qué es lo que va a comprar el usuario — no necesita elegir
- * campaña, ni el monto si ya clickeó un botón con precio.
+ * Replaces the old multi-section form. Ported from
+ * `design-mockups/checkout/mockup-2-single-question.html` 1:1 in structure
+ * (progress dots, step label, fixed bottom CTA, ←-back) and ties it to the
+ * real backend endpoints:
  *
- * Ahora esta página sólo maneja 2 modos:
+ *   · One-time payments (cafecito / encargo / producto) → `api.createPreference`
+ *   · Recurring subscriptions (baloskiers) → `api.createSubscription`
  *
- *   `mode=libre`  (default)
- *     - El usuario eligió "aportar libre" o aterrizó sin parámetros.
- *     - Chips de monto ($2k / $5k / $10k / otro) + nombre + mensaje.
+ * The flow adapts to the URL mode:
  *
- *   `mode=encargo`
- *     - Llega desde un CTA tipo "canción con IA" con `amount` fijo en la URL.
- *     - El monto no se edita, pero sí se pide un pedido (textarea required).
+ *   /checkout                          → full 4-step: mission → amount → datos → confirm
+ *   /checkout?mode=cafecito            → amount (chips + custom) → datos → confirm
+ *   /checkout?mode=cafecito&amount=2000→ amount pre-selected, datos → confirm
+ *   /checkout?mode=encargo&amount=25000→ fixed amount, pedido (required) → datos → confirm
+ *   /checkout?mode=baloskiers          → tier → email (required) → confirm
+ *   /checkout?mode=baloskiers&tier=orbita
+ *                                       → tier pre-selected, email → confirm
+ *   /checkout?mode=producto&id=xxx     → fixed price (from catalog), datos → confirm
  *
- * El resto de los CTAs del home (cafecito, pack-images, zoom, pack-walls)
- * NUNCA llegan acá — van directo a `/api/checkout/quick?mode=...` que hace
- * 302 a Mercado Pago sin página intermedia. Ver `server/routes/api.ts`.
+ * Visual language is pulled directly from the mockup CSS so the feel survives
+ * the port: Inter Tight display, JetBrains Mono mono, accent #FA5D29, panels
+ * #141110, borders rgba(255,255,255,0.15). Everything sits inside a 440px
+ * shell so the mobile treatment reads identically to the mockup on a phone,
+ * and looks centered/contained on desktop.
  */
 
-type Mode = 'libre' | 'encargo';
+type Mission = 'cafecito' | 'encargo' | 'baloskiers' | 'producto';
 
-const SUGGESTED_AMOUNTS_LIBRE = [2000, 5000, 10000, 25000];
+type MissionDef = {
+  id: Mission;
+  icon: string;
+  title: string;
+  sub: string;
+};
+
+const MISSIONS: MissionDef[] = [
+  { id: 'cafecito',   icon: '☕', title: 'Cafecito',    sub: 'aporte libre a lo que Santi esté haciendo' },
+  { id: 'encargo',    icon: '◈', title: 'Encargo IA',  sub: 'un pedido concreto + IA mágica' },
+  { id: 'baloskiers', icon: '⌘', title: 'Baloskiers',  sub: 'membresía mensual · contenido exclusivo' },
+  { id: 'producto',   icon: '◎', title: 'Del muro',    sub: 'un producto del catálogo' },
+];
+
+type Tier = { id: 'base' | 'orbita' | 'cerrada'; name: string; amount: number; blurb: string };
+const TIERS: Tier[] = [
+  { id: 'base',    name: 'Base',           amount: 3000,  blurb: 'demos + muro privado · 10% off' },
+  { id: 'orbita',  name: 'Órbita',         amount: 9000,  blurb: 'vivo mensual · 25% off · early drops' },
+  { id: 'cerrada', name: 'Órbita cerrada', amount: 25000, blurb: 'zoom 1:1 trimestral · merch físico' },
+];
+
+type AmountChip = { value: number; label: string };
+const AMOUNT_CHIPS_CAFECITO: AmountChip[] = [
+  { value: 2000,   label: 'cafecito' },
+  { value: 5000,   label: 'para 2 cafés' },
+  { value: 10000,  label: 'el almuerzo' },
+  { value: 25000,  label: 'una canción IA' },
+];
+
+// For encargo the "suggested" row is the real product price list from the
+// home. When a card on the home links here with amount=N, we jump straight
+// past this step, but if someone lands on /checkout?mode=encargo without a
+// preset amount we show these as the menu.
+const AMOUNT_CHIPS_ENCARGO: AmountChip[] = [
+  { value: 25000,  label: 'canción IA' },
+  { value: 80000,  label: 'pack 5 imágenes' },
+  { value: 99000,  label: 'zoom 1:1 · 45min' },
+  { value: 150000, label: 'pedido custom' },
+];
+
 const MIN_AMOUNT = 500;
 
 export default function Checkout() {
-  const { campaignId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { settings } = useAppContext();
-  const checkoutCopy = settings?.content.checkout.copy;
-  const styles = getPageStyles();
 
-  // Mode + amount derivan de la URL y no cambian después.
-  const mode: Mode = useMemo(() => {
-    const raw = searchParams.get('mode')?.trim();
-    return raw === 'encargo' ? 'encargo' : 'libre';
-  }, [searchParams]);
-
-  const urlAmount = useMemo(() => {
+  // ---------------- URL → initial state ------------------------------------
+  const urlMode = searchParams.get('mode') as Mission | null;
+  const urlAmount = (() => {
     const raw = searchParams.get('amount');
     if (!raw) return null;
     const n = Number.parseInt(raw, 10);
     return Number.isFinite(n) && n > 0 ? n : null;
-  }, [searchParams]);
+  })();
+  const urlTier = searchParams.get('tier') as Tier['id'] | null;
+  const urlProductId = searchParams.get('id');
 
-  // Campaña destino: siempre c3 (cafecito = catch-all) a menos que el CTA
-  // diga explícitamente otra. No damos al usuario la opción de elegir —
-  // eso lo decide el botón de origen.
-  const targetCampaignId = (searchParams.get('campaign')?.trim() || campaignId || 'c3');
+  const missionPreset = MISSIONS.some((m) => m.id === urlMode) ? (urlMode as Mission) : null;
 
-  const [amount, setAmount] = useState<number>(
-    mode === 'encargo' ? (urlAmount ?? 25000) : (urlAmount ?? 2000)
+  // ---------------- Flow state ---------------------------------------------
+  const [mission, setMission] = useState<Mission | null>(missionPreset);
+  const [amount, setAmount] = useState<number>(urlAmount ?? 0);
+  const [customAmount, setCustomAmount] = useState<string>('');
+  const [tier, setTier] = useState<Tier | null>(
+    urlTier ? TIERS.find((t) => t.id === urlTier) ?? null : null,
   );
-  const [customAmount, setCustomAmount] = useState<string>(
-    urlAmount && !SUGGESTED_AMOUNTS_LIBRE.includes(urlAmount) ? String(urlAmount) : ''
-  );
-  const [name, setName] = useState('');
-  const [message, setMessage] = useState('');
   const [pedido, setPedido] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+
+  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  const amountError = amount < MIN_AMOUNT ? `El monto mínimo es $${MIN_AMOUNT}` : '';
-  const pedidoError = mode === 'encargo' && pedido.trim().length < 10
-    ? 'Contame qué querés — mínimo 10 caracteres'
-    : '';
+  // ---------------- Steps --------------------------------------------------
+  // We compute the step list dynamically based on what's already been filled
+  // from the URL. The same `step` cursor walks through whichever remain.
+  type StepId = 'mission' | 'tier' | 'amount' | 'pedido' | 'email' | 'datos' | 'confirm';
 
-  const handleAmountSelect = (value: number) => {
-    setAmount(value);
+  const steps: StepId[] = useMemo(() => {
+    const s: StepId[] = [];
+    if (!missionPreset) s.push('mission');
+
+    const current: Mission | null = mission ?? missionPreset;
+    if (!current) {
+      // User hasn't picked yet — just show the mission step until they do.
+      return s.length ? s : ['mission'];
+    }
+
+    if (current === 'baloskiers') {
+      if (!urlTier) s.push('tier');
+      s.push('email');
+    } else if (current === 'encargo') {
+      if (!urlAmount) s.push('amount');
+      s.push('pedido');
+      s.push('datos');
+    } else if (current === 'cafecito') {
+      if (!urlAmount) s.push('amount');
+      s.push('datos');
+    } else if (current === 'producto') {
+      // Product price always comes from URL (?amount=xxx). If it didn't,
+      // we'd need a catalog step — for now fall back to amount.
+      if (!urlAmount) s.push('amount');
+      s.push('datos');
+    }
+    s.push('confirm');
+    return s;
+  }, [mission, missionPreset, urlAmount, urlTier]);
+
+  const [stepIdx, setStepIdx] = useState(0);
+  const step: StepId = steps[Math.min(stepIdx, steps.length - 1)] ?? 'mission';
+  const totalSteps = steps.length;
+
+  // If the user picks a mission mid-flow, make sure we don't jump past the
+  // rebuilt steps array. We also reset the cursor to the first *remaining*
+  // step any time the shape of steps changes.
+  useEffect(() => {
+    if (stepIdx >= steps.length) setStepIdx(steps.length - 1);
+  }, [steps, stepIdx]);
+
+  // ---------------- Derived -----------------------------------------------
+  const currentMission = mission ?? missionPreset;
+  const effectiveAmount = currentMission === 'baloskiers' ? tier?.amount ?? 0 : amount;
+
+  const amountValid = effectiveAmount >= MIN_AMOUNT;
+  const pedidoValid = pedido.trim().length >= 10;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  // Can we proceed from the *current* step?
+  const canAdvance = (() => {
+    switch (step) {
+      case 'mission': return !!mission;
+      case 'tier':    return !!tier;
+      case 'amount':  return amountValid;
+      case 'pedido':  return pedidoValid;
+      case 'email':   return emailValid;
+      case 'datos':   return true; // optional
+      case 'confirm': return true;
+      default: return false;
+    }
+  })();
+
+  // ---------------- Handlers ----------------------------------------------
+  const goBack = () => {
+    if (stepIdx === 0) {
+      navigate(-1);
+      return;
+    }
+    setStepIdx((i) => Math.max(0, i - 1));
+  };
+
+  const goNext = () => {
+    if (!canAdvance) return;
+    if (step === 'confirm') {
+      void handleSubmit();
+      return;
+    }
+    setStepIdx((i) => Math.min(steps.length - 1, i + 1));
+  };
+
+  const handleAmountChip = (v: number) => {
+    setAmount(v);
     setCustomAmount('');
   };
-
-  const handleCustomAmount = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '');
-    setCustomAmount(raw);
-    setAmount(raw ? parseInt(raw, 10) : 0);
+  const handleCustomAmount = (raw: string) => {
+    const digits = raw.replace(/\D/g, '');
+    setCustomAmount(digits);
+    setAmount(digits ? parseInt(digits, 10) : 0);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (amountError || pedidoError) return;
-
+  async function handleSubmit() {
     setSubmitError('');
-    setIsProcessing(true);
-
+    setSubmitting(true);
     try {
-      const title = mode === 'encargo'
-        ? `Encargo · Balosky`
-        : `Aporte libre · Balosky`;
+      if (currentMission === 'baloskiers') {
+        if (!tier) throw new Error('Falta elegir el tier.');
+        const resp = await api.createSubscription(tier.id, email.trim().toLowerCase());
+        const redirect = resp.initPoint || resp.sandboxInitPoint;
+        if (!redirect) throw new Error('Mercado Pago no devolvió link.');
+        window.location.href = redirect;
+        return;
+      }
 
-      const finalMessage = mode === 'encargo'
+      // One-time payments (cafecito, encargo, producto)
+      const title = currentMission === 'encargo'
+        ? 'Encargo · Balosky'
+        : currentMission === 'producto'
+        ? 'Producto · Balosky'
+        : 'Aporte · Balosky';
+
+      const finalMessage = currentMission === 'encargo'
         ? `[ENCARGO]\nPedido: ${pedido}\n\n${message ? `Mensaje: ${message}` : ''}`.trim()
         : message;
 
-      const response = await api.createPreference(
-        amount,
+      const campaignId = urlProductId || 'c3'; // c3 = cafecito catch-all
+      const resp = await api.createPreference(
+        effectiveAmount,
         title,
-        targetCampaignId,
-        name,
-        finalMessage
+        campaignId,
+        name || undefined,
+        finalMessage || undefined,
       );
-
-      const target = response.init_point || response.sandbox_init_point;
-      if (!target) throw new Error('No init_point received');
-      window.location.href = target;
-    } catch (error) {
-      console.error('Error creating preference:', error);
-      setSubmitError('No pudimos iniciar el pago. Probá de nuevo en un rato.');
-    } finally {
-      setIsProcessing(false);
+      const redirect = resp.init_point || resp.sandbox_init_point;
+      if (!redirect) throw new Error('Mercado Pago no devolvió link.');
+      window.location.href = redirect;
+    } catch (err: any) {
+      console.error('checkout submit failed', err);
+      setSubmitError(err?.message || 'No pudimos iniciar el pago. Probá de nuevo.');
+      setSubmitting(false);
     }
-  };
+  }
 
-  const labelMono = 'font-mono text-[11px] tracking-[0.22em] uppercase text-white/70';
-  const inputDark = 'w-full bg-black/50 border border-white/15 text-white placeholder-white/45 focus:border-[var(--accent)] focus:outline-none transition-colors';
-  const panelDark = 'bg-[#141110] border border-white/15 p-5 sm:p-6';
+  // ---------------- Render helpers ----------------------------------------
+  const stepNumber = String(stepIdx + 1).padStart(2, '0');
+  const totalStr = String(totalSteps).padStart(2, '0');
 
-  const heroTitle = mode === 'encargo'
-    ? 'encargo'
-    : (checkoutCopy?.title || 'aportar');
-  const heroSub = mode === 'encargo'
-    ? (checkoutCopy?.encargoDescription || 'Contame qué querés y lo hacemos. Te respondo por IG o mail cuando esté listo.')
-    : (checkoutCopy?.subtitle || 'Elegí un monto, dejame un mensaje si querés, y pagás con Mercado Pago. Listo.');
+  const ctaLabel = (() => {
+    if (submitting) return 'conectando…';
+    if (step === 'confirm') {
+      if (currentMission === 'baloskiers' && tier) {
+        return `suscribirme · $${tier.amount.toLocaleString('es-AR')}/mes →`;
+      }
+      return `pagar $${effectiveAmount.toLocaleString('es-AR')} →`;
+    }
+    return 'continuar →';
+  })();
+
+  const legalLine = step === 'confirm'
+    ? (currentMission === 'baloskiers'
+        ? '● pago recurrente · mercado pago · cancelás cuando quieras'
+        : '● pago seguro · mercado pago')
+    : `paso ${stepNumber} de ${totalStr}`;
 
   return (
-    <div
-      className={cn('theme-page text-white', styles.shell)}
-      style={{ background: '#0a0908', minHeight: '100vh' }}
-    >
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-[calc(96px+env(safe-area-inset-top,0px))] sm:pt-24 pb-40 sm:pb-24">
-        <InnerPageNav label={mode === 'encargo' ? 'encargo' : 'aportar'} />
+    <div className="chk-root">
+      <style>{css}</style>
 
-        <button
-          onClick={() => navigate(-1)}
-          className={cn(labelMono, 'flex items-center gap-2 hover:text-[var(--accent)] transition-colors mt-4 sm:mt-8')}
-          data-hover
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>volver</span>
-        </button>
+      {/* Progress bar */}
+      <div className="chk-progress">
+        <button className="chk-back" aria-label="volver" onClick={goBack}>←</button>
+        <div className="chk-dots">
+          {Array.from({ length: totalSteps }).map((_, i) => {
+            let cls = 'chk-dot';
+            if (i < stepIdx) cls += ' done';
+            if (i === stepIdx) cls += ' active';
+            return <div key={i} className={cls} />;
+          })}
+        </div>
+        <span className="chk-step-label">{stepNumber} / {totalStr}</span>
+      </div>
 
-        <header className="pt-4 space-y-3">
-          {mode === 'encargo' && (
-            <p className={cn(labelMono, 'flex items-center gap-2 text-[var(--accent)]')}>
-              <Wand2 className="w-3.5 h-3.5" />
-              <span>encargo personalizado</span>
-            </p>
-          )}
-          <h1
-            className="text-white"
-            style={{
-              fontFamily: "'Inter Tight', sans-serif",
-              fontWeight: 900,
-              fontSize: 'clamp(2.25rem, 9vw, 5rem)',
-              letterSpacing: '-0.05em',
-              lineHeight: 1.02,
-            }}
-          >
-            {heroTitle}
-          </h1>
-          <p className="text-white/75 text-sm sm:text-base max-w-lg leading-relaxed">
-            {heroSub}
-          </p>
-        </header>
+      <div className="chk-viewport">
+        <div className="chk-shell">
 
-        <form onSubmit={handleSubmit} className="space-y-5 mt-8">
-          {/* ------ MONTO ------ */}
-          <section className={panelDark}>
-            <header className="flex items-baseline justify-between mb-4">
-              <h2
-                className="text-white"
-                style={{ fontFamily: "'Inter Tight', sans-serif", fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.03em' }}
-              >
-                {mode === 'encargo' ? 'precio' : 'monto'}
-              </h2>
-              <span className={labelMono}>ARS</span>
-            </header>
-
-            {mode === 'encargo' ? (
-              // Encargo: el precio es fijo (viene del CTA). No lo editamos.
-              <div className="flex items-baseline gap-3 py-2">
-                <span
-                  style={{ fontFamily: "'Inter Tight', sans-serif", fontWeight: 900, fontSize: '3rem', letterSpacing: '-0.04em', lineHeight: 1 }}
-                >
-                  ${amount.toLocaleString('es-AR')}
-                </span>
-                <span className={labelMono}>fijo</span>
+          {/* --------- STEP: MISSION --------- */}
+          {step === 'mission' && (
+            <section className="chk-screen">
+              <div className="chk-eyebrow">paso {stepNumber}</div>
+              <h1 className="chk-prompt">¿qué querés apoyar?</h1>
+              <p className="chk-hint">Elegí a dónde va tu aporte. Podés cambiarlo después.</p>
+              <div className="chk-choice-list">
+                {MISSIONS.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`chk-choice${mission === m.id ? ' active' : ''}`}
+                    onClick={() => setMission(m.id)}
+                  >
+                    <div className="chk-icn">{m.icon}</div>
+                    <div>
+                      <div className="chk-title">{m.title}</div>
+                      <div className="chk-sub">{m.sub}</div>
+                    </div>
+                    <div className="chk-go">→</div>
+                  </button>
+                ))}
               </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {SUGGESTED_AMOUNTS_LIBRE.map((value) => {
-                    const active = amount === value && !customAmount;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => handleAmountSelect(value)}
-                        data-hover
-                        className={cn(
-                          'py-5 px-3 font-bold text-base transition-all active:scale-95 border min-h-[56px]',
-                          active
-                            ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
-                            : 'bg-black/40 border-white/15 text-white hover:border-[var(--accent)]/70'
-                        )}
-                      >
-                        ${value.toLocaleString('es-AR')}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="relative mt-3">
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 font-bold text-lg text-white/55">$</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    placeholder="otro monto..."
-                    value={customAmount}
-                    onChange={handleCustomAmount}
-                    className={cn(inputDark, 'py-4 pl-10 pr-5 font-bold text-base tracking-tight')}
-                  />
-                </div>
-                {amountError && <p className="text-sm mt-2 text-red-300 font-bold">{amountError}</p>}
-              </>
-            )}
-          </section>
-
-          {/* ------ PEDIDO (solo en encargo) ------ */}
-          {mode === 'encargo' && (
-            <section className={panelDark}>
-              <header className="flex items-baseline justify-between mb-3">
-                <h2
-                  className="text-white"
-                  style={{ fontFamily: "'Inter Tight', sans-serif", fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.03em' }}
-                >
-                  tu pedido
-                </h2>
-                <span className={labelMono}>requerido</span>
-              </header>
-              <p className="text-sm text-white/70 mb-3 leading-relaxed">
-                {checkoutCopy?.encargoTitle || '¿Qué querés que te haga?'} Escribilo con el detalle que puedas — referencias, tono, uso.
-              </p>
-              <textarea
-                placeholder="ej: una canción reggaeton sobre mi gato que se llama Tobi. Tono gracioso, tipo Bizarrap. La voy a subir a mi IG."
-                value={pedido}
-                onChange={(e) => setPedido(e.target.value)}
-                rows={5}
-                required
-                className={cn(inputDark, 'p-4 text-base resize-none')}
-              />
-              {pedidoError && <p className="text-sm mt-2 text-red-300 font-bold">{pedidoError}</p>}
             </section>
           )}
 
-          {/* ------ CONTACTO + MENSAJE ------ */}
-          <section className={panelDark}>
-            <header className="flex items-baseline justify-between mb-3">
-              <h2
-                className="text-white"
-                style={{ fontFamily: "'Inter Tight', sans-serif", fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.03em' }}
-              >
-                {mode === 'encargo' ? 'tus datos' : 'mensaje'}
-              </h2>
-              <span className={labelMono}>opcional</span>
-            </header>
-
-            <input
-              type="text"
-              placeholder={mode === 'encargo' ? 'tu nombre o @IG (para contactarte)' : 'tu nombre (aparece en el muro)'}
-              value={name}
-              maxLength={50}
-              onChange={(e) => setName(e.target.value)}
-              className={cn(inputDark, 'py-4 px-5 text-base')}
-            />
-
-            {mode !== 'encargo' && (
-              <textarea
-                placeholder="dejale un mensaje a santi..."
-                value={message}
-                maxLength={280}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={3}
-                className={cn(inputDark, 'py-4 px-5 text-base resize-none mt-3')}
-              />
-            )}
-          </section>
-
-          {submitError && (
-            <div className="p-4 border border-red-500/50 bg-red-950/40 text-red-300 font-bold text-sm">
-              {submitError}
-            </div>
+          {/* --------- STEP: TIER (baloskiers) --------- */}
+          {step === 'tier' && (
+            <section className="chk-screen">
+              <div className="chk-eyebrow">paso {stepNumber}</div>
+              <h1 className="chk-prompt">¿qué tier?</h1>
+              <p className="chk-hint">Podés cancelar cuando quieras desde tu cuenta de Mercado Pago.</p>
+              <div className="chk-choice-list">
+                {TIERS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`chk-choice${tier?.id === t.id ? ' active' : ''}`}
+                    onClick={() => setTier(t)}
+                  >
+                    <div className="chk-icn">${String(t.amount / 1000)}k</div>
+                    <div>
+                      <div className="chk-title">{t.name}</div>
+                      <div className="chk-sub">{t.blurb}</div>
+                    </div>
+                    <div className="chk-go">/mes →</div>
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
 
-          {/* ------ STICKY CTA ------ */}
-          <div
-            className={cn(
-              'fixed bottom-0 left-0 right-0 z-40 sm:static',
-              'bg-[#0a0908]/98 backdrop-blur-md border-t border-white/15 sm:bg-transparent sm:border-none sm:backdrop-blur-0',
-              'pb-[env(safe-area-inset-bottom,0px)] sm:pb-0'
-            )}
-          >
-            <div className="max-w-xl mx-auto p-4 sm:p-0">
-              <button
-                type="submit"
-                disabled={isProcessing || !!amountError || !!pedidoError}
-                data-hover
-                className="w-full py-5 font-bold text-base sm:text-lg transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--accent)] text-white hover:opacity-90 border border-[var(--accent)] uppercase tracking-[0.08em] min-h-[60px]"
-              >
-                {isProcessing ? (
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    className="w-6 h-6 border-2 rounded-full border-white/30 border-t-white"
-                  />
+          {/* --------- STEP: AMOUNT --------- */}
+          {step === 'amount' && (
+            <section className="chk-screen">
+              <div className="chk-eyebrow">paso {stepNumber}</div>
+              <h1 className="chk-prompt">¿cuánto ponés?</h1>
+              <p className="chk-hint">
+                {currentMission === 'encargo'
+                  ? 'Elegí el pack o ingresá un monto custom.'
+                  : 'Cada monto tiene su onda. Tirá un extra si querés.'}
+              </p>
+              <div className="chk-amount-grid">
+                {(currentMission === 'encargo' ? AMOUNT_CHIPS_ENCARGO : AMOUNT_CHIPS_CAFECITO).map((chip) => (
+                  <button
+                    key={chip.value}
+                    type="button"
+                    className={`chk-amt${amount === chip.value && !customAmount ? ' active' : ''}`}
+                    onClick={() => handleAmountChip(chip.value)}
+                  >
+                    <div className="chk-amt-n">${(chip.value / 1000)}k</div>
+                    <div className="chk-amt-lbl">{chip.label}</div>
+                  </button>
+                ))}
+              </div>
+              <div className="chk-custom-amount">
+                <span className="chk-dollar">$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="otro monto"
+                  value={customAmount}
+                  onChange={(e) => handleCustomAmount(e.target.value)}
+                />
+              </div>
+              {!amountValid && amount > 0 && (
+                <p className="chk-err">El monto mínimo es ${MIN_AMOUNT}.</p>
+              )}
+            </section>
+          )}
+
+          {/* --------- STEP: PEDIDO (encargo) --------- */}
+          {step === 'pedido' && (
+            <section className="chk-screen">
+              <div className="chk-eyebrow">paso {stepNumber}</div>
+              <h1 className="chk-prompt">¿qué te hago?</h1>
+              <p className="chk-hint">
+                Contame el pedido con detalle: referencias, tono, para qué lo vas a usar.
+              </p>
+              <div className="chk-text-input">
+                <textarea
+                  placeholder="ej: una canción reggaeton sobre mi gato Tobi, tono gracioso tipo Bizarrap. Para subir a IG."
+                  value={pedido}
+                  onChange={(e) => setPedido(e.target.value)}
+                  rows={6}
+                  autoFocus
+                />
+                {!pedidoValid && pedido.length > 0 && (
+                  <p className="chk-err">Un poquito más de detalle — mínimo 10 caracteres.</p>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* --------- STEP: EMAIL (baloskiers) --------- */}
+          {step === 'email' && (
+            <section className="chk-screen">
+              <div className="chk-eyebrow">paso {stepNumber}</div>
+              <h1 className="chk-prompt">¿tu email?</h1>
+              <p className="chk-hint">
+                Lo usamos para cobrarte la suscripción vía Mercado Pago y mandarte el acceso al muro privado.
+              </p>
+              <div className="chk-text-input">
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="vos@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoFocus
+                />
+                {!emailValid && email.length > 0 && (
+                  <p className="chk-err">Revisá el email.</p>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* --------- STEP: DATOS (nombre + mensaje opcional) --------- */}
+          {step === 'datos' && (
+            <section className="chk-screen">
+              <div className="chk-eyebrow">paso {stepNumber}</div>
+              <h1 className="chk-prompt">¿dejás un mensaje?</h1>
+              <p className="chk-hint">
+                {currentMission === 'encargo'
+                  ? 'Dejame cómo contactarte y lo que quieras agregar.'
+                  : 'Todo opcional. Si dejás nombre, aparece en el muro de aportantes.'}
+              </p>
+              <div className="chk-text-input">
+                <label className="chk-lbl">tu nombre o @IG</label>
+                <input
+                  type="text"
+                  placeholder={currentMission === 'encargo' ? 'cómo te contacto' : 'cómo te firmás en el muro'}
+                  value={name}
+                  maxLength={60}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                <label className="chk-lbl">mensaje (opcional)</label>
+                <textarea
+                  placeholder="dejale algo a santi…"
+                  value={message}
+                  maxLength={280}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </section>
+          )}
+
+          {/* --------- STEP: CONFIRM --------- */}
+          {step === 'confirm' && (
+            <section className="chk-screen">
+              <div className="chk-eyebrow">paso {stepNumber} · listo</div>
+              <h1 className="chk-prompt">todo ok,<br/>vamos a pagar</h1>
+              <div className="chk-summary">
+                <div className="chk-sum-row">
+                  <span className="k">misión</span>
+                  <span className="v">{MISSIONS.find((m) => m.id === currentMission)?.title ?? '—'}</span>
+                </div>
+                {currentMission === 'baloskiers' ? (
+                  <>
+                    <div className="chk-sum-row">
+                      <span className="k">tier</span>
+                      <span className="v">{tier?.name ?? '—'}</span>
+                    </div>
+                    <div className="chk-sum-row">
+                      <span className="k">email</span>
+                      <span className="v" style={{ maxWidth: '60%', textAlign: 'right', fontSize: 13 }}>{email}</span>
+                    </div>
+                    <div className="chk-sum-row">
+                      <span className="k">cobro</span>
+                      <span className="v">mensual recurrente</span>
+                    </div>
+                  </>
                 ) : (
                   <>
-                    <CreditCard className="w-5 h-5" />
-                    pagar ${amount.toLocaleString('es-AR')}
+                    {pedido && (
+                      <div className="chk-sum-row">
+                        <span className="k">pedido</span>
+                        <span className="v" style={{ maxWidth: '60%', textAlign: 'right', fontSize: 13, fontWeight: 500 }}>
+                          {pedido.length > 60 ? pedido.slice(0, 57) + '…' : pedido}
+                        </span>
+                      </div>
+                    )}
+                    {name && (
+                      <div className="chk-sum-row">
+                        <span className="k">nombre</span>
+                        <span className="v">{name}</span>
+                      </div>
+                    )}
                   </>
                 )}
-              </button>
+                <div className="chk-sum-total">
+                  <span className="k">{currentMission === 'baloskiers' ? 'total / mes' : 'total'}</span>
+                  <span className="v">${effectiveAmount.toLocaleString('es-AR')}</span>
+                </div>
+              </div>
+              {submitError && (
+                <p className="chk-err" style={{ marginTop: 14 }}>{submitError}</p>
+              )}
+            </section>
+          )}
 
-              <p className={cn('text-center mt-3 flex items-center justify-center gap-2 font-mono text-[10px] tracking-[0.22em] uppercase text-white/70')}>
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
-                pago seguro · mercado pago
-              </p>
-            </div>
-          </div>
-        </form>
+        </div>
+      </div>
+
+      {/* Fixed bottom CTA */}
+      <div className="chk-cta-wrap">
+        <div className="chk-cta-inner">
+          <button
+            className="chk-cta"
+            onClick={(e: FormEvent) => { e.preventDefault(); goNext(); }}
+            disabled={!canAdvance || submitting}
+          >
+            {submitting ? (
+              <span className="chk-spinner" aria-label="cargando" />
+            ) : (
+              <span>{ctaLabel}</span>
+            )}
+          </button>
+          <div className="chk-legal">{legalLine}</div>
+        </div>
       </div>
     </div>
   );
 }
+
+// Inline CSS: ported from mockup-2-single-question.html. Kept scoped with
+// the .chk- prefix so nothing leaks into the rest of the app.
+const css = `
+  .chk-root {
+    position: fixed;
+    inset: 0;
+    background: #0a0908;
+    color: white;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    z-index: 100;
+  }
+  .chk-progress {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: calc(14px + env(safe-area-inset-top,0px)) 20px 14px;
+    background: rgba(10,9,8,0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .chk-back {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: transparent;
+    color: white;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+  }
+  .chk-back:hover { border-color: #FA5D29; color: #FA5D29; }
+  .chk-dots { display: flex; gap: 6px; flex: 1; }
+  .chk-dot {
+    height: 3px;
+    flex: 1;
+    background: rgba(255,255,255,0.15);
+    transition: background .3s;
+  }
+  .chk-dot.done { background: rgba(255,255,255,0.5); }
+  .chk-dot.active { background: #FA5D29; }
+  .chk-step-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: rgba(255,255,255,0.55);
+    text-transform: uppercase;
+  }
+
+  .chk-viewport {
+    position: absolute;
+    inset: 0;
+    padding: calc(72px + env(safe-area-inset-top,0px)) 0 calc(140px + env(safe-area-inset-bottom,0px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chk-shell {
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+  }
+  .chk-screen {
+    display: flex;
+    flex-direction: column;
+    animation: chkFadeIn .28s ease;
+  }
+  @keyframes chkFadeIn {
+    from { opacity: 0; transform: translateX(12px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .chk-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: #FA5D29;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .chk-prompt {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 900;
+    font-size: clamp(36px, 10vw, 56px);
+    letter-spacing: -0.05em;
+    line-height: 0.95;
+    margin: 0 0 16px;
+  }
+  .chk-hint {
+    font-size: 14px;
+    color: rgba(255,255,255,0.7);
+    line-height: 1.5;
+    margin-bottom: 28px;
+    max-width: 380px;
+  }
+  .chk-err {
+    font-size: 13px;
+    color: #ff7b7b;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+
+  .chk-choice-list { display: grid; gap: 10px; }
+  .chk-choice {
+    display: grid;
+    grid-template-columns: 44px 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    background: #141110;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    text-align: left;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: border-color .12s, background-color .12s;
+    min-height: 74px;
+    width: 100%;
+  }
+  .chk-choice:hover,
+  .chk-choice.active {
+    border-color: #FA5D29;
+    background: rgba(250,93,41,0.08);
+  }
+  .chk-icn {
+    width: 44px; height: 44px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 900;
+    font-size: 16px;
+    color: #FA5D29;
+  }
+  .chk-title {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+  .chk-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    margin-top: 2px;
+  }
+  .chk-go {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .chk-amount-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .chk-amt {
+    padding: 22px 14px;
+    background: #141110;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    cursor: pointer;
+    font-family: 'Inter Tight', sans-serif;
+    text-align: left;
+    transition: border-color .12s, background-color .12s;
+    min-height: 84px;
+  }
+  .chk-amt:hover, .chk-amt.active {
+    border-color: #FA5D29;
+    background: rgba(250,93,41,0.08);
+  }
+  .chk-amt-n {
+    font-weight: 900;
+    font-size: 28px;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+  .chk-amt-lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: rgba(255,255,255,0.55);
+    margin-top: 8px;
+    text-transform: uppercase;
+  }
+  .chk-custom-amount { position: relative; }
+  .chk-dollar {
+    position: absolute;
+    left: 18px; top: 50%; transform: translateY(-50%);
+    font-family: 'Inter Tight', sans-serif; font-weight: 900;
+    font-size: 22px; color: rgba(255,255,255,0.5);
+  }
+  .chk-custom-amount input {
+    width: 100%;
+    background: #141110;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    padding: 20px 20px 20px 38px;
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: -0.03em;
+  }
+  .chk-custom-amount input:focus { outline: none; border-color: #FA5D29; }
+
+  .chk-text-input textarea,
+  .chk-text-input input {
+    width: 100%;
+    background: #141110;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    padding: 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    resize: none;
+  }
+  .chk-text-input textarea { min-height: 140px; }
+  .chk-text-input textarea:focus,
+  .chk-text-input input:focus { outline: none; border-color: #FA5D29; }
+  .chk-text-input .chk-lbl {
+    display: block;
+    margin: 14px 0 6px;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+  }
+
+  .chk-summary {
+    background: #141110;
+    border: 1px solid rgba(255,255,255,0.15);
+    padding: 22px;
+  }
+  .chk-sum-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px dashed rgba(255,255,255,0.15);
+    font-size: 14px;
+  }
+  .chk-sum-row:last-of-type { border-bottom: 0; }
+  .chk-sum-row .k {
+    color: rgba(255,255,255,0.65);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .chk-sum-row .v {
+    color: white;
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 700;
+  }
+  .chk-sum-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-top: 16px;
+    margin-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+  }
+  .chk-sum-total .k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: rgba(255,255,255,0.65);
+    text-transform: uppercase;
+  }
+  .chk-sum-total .v {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 900;
+    font-size: 44px;
+    letter-spacing: -0.05em;
+    color: #FA5D29;
+    line-height: 1;
+  }
+
+  .chk-cta-wrap {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom,0px));
+    background: rgba(10,9,8,0.98);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255,255,255,0.15);
+    z-index: 30;
+  }
+  .chk-cta-inner { max-width: 440px; margin: 0 auto; }
+  .chk-cta {
+    width: 100%;
+    background: #FA5D29;
+    color: white;
+    border: 1px solid #FA5D29;
+    padding: 18px;
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .chk-cta:hover:not(:disabled) { opacity: 0.92; }
+  .chk-cta:disabled { opacity: 0.4; cursor: not-allowed; }
+  .chk-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: chkSpin 0.8s linear infinite;
+  }
+  @keyframes chkSpin { to { transform: rotate(360deg); } }
+  .chk-legal {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    color: rgba(255,255,255,0.55);
+    margin-top: 8px;
+    text-transform: uppercase;
+  }
+`;

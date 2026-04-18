@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, Unlock, Heart, MessageCircle, Share2, Download, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
@@ -16,7 +17,37 @@ export default function VipFeed() {
   const [activeCommentPost, setActiveCommentPost] = useState<string | null>(null);
   const [revealedPrompts, setRevealedPrompts] = useState<Set<string>>(new Set());
   const [commentText, setCommentText] = useState('');
+  const [shareConfirm, setShareConfirm] = useState<string | null>(null);
   const { playSound } = useSound();
+  const navigate = useNavigate();
+
+  // Share handler: uses the Web Share API on mobile (iOS/Android) and falls
+  // back to copying the post URL to clipboard on desktop. Shows a brief
+  // "Copiado" toast when the clipboard fallback is used.
+  const handleShare = async (postId: string, title: string) => {
+    const url = `${window.location.origin}/vip-feed#post-${postId}`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title, url });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        setShareConfirm(postId);
+        window.setTimeout(() => setShareConfirm((id) => (id === postId ? null : id)), 1800);
+      }
+    } catch (err) {
+      // User cancelled the share sheet — not an error worth surfacing.
+      if ((err as any)?.name !== 'AbortError') console.warn('share failed', err);
+    }
+  };
+
+  // "Aportar ahora" from inside the locked-content overlay: jumps to the
+  // unified checkout, pre-selecting the encargo flow with the minimum
+  // contribution the post demands. That lands the user on the amount step
+  // with the exact number they need to hit already populated.
+  const handleUnlockAport = (minContribution: number) => {
+    const amount = Math.max(500, Math.round(minContribution));
+    navigate(`/checkout?mode=encargo&amount=${amount}`);
+  };
 
   const unlockedPosts = useMemo(
     () => posts.filter((post) => !post.isLocked || userProfile.totalContributed >= post.minContributionRequired).length,
@@ -127,7 +158,11 @@ export default function VipFeed() {
                     <p className="mb-6 max-w-md t-body">
                       Este post se desbloquea a partir de {formatCurrency(post.minContributionRequired, currency)}.
                     </p>
-                    <button data-hover className="px-6 py-3 font-bold transition-colors uppercase bg-[var(--accent)] text-white hover:opacity-90">
+                    <button
+                      data-hover
+                      onClick={() => handleUnlockAport(post.minContributionRequired)}
+                      className="px-6 py-3 font-bold transition-colors uppercase bg-[var(--accent)] text-white hover:opacity-90"
+                    >
                       Aportar ahora
                     </button>
                   </div>
@@ -210,8 +245,18 @@ export default function VipFeed() {
                         <MessageCircle className="w-5 h-5" />
                         <span className="font-medium">{post.comments?.length || 0} comentarios</span>
                       </button>
-                      <button className="flex items-center gap-2 transition-colors ml-auto text-[var(--muted)] hover:text-[var(--accent)]">
+                      <button
+                        onClick={() => handleShare(post.id, post.title)}
+                        aria-label="Compartir"
+                        title={shareConfirm === post.id ? 'Copiado al portapapeles' : 'Compartir'}
+                        className="flex items-center gap-2 transition-colors ml-auto text-[var(--muted)] hover:text-[var(--accent)]"
+                      >
                         <Share2 className="w-5 h-5" />
+                        {shareConfirm === post.id && (
+                          <span className="text-xs font-mono tracking-[0.12em] uppercase text-[var(--accent)]">
+                            copiado
+                          </span>
+                        )}
                       </button>
                     </div>
 

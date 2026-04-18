@@ -156,9 +156,9 @@ export default function ApoyaSection() {
                     color: 'rgba(255,255,255,0.55)',
                   }}
                 >
-                  · próximamente · avisamos por IG ·
+                  · el disco arranca pronto · mientras tanto ↓ ·
                 </div>
-                <a className="mini-btn" href="/api/checkout/quick?mode=cafecito">apoyar con cafecito →</a>
+                <a className="mini-btn" href="/checkout?mode=cafecito">apoyar con cafecito →</a>
               </div>
             </div>
           </div>
@@ -169,7 +169,7 @@ export default function ApoyaSection() {
             <p>Entrás a la lista de donantes del muro. Gratitud directa, en vivo.</p>
             <div className="foot">
               <div className="price">$2.000<span className="u"> ARS</span></div>
-              <a className="mini-btn" href="/api/checkout/quick?mode=cafecito">elegir →</a>
+              <a className="mini-btn" href="/checkout?mode=cafecito&amount=2000">elegir →</a>
             </div>
           </div>
 

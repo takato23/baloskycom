@@ -4,13 +4,19 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import OrbPlaceholder from './OrbPlaceholder';
 
 /**
- * HeroOrb3D es Three.js (icosahedron + shader + 180 particles + 4 planetas
- * + cassette + vinyl + torus @ 60fps RAF). Pesado: ~180kb de JS + GPU
- * corriendo siempre. Lo lazy-loadeamos para que el bundle inicial no lo
- * arrastre y sólo lo montamos en desktop sin `prefers-reduced-motion`.
- * En mobile cae a `OrbPlaceholder` (CSS puro con radial gradients).
+ * HeroOrb3D (desktop) = Three.js full: icosahedron subdiv 42, wireframe
+ * overlay, 180-point starfield, 4 orbital planets, torus, cassette, vinyl
+ * disk, drag physics. Gorgeous, but ~180kb JS + GPU always-on.
+ *
+ * HeroOrb3DLite (mobile) = Three.js reducido: subdiv 8, sin wireframe, 40
+ * partículas, sin orbitals/cassette/vinyl/torus, DPR cap 1.5, pausa RAF
+ * cuando no está en viewport. Mantiene interactividad (tap para cyclear
+ * paleta, pulse hook). Se siente REAL, no como el placeholder CSS.
+ *
+ * Si `prefers-reduced-motion` → cae al OrbPlaceholder CSS (accesibilidad).
  */
 const HeroOrb3D = lazy(() => import('./HeroOrb3D'));
+const HeroOrb3DLite = lazy(() => import('./HeroOrb3DLite'));
 
 /**
  * Port of the `<section class="hero">` block from delirio.html.
@@ -97,11 +103,12 @@ export default function HeroSection() {
   const clock = useLiveClock();
   const isMobile = useIsMobile();
   const reducedMotion = usePrefersReducedMotion();
-  // Si la viewport es mobile (<769px) o el usuario tiene
-  // `prefers-reduced-motion` activado, no cargamos la escena Three.js:
-  // mostramos `OrbPlaceholder` (CSS puro, ~0 CPU) que mantiene la estética
-  // de esfera colorida pero sin comerse la batería del iPhone.
-  const useLightOrb = isMobile || reducedMotion;
+  // Tres modos de orbe:
+  //  · prefers-reduced-motion → OrbPlaceholder (CSS puro, 0 GPU, accesibilidad)
+  //  · mobile → HeroOrb3DLite (Three.js optimizado: sub-div 6, DPR 1.0, 30fps,
+  //    pausa offscreen, sin planets/cassette/vinyl). Conserva el wireframe +
+  //    torus + fresnel, que son los detalles que lo hacen "lindo".
+  //  · desktop → HeroOrb3D (versión completa con todo).
 
   const dotRef = useRef<HTMLSpanElement | null>(null);
   const stripRef = useRef<HTMLDivElement | null>(null);
@@ -140,8 +147,12 @@ export default function HeroSection() {
     <section className="hero">
       <div className="hero-aura" aria-hidden="true" />
       <div className="hero-canvas-wrap">
-        {useLightOrb ? (
+        {reducedMotion ? (
           <OrbPlaceholder />
+        ) : isMobile ? (
+          <Suspense fallback={<OrbPlaceholder />}>
+            <HeroOrb3DLite />
+          </Suspense>
         ) : (
           <Suspense fallback={<OrbPlaceholder />}>
             <HeroOrb3D />

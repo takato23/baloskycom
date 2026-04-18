@@ -566,6 +566,11 @@ function SectionMural() {
 /* ──────────────────────── §05 DROP (música/productos) ──────────────────────── */
 function SectionDrop() {
   const ref = useReveal<HTMLDivElement>();
+  const { settings } = useAppContext();
+  // Usa el Spotify URL real de settings si está configurado; si no, esconde
+  // el link. Antes estaba hardcodeado a "https://open.spotify.com/artist"
+  // sin ID — un 404 directo para cualquiera que lo clickeara.
+  const spotifyUrl = settings?.content?.home?.music?.spotifyUrl?.trim() || '';
   return (
     <section id="drop" className="px-4 py-16 sm:px-8 sm:py-24" style={{ background: 'var(--dlr-paper-deep)' }}>
       <div ref={ref} className="dlr-reveal mx-auto max-w-[1400px]">
@@ -583,9 +588,24 @@ function SectionDrop() {
             <p className="text-[14px]" style={{ color: 'var(--dlr-ink-soft)' }}>
               Armónica y Casio. Cuatro minutos y medio de lo que salga.
             </p>
-            <a href="https://open.spotify.com/artist" className="underline" target="_blank" rel="noreferrer" style={{ color: 'var(--dlr-accent-strong)' }}>
-              SPOTIFY →
-            </a>
+            {spotifyUrl ? (
+              <a
+                href={spotifyUrl}
+                className="underline"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: 'var(--dlr-accent-strong)' }}
+              >
+                SPOTIFY →
+              </a>
+            ) : (
+              <span
+                className="text-[11px] uppercase tracking-[0.2em]"
+                style={{ color: 'var(--dlr-ink-soft)', opacity: 0.65 }}
+              >
+                spotify · próximamente
+              </span>
+            )}
           </article>
           <article className="dlr-flyer featured">
             <span className="tag">VINILO</span>
