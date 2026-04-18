@@ -247,7 +247,7 @@ export default function PixelSection() {
             <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
               <a
                 className="cta cta-primary"
-                href="/checkout/c3?amount=3500"
+                href="/api/checkout/quick?mode=pack-walls"
                 data-cursor="PACK"
               >
                 <span>Pack 10 · $3.500</span>

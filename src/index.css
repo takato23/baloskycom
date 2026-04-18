@@ -789,3 +789,136 @@ img {
   .dlr-grain { display: none !important; }
   .dlr-btn:hover, .dlr-btn:focus-visible { transform: none !important; }
 }
+
+/* ---------- CafecitoBadge ---------- */
+/* Sticker "cafecito" — FAB redondo en home, 1 tap → MP. Estética
+ * variante 01 del mockup (sticker orgánico): wobble suave, anillo
+ * punteado giratorio, peel highlight. El slot central muestra la
+ * imagen IA (/images/cafecito-badge.png) o cae a emoji ☕.
+ */
+.cafecito-badge {
+  position: relative;
+  display: inline-block;
+  width: 128px;
+  height: 128px;
+  text-decoration: none;
+  cursor: pointer;
+  transform-origin: center;
+  transition: opacity 0.4s var(--dlr-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+              transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+  animation: cb-wobble 6s ease-in-out infinite;
+}
+.cafecito-badge.is-hidden { opacity: 0; pointer-events: none; transform: scale(0.6) rotate(-18deg); }
+.cafecito-badge.is-visible { opacity: 1; }
+.cafecito-badge:hover,
+.cafecito-badge:focus-visible { animation-play-state: paused; transform: scale(1.08) rotate(0deg); outline: none; }
+.cafecito-badge:active { transform: scale(0.96); }
+
+.cafecito-badge--fab {
+  position: fixed;
+  right: calc(18px + env(safe-area-inset-right, 0px));
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+}
+@media (min-width: 640px) {
+  .cafecito-badge--fab { width: 148px; height: 148px; right: 26px; bottom: 26px; }
+}
+
+.cafecito-badge .cb-ring {
+  position: absolute;
+  inset: -10px;
+  border: 1px dashed rgba(250, 93, 41, 0.55);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: cb-spin 22s linear infinite;
+}
+
+.cafecito-badge .cb-disc {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  background: var(--accent, #FA5D29);
+  border-radius: 50%;
+  box-shadow:
+    0 30px 60px -20px rgba(250, 93, 41, 0.55),
+    0 10px 20px -5px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.92),
+    inset 0 0 0 4px var(--accent, #FA5D29);
+  overflow: hidden;
+}
+
+.cafecito-badge .cb-peel {
+  position: absolute;
+  top: 8px;
+  left: 14%;
+  width: 40%;
+  height: 18%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.38), transparent);
+  border-radius: 50%;
+  filter: blur(4px);
+  pointer-events: none;
+}
+
+.cafecito-badge .cb-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-top: -4px;
+}
+@media (min-width: 640px) { .cafecito-badge .cb-img { width: 64px; height: 64px; } }
+.cafecito-badge .cb-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.3s ease;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+}
+.cafecito-badge .cb-img-fallback {
+  font-size: 40px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+}
+@media (min-width: 640px) { .cafecito-badge .cb-img-fallback { font-size: 46px; } }
+/* Si la imagen cargó, ocultar el fallback (sino se ven los dos en paralelo) */
+.cafecito-badge .cb-img img[style*="opacity: 1"] + .cb-img-fallback { display: none; }
+
+.cafecito-badge .cb-lbl-top {
+  font-family: 'Inter Tight', sans-serif;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: #fff;
+  line-height: 1;
+  text-transform: uppercase;
+}
+@media (min-width: 640px) { .cafecito-badge .cb-lbl-top { font-size: 17px; } }
+
+.cafecito-badge .cb-lbl-bot {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.95);
+  text-transform: uppercase;
+}
+@media (min-width: 640px) { .cafecito-badge .cb-lbl-bot { font-size: 10px; } }
+
+@keyframes cb-wobble {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+@keyframes cb-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cafecito-badge { animation: none; transform: rotate(0deg); }
+  .cafecito-badge .cb-ring { animation: none; }
+}

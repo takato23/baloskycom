@@ -1053,6 +1053,96 @@ router.post('/checkout/preference', async (req, res) => {
   }
 });
 
+/**
+ * GET /checkout/quick
+ *
+ * CTA de "1 click → Mercado Pago". Se usa como `<a href="/api/checkout/quick?mode=cafecito">`
+ * y hace 302 directo al init_point de MP sin intermediario ni JS.
+ *
+ * Modos soportados:
+ *   - cafecito     → $2.000 ARS, campaignId=c3
+ *   - pack-images  → $80.000 ARS, campaignId=c3 (pack 5 imágenes IA)
+ *   - zoom         → $99.000 ARS, campaignId=c3 (zoom 1:1 45min)
+ *   - pack-walls   → $3.500 ARS, campaignId=c3 (pack 10 wallpapers)
+ *   - libre        → monto custom via ?amount= (mínimo $100), campaignId=c3
+ *
+ * Para encargos IA seguimos usando /checkout (necesita textarea del pedido).
+ */
+const QUICK_CHECKOUT_MODES: Record<string, { amount: number; title: string; campaignId: string }> = {
+  cafecito:      { amount: 2000,   title: 'Cafecito para Balosky',                  campaignId: 'c3' },
+  'pack-images': { amount: 80000,  title: 'Pack 5 imágenes IA — Balosky',           campaignId: 'c3' },
+  zoom:          { amount: 99000,  title: 'Videollamada 1:1 (45min) — Balosky',     campaignId: 'c3' },
+  'pack-walls':  { amount: 3500,   title: 'Pack 10 wallpapers 4K — Balosky',        campaignId: 'c3' },
+};
+
+router.get('/checkout/quick', async (req, res) => {
+  try {
+    const rawMode = typeof req.query.mode === 'string' ? req.query.mode.trim() : '';
+    const rawAmount = typeof req.query.amount === 'string' ? req.query.amount : '';
+    const preset = QUICK_CHECKOUT_MODES[rawMode];
+
+    let amount: number;
+    let title: string;
+    let campaignId: string;
+
+    if (preset) {
+      amount = preset.amount;
+      title = preset.title;
+      campaignId = preset.campaignId;
+    } else if (rawMode === 'libre') {
+      const parsed = Number(rawAmount);
+      if (!Number.isFinite(parsed) || parsed < 100) {
+        return res.redirect(302, '/checkout?error=invalid-amount');
+      }
+      amount = parsed;
+      title = 'Aporte libre a Balosky';
+      campaignId = 'c3';
+    } else {
+      return res.redirect(302, '/checkout');
+    }
+
+    const baseUrl = getBaseUrl(req);
+    const notificationUrl = getNotificationUrl(req);
+
+    const result = await preferenceClient.create({
+      body: {
+        items: [
+          {
+            id: campaignId,
+            title,
+            quantity: 1,
+            unit_price: amount,
+            currency_id: 'ARS',
+          },
+        ],
+        back_urls: {
+          success: `${baseUrl}/checkout/success`,
+          failure: `${baseUrl}/checkout/failure`,
+          pending: `${baseUrl}/checkout/pending`,
+        },
+        auto_return: 'approved',
+        external_reference: `${campaignId}-${rawMode}-${Date.now()}`,
+        metadata: {
+          campaignId,
+          mode: rawMode,
+          quickFlow: true,
+        },
+        ...(notificationUrl ? { notification_url: notificationUrl } : {}),
+      },
+    });
+
+    const target = result.init_point || result.sandbox_init_point;
+    if (!target) {
+      console.error('[GET /checkout/quick] no init_point in MP response');
+      return res.redirect(302, '/checkout?error=mp-unavailable');
+    }
+    return res.redirect(302, target);
+  } catch (error) {
+    console.error('[GET /checkout/quick] error:', error);
+    return res.redirect(302, '/checkout?error=mp-error');
+  }
+});
+
 router.get('/checkout/status/:paymentId', async (req, res) => {
   try {
     const paymentId = Number(req.params.paymentId);

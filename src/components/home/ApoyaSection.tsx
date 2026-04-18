@@ -158,7 +158,7 @@ export default function ApoyaSection() {
                 >
                   · próximamente · avisamos por IG ·
                 </div>
-                <a className="mini-btn" href="/checkout/c3?amount=2000">apoyar con cafecito →</a>
+                <a className="mini-btn" href="/api/checkout/quick?mode=cafecito">apoyar con cafecito →</a>
               </div>
             </div>
           </div>
@@ -169,7 +169,7 @@ export default function ApoyaSection() {
             <p>Entrás a la lista de donantes del muro. Gratitud directa, en vivo.</p>
             <div className="foot">
               <div className="price">$2.000<span className="u"> ARS</span></div>
-              <a className="mini-btn" href="/checkout/c3?amount=2000">elegir →</a>
+              <a className="mini-btn" href="/api/checkout/quick?mode=cafecito">elegir →</a>
             </div>
           </div>
 
@@ -204,7 +204,7 @@ export default function ApoyaSection() {
             </p>
             <div className="foot">
               <div className="price">$80.000<span className="u"> ARS</span></div>
-              <a className="mini-btn" href="/checkout?amount=80000&mode=encargo">pedir →</a>
+              <a className="mini-btn" href="/api/checkout/quick?mode=pack-images">pedir →</a>
             </div>
           </div>
 
@@ -247,7 +247,7 @@ export default function ApoyaSection() {
                 </div>
                 <a
                   className="mini-btn"
-                  href="/checkout?amount=99000&mode=encargo"
+                  href="/api/checkout/quick?mode=zoom"
                   style={{ background: '#0a0908', color: '#18D2C4' }}
                 >
                   pedir →

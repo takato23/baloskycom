@@ -16,6 +16,7 @@ import ArchivoSection from '@/components/home/ArchivoSection';
 import RedesSection from '@/components/home/RedesSection';
 import AntiTheftGuard from '@/components/home/AntiTheftGuard';
 import ClubReturnBanner from '@/components/home/ClubReturnBanner';
+import CafecitoBadge from '@/components/CafecitoBadge';
 
 /**
  * Delirio home — full React port. Now served at `/` (and `/home-preview` for
@@ -86,6 +87,11 @@ export default function HomePreview() {
       <RedesSection />
 
       <AntiTheftGuard />
+
+      {/* FAB flotante — aparece después de scrollear pasado el hero.
+          Un toque → /api/checkout/quick?mode=cafecito → 302 a Mercado Pago.
+          Cero fricción, cero pasos intermedios. */}
+      <CafecitoBadge floating showAfterScroll={400} />
     </>
   );
 }
