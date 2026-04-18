@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Pago confirmado · Balosky</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --black: #0a0a0a;
+      --panel: #0f0d0b;
+      --border: #1f1b17;
+      --text: #f3efe6;
+      --muted: #999;
+      --body: #c9c4bb;
+      --accent: #FA5D29;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      background: var(--black);
+      color: var(--text);
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* grain */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 1;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+      opacity: .35; mix-blend-mode: screen;
+    }
+
+    header {
+      position: relative; z-index: 2;
+      padding: 24px 24px 8px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    header a { color: var(--text); text-decoration: none; }
+    .brand {
+      font-family: 'Inter Tight', Inter, sans-serif;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      font-size: 20px;
+      line-height: 1;
+    }
+    .brand span { color: var(--accent); }
+    .eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    main {
+      position: relative; z-index: 2;
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      padding: 48px 20px;
+    }
+
+    .card {
+      max-width: 560px; width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 40px 36px 36px;
+      box-shadow: 0 20px 80px rgba(0,0,0,.5);
+    }
+
+    @media (max-width: 520px) {
+      .card { padding: 32px 22px 28px; border-radius: 14px; }
+    }
+
+    h1 {
+      font-family: 'Inter Tight', Inter, sans-serif;
+      font-weight: 900; font-size: clamp(28px, 5vw, 40px);
+      letter-spacing: -0.04em; line-height: 1.05;
+      margin: 14px 0 10px;
+    }
+    h1 .pt { color: var(--accent); }
+    .sub {
+      color: var(--body); font-size: 15px; line-height: 1.55; margin: 0 0 22px;
+    }
+
+    .status-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 13px;
+      color: var(--body);
+      margin-bottom: 22px;
+      background: rgba(250, 93, 41, 0.04);
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      box-shadow: 0 0 0 0 rgba(250, 93, 41, 0);
+    }
+    .dot.pending { background: var(--accent); animation: pulse 1.2s ease-out infinite; }
+    .dot.paid { background: #4ade80; }
+    .dot.failed { background: #ef4444; }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(250, 93, 41, 0.55); }
+      70%  { box-shadow: 0 0 0 14px rgba(250, 93, 41, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(250, 93, 41, 0); }
+    }
+
+    .cta {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--accent); color: var(--black);
+      font-family: 'Inter Tight', Inter, sans-serif;
+      font-weight: 800; font-size: 14px; letter-spacing: .02em;
+      text-transform: uppercase;
+      padding: 14px 24px; border-radius: 999px;
+      text-decoration: none; border: none; cursor: pointer;
+      transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+    }
+    .cta:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(250,93,41,.25); }
+    .cta[disabled] { opacity: .4; cursor: not-allowed; transform: none; }
+
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+
+    .meta {
+      margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12px; color: var(--muted);
+    }
+    .meta-row { display: flex; justify-content: space-between; padding: 4px 0; gap: 16px; }
+    .meta-row strong { color: var(--text); font-weight: 500; }
+    .ref { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #777; word-break: break-all; }
+
+    .hint { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 20px; }
+    .hint a { color: var(--accent); text-decoration: none; }
+
+    footer {
+      position: relative; z-index: 2;
+      padding: 22px 24px; border-top: 1px solid var(--border);
+      font-size: 11px; color: #666; text-align: center;
+    }
+    footer a { color: #999; text-decoration: none; }
+
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(243, 239, 230, 0.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      display: inline-block;
+      animation: spin .9s linear infinite;
+      vertical-align: -2px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/" class="brand">BALOSKY<span>.</span></a>
+    <div class="eyebrow" id="eyebrow">procesando</div>
+  </header>
+
+  <main>
+    <article class="card" role="status" aria-live="polite">
+      <div class="eyebrow" style="margin-bottom:10px;">pago recibido</div>
+      <h1 id="headline">gracias por apoyar<span class="pt">.</span></h1>
+      <p class="sub" id="subheadline">Estamos confirmando tu pago con Mercado Pago. Esto suele tardar unos segundos.</p>
+
+      <div class="status-row" id="statusRow">
+        <span class="dot pending" id="statusDot"></span>
+        <span id="statusText"><span class="spinner"></span>&nbsp;esperando confirmación…</span>
+      </div>
+
+      <div class="cta-row">
+        <button class="cta" id="downloadBtn" disabled>Descargar ahora &rarr;</button>
+        <a class="cta" id="homeBtn" href="/" style="background:transparent;color:var(--text);border:1px solid var(--border);">volver al inicio</a>
+      </div>
+
+      <div class="meta" id="metaBox" hidden>
+        <div class="meta-row"><span>Producto</span><strong id="metaTitle">—</strong></div>
+        <div class="meta-row"><span>Monto</span><strong id="metaAmount">—</strong></div>
+        <div class="meta-row"><span>Ref</span><span class="ref" id="metaRef">—</span></div>
+      </div>
+
+      <p class="hint" id="hint">
+        También te mandamos un mail con el link de descarga (válido 48h). Si no te llega, revisá spam o escribime a
+        <a href="mailto:hola@balosky.com">hola@balosky.com</a>.
+      </p>
+    </article>
+  </main>
+
+  <footer>
+    Balosky · donde termina el feed, empezamos nosotros<br/>
+    <a href="https://instagram.com/santiagobalosky" target="_blank" rel="noopener">@santiagobalosky</a>
+  </footer>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var $ = function (id) { return document.getElementById(id); };
+      var statusDot = $('statusDot');
+      var statusText = $('statusText');
+      var eyebrow = $('eyebrow');
+      var headline = $('headline');
+      var subheadline = $('subheadline');
+      var downloadBtn = $('downloadBtn');
+      var hint = $('hint');
+      var metaBox = $('metaBox');
+      var metaTitle = $('metaTitle');
+      var metaAmount = $('metaAmount');
+      var metaRef = $('metaRef');
+
+      var params = new URLSearchParams(window.location.search);
+      var purchaseId = params.get('purchase') || params.get('purchase_id') || params.get('id') || '';
+
+      if (!purchaseId) {
+        setFailed('No encontramos la referencia de tu compra en la URL.', 'Si acabás de pagar, revisá el mail o escribime a hola@balosky.com.');
+        return;
+      }
+
+      metaRef.textContent = purchaseId;
+
+      function formatAmount(n) {
+        if (typeof n !== 'number' || !isFinite(n)) return '—';
+        try { return '$' + n.toLocaleString('es-AR'); } catch (_) { return '$' + n; }
+      }
+
+      function setPaid(data) {
+        statusDot.className = 'dot paid';
+        statusText.innerHTML = 'Pago confirmado';
+        eyebrow.textContent = 'listo';
+        headline.innerHTML = 'ya es tuyo<span class="pt">.</span>';
+        subheadline.textContent = 'Tu descarga está lista. También te mandamos el link por mail.';
+        if (data && data.downloadToken) {
+          var url = '/api/download/' + encodeURIComponent(data.downloadToken);
+          downloadBtn.disabled = false;
+          downloadBtn.addEventListener('click', function () {
+            window.location.href = url;
+          });
+        } else {
+          // Aporte/membresía sin archivo → botón inerte
+          downloadBtn.textContent = 'Gracias';
+          downloadBtn.disabled = true;
+        }
+        if (data && (data.title || data.amount)) {
+          metaBox.hidden = false;
+          if (data.title) metaTitle.textContent = data.title;
+          if (data.amount) metaAmount.textContent = formatAmount(data.amount);
+        }
+      }
+
+      function setPending() {
+        statusDot.className = 'dot pending';
+        statusText.innerHTML = '<span class="spinner"></span>&nbsp;esperando confirmación…';
+      }
+
+      function setFailed(title, body) {
+        statusDot.className = 'dot failed';
+        statusText.textContent = title || 'No pudimos confirmar tu pago';
+        eyebrow.textContent = 'algo salió mal';
+        if (body) subheadline.textContent = body;
+        downloadBtn.disabled = true;
+        hint.innerHTML = 'Si ya pagaste, esperá unos minutos y recargá, o escribime a <a href="mailto:hola@balosky.com">hola@balosky.com</a> con este ref: <code>' + purchaseId + '</code>';
+      }
+
+      var attempts = 0;
+      var maxAttempts = 40; // ~2min a 3s por intento
+      var intervalMs = 3000;
+      var timer = null;
+
+      async function poll() {
+        attempts += 1;
+        try {
+          var r = await fetch('/api/purchases/' + encodeURIComponent(purchaseId) + '/status', {
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+          });
+          if (r.status === 404) {
+            setFailed('No encontramos la compra', 'Puede que el ID sea inválido. Si ya pagaste, escribime a hola@balosky.com.');
+            stopPolling();
+            return;
+          }
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          var data = await r.json();
+
+          // Meta info siempre que venga
+          if (data.title) metaTitle.textContent = data.title;
+          if (data.amount) metaAmount.textContent = formatAmount(data.amount);
+          if (data.title || data.amount) metaBox.hidden = false;
+
+          if (data.status === 'paid') {
+            setPaid(data);
+            stopPolling();
+            return;
+          }
+          if (data.status === 'failed' || data.status === 'cancelled') {
+            setFailed('El pago no se aprobó', 'Volvé a intentar o probá con otro medio.');
+            stopPolling();
+            return;
+          }
+
+          // sigue pending / in_process
+          setPending();
+          if (attempts >= maxAttempts) {
+            statusText.textContent = 'seguimos esperando la confirmación… recargá la página en un rato.';
+            stopPolling();
+          }
+        } catch (e) {
+          // No matamos el polling por un error transiente; lo reintentamos.
+          console.warn('[pago-exitoso] polling error', e);
+        }
+      }
+
+      function stopPolling() {
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+
+      // kickoff
+      poll();
+      timer = setInterval(poll, intervalMs);
+
+      // Al volver del background reintentar inmediato
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && !downloadBtn.disabled === false) {
+          // purchase ya confirmada, no hace falta
+        } else if (!document.hidden) {
+          poll();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

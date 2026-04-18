@@ -27,6 +27,9 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
   const [editingIdea, setEditingIdea] = useState<Partial<Idea> | null>(null);
   const [ideaTagsInput, setIdeaTagsInput] = useState('');
 
+  // Filtro de la tab Mensajes: todos | pendientes | aprobados | del muro (amount=0)
+  const [messageFilter, setMessageFilter] = useState<'all' | 'pending' | 'approved' | 'wall'>('all');
+
   useEffect(() => {
     setActiveTab(defaultTab);
   }, [defaultTab]);
@@ -444,17 +447,91 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
         </div>
       )}
 
-      {activeTab === 'messages' && (
+      {activeTab === 'messages' && (() => {
+        const pendingCount = messages.filter(m => !m.isApproved).length;
+        const wallCount = messages.filter(m => (m.amount || 0) === 0).length;
+
+        const filtered = messages.filter(m => {
+          if (messageFilter === 'pending') return !m.isApproved;
+          if (messageFilter === 'approved') return !!m.isApproved;
+          if (messageFilter === 'wall') return (m.amount || 0) === 0;
+          return true;
+        });
+
+        // Pendientes primero, después por fecha desc
+        const sorted = [...filtered].sort((a, b) => {
+          const aPending = a.isApproved ? 1 : 0;
+          const bPending = b.isApproved ? 1 : 0;
+          if (aPending !== bPending) return aPending - bPending;
+          const at = new Date(a.createdAt || 0).getTime();
+          const bt = new Date(b.createdAt || 0).getTime();
+          return bt - at;
+        });
+
+        const filterBtn = (key: typeof messageFilter, label: string, badge?: number) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setMessageFilter(key)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
+              messageFilter === key
+                ? 'bg-violet-600/20 text-violet-300 border border-violet-500/40'
+                : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-zinc-200'
+            }`}
+          >
+            {label}
+            {typeof badge === 'number' && badge > 0 && (
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                messageFilter === key ? 'bg-violet-500/30 text-violet-200' : 'bg-zinc-800 text-zinc-300'
+              }`}>{badge}</span>
+            )}
+          </button>
+        );
+
+        return (
         <div className="space-y-6">
-          <h2 className="text-2xl font-display font-bold text-white">Mensajes</h2>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <h2 className="text-2xl font-display font-bold text-white">Mensajes</h2>
+              {pendingCount > 0 && (
+                <span className="px-3 py-1 bg-yellow-500/10 text-yellow-400 text-sm font-bold rounded-full">
+                  {pendingCount} pendiente{pendingCount === 1 ? '' : 's'} de moderación
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {filterBtn('all', 'Todos', messages.length)}
+              {filterBtn('pending', 'Pendientes', pendingCount)}
+              {filterBtn('approved', 'Aprobados', messages.length - pendingCount)}
+              {filterBtn('wall', 'Del muro', wallCount)}
+            </div>
+          </div>
+
+          {sorted.length === 0 ? (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center text-zinc-500">
+              {messageFilter === 'pending'
+                ? 'No hay mensajes pendientes. Todo aprobado.'
+                : messageFilter === 'wall'
+                ? 'Todavía no hay mensajes del muro (sin compra).'
+                : 'Sin mensajes todavía.'}
+            </div>
+          ) : (
           <div className="grid gap-4">
-            {messages.map(msg => (
-              <div key={msg.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-4">
+            {sorted.map(msg => (
+              <div key={msg.id} className={`bg-zinc-900 border rounded-2xl p-6 flex flex-col gap-4 ${
+                !msg.isApproved ? 'border-yellow-500/30' : 'border-zinc-800'
+              }`}>
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className="font-bold text-white">{msg.isAnonymous ? 'Anónimo' : msg.supporterName}</span>
-                      <span className="text-violet-400 font-medium">${msg.amount.toLocaleString()}</span>
+                      {(msg.amount || 0) > 0 ? (
+                        <span className="text-violet-400 font-medium">${msg.amount.toLocaleString()}</span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-sky-500/10 text-sky-400 text-xs font-bold rounded-full">
+                          Del muro
+                        </span>
+                      )}
                       {!msg.isApproved && (
                         <span className="px-2 py-0.5 bg-yellow-500/10 text-yellow-500 text-xs font-bold rounded-full">
                           Pendiente
@@ -464,6 +541,11 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                         <span className="px-2 py-0.5 bg-fuchsia-500/20 text-fuchsia-400 text-xs font-bold rounded-full flex items-center gap-1">
                           <Wand2 className="w-3 h-3" />
                           Encargo
+                        </span>
+                      )}
+                      {msg.createdAt && (
+                        <span className="text-xs text-zinc-500 ml-auto">
+                          {new Date(msg.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}
                         </span>
                       )}
                     </div>
@@ -523,8 +605,10 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
               </div>
             ))}
           </div>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {/* Campaign Modal */}
       <Modal 

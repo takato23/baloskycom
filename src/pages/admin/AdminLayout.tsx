@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Settings, LayoutDashboard, Target, Package, Users, MessageSquare, Lightbulb, LogOut } from 'lucide-react';
+import { Settings, LayoutDashboard, Target, Package, Users, MessageSquare, Lightbulb, LogOut, Film } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function AdminLayout() {
@@ -29,6 +29,7 @@ export default function AdminLayout() {
     { to: '/admin/products', icon: Package, label: 'Productos' },
     { to: '/admin/memberships', icon: Users, label: 'Membresías' },
     { to: '/admin/ideas', icon: Lightbulb, label: 'Ideas' },
+    { to: '/admin/media', icon: Film, label: 'Contenido & Redes' },
     { to: '/admin/messages', icon: MessageSquare, label: 'Mensajes' },
     { to: '/admin/settings', icon: Settings, label: 'Configuración' },
   ];

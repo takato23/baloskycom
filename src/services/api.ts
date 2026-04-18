@@ -8,7 +8,12 @@ import {
   SiteSettings,
   Product,
   Membership,
-  Idea
+  Idea,
+  Media,
+  MediaKind,
+  Social,
+  NewsletterSubscriber,
+  UploadResult
 } from '@/types';
 
 // ==========================================
@@ -325,9 +330,141 @@ export const api = {
     if (!res.ok) throw new Error('Failed to create preference');
     return res.json();
   },
+  // Mercado Pago Preapproval (recurring subscription) — usado por
+  // ClubSection para que "Sumarme" cree una suscripción mensual real
+  // en MP en vez de un pago one-time. El backend
+  // (POST /api/subscriptions/create) valida el membershipId, crea una
+  // fila en `subscriptions` (status=pending), llama a MP /preapproval,
+  // y devuelve el initPoint al que redirigimos. Cuando el usuario
+  // autoriza en MP, el webhook actualiza la subscription a `authorized`.
+  createSubscription: async (
+    membershipId: string,
+    email: string
+  ): Promise<{
+    subscriptionId: string;
+    preapprovalId?: string;
+    initPoint?: string;
+    sandboxInitPoint?: string;
+    stub?: boolean;
+  }> => {
+    const res = await fetch(`${API_URL}/subscriptions/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ membershipId, email })
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody?.error || 'No pudimos crear la suscripción');
+    }
+    return res.json();
+  },
+  // Usado por el banner de retorno post-MP (ClubReturnBanner) para poller
+  // el estado real de la suscripción. El backend devuelve status:
+  // 'pending' | 'authorized' | 'paused' | 'cancelled' | 'failed'.
+  getSubscriptionStatus: async (
+    subscriptionId: string
+  ): Promise<{
+    id: string;
+    status: 'pending' | 'authorized' | 'paused' | 'cancelled' | 'failed';
+    membershipId?: string;
+    authorizedAt?: string | null;
+  }> => {
+    const res = await fetch(
+      `${API_URL}/subscriptions/${encodeURIComponent(subscriptionId)}/status`
+    );
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody?.error || 'No pudimos leer el estado de la suscripción');
+    }
+    return res.json();
+  },
   getPaymentStatus: async (paymentId: string): Promise<CheckoutPaymentStatus> => {
     const res = await fetch(`${API_URL}/checkout/status/${paymentId}`);
     if (!res.ok) throw new Error('Failed to fetch payment status');
+    return res.json();
+  },
+
+  // Media (video_ia, foto, wallpaper, cancion)
+  getMedia: async (kind?: MediaKind): Promise<Media[]> => {
+    const url = kind ? `${API_URL}/media?kind=${kind}` : `${API_URL}/media`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to fetch media');
+    return res.json();
+  },
+  createMedia: async (m: Partial<Media>): Promise<Media> => {
+    const res = await fetch(`${API_URL}/media`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(m)
+    });
+    if (!res.ok) throw new Error('Failed to create media');
+    return res.json();
+  },
+  updateMedia: async (id: string, m: Partial<Media>): Promise<Media> => {
+    const res = await fetch(`${API_URL}/media/${id}`, {
+      method: 'PUT', headers: getHeaders(), body: JSON.stringify(m)
+    });
+    if (!res.ok) throw new Error('Failed to update media');
+    return res.json();
+  },
+  deleteMedia: async (id: string): Promise<void> => {
+    const res = await fetch(`${API_URL}/media/${id}`, { method: 'DELETE', headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to delete media');
+  },
+
+  // Socials
+  getSocials: async (): Promise<Social[]> => {
+    const res = await fetch(`${API_URL}/socials`);
+    if (!res.ok) throw new Error('Failed to fetch socials');
+    return res.json();
+  },
+  createSocial: async (s: Partial<Social>): Promise<Social> => {
+    const res = await fetch(`${API_URL}/socials`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(s)
+    });
+    if (!res.ok) throw new Error('Failed to create social');
+    return res.json();
+  },
+  updateSocial: async (id: string, s: Partial<Social>): Promise<Social> => {
+    const res = await fetch(`${API_URL}/socials/${id}`, {
+      method: 'PUT', headers: getHeaders(), body: JSON.stringify(s)
+    });
+    if (!res.ok) throw new Error('Failed to update social');
+    return res.json();
+  },
+  deleteSocial: async (id: string): Promise<void> => {
+    const res = await fetch(`${API_URL}/socials/${id}`, { method: 'DELETE', headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to delete social');
+  },
+
+  // File upload (admin only)
+  uploadFile: async (file: File): Promise<UploadResult> => {
+    const form = new FormData();
+    form.append('file', file);
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_URL}/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form
+    });
+    if (!res.ok) throw new Error('Failed to upload file');
+    return res.json();
+  },
+
+  // Newsletter
+  subscribeNewsletter: async (email: string, source?: string): Promise<{ success: boolean; duplicate?: boolean }> => {
+    const res = await fetch(`${API_URL}/newsletter`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, source })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to subscribe');
+    }
+    return res.json();
+  },
+  listNewsletter: async (): Promise<NewsletterSubscriber[]> => {
+    const res = await fetch(`${API_URL}/newsletter`, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch newsletter list');
     return res.json();
   }
 };

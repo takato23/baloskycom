@@ -36,3 +36,22 @@ update_brutalist.py
 # reports / notas
 informe-balosky.md
 README-agenda-publica.md
+
+# user-uploaded media (too big for git; served from local disk in dev, blob storage in prod)
+public/uploads/2026/
+public/uploads/ojo/
+public/uploads/videos/
+public/uploads/wallpapers/
+
+# diagnostic / QA build outputs
+dist-migrate-check/
+dist-preview-check/
+dist-test/
+
+# design prototypes (not part of the live app)
+design-mockups/
+
+# internal session notes / one-off scripts
+AGENTS.md
+CODEX_BRIEF.md
+__smoke.mjs

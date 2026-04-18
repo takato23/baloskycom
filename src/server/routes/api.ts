@@ -6,7 +6,13 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
-import { sendDeliveryEmail } from '../email.js';
+import {
+  sendDeliveryEmail,
+  sendThanksEmail,
+  sendWelcomeBaloskier,
+  sendMagicLinkEmail,
+  sendAdminAlert
+} from '../email.js';
 const router = express.Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const JWT_SECRET = process.env.JWT_SECRET?.trim();
@@ -224,17 +230,32 @@ const processApprovedPayment = async (payment: Awaited<ReturnType<Payment['get']
       );
 
       // Send email — only if not previously sent (idempotent across webhook retries)
+      // Branching por tipo:
+      //   - product/wallpaper/pack → sendDeliveryEmail (lleva downloadUrl real)
+      //   - campaign (cafecito, encargo, aporte libre) → sendThanksEmail
+      //   - membership se maneja aparte (processPreapproval + sendWelcomeBaloskier)
+      const isEncargo = /\[ENCARGO/i.test(message) || /encargo/i.test(productTitle);
+      const needsDelivery = ['product', 'wallpaper', 'pack'].includes(finalType);
       if (!purchaseRow.emailSentAt && finalEmail) {
         try {
-          const sendResult = await sendDeliveryEmail({
-            to: finalEmail,
-            productTitle,
-            downloadUrl,
-            expiresAt: downloadExpiresAt,
-            amount,
-            purchaseId,
-            supporterName: rawSupporterName || undefined,
-          });
+          const sendResult = needsDelivery
+            ? await sendDeliveryEmail({
+                to: finalEmail,
+                productTitle,
+                downloadUrl,
+                expiresAt: downloadExpiresAt,
+                amount,
+                purchaseId,
+                supporterName: rawSupporterName || undefined,
+              })
+            : await sendThanksEmail({
+                to: finalEmail,
+                supporterName: rawSupporterName || undefined,
+                amount,
+                itemTitle: productTitle,
+                isEncargo,
+                purchaseId
+              });
           if (sendResult.ok) {
             await db.prepare('UPDATE purchases SET emailSentAt = ? WHERE id = ?')
               .run(new Date().toISOString(), purchaseId);
@@ -245,6 +266,26 @@ const processApprovedPayment = async (payment: Awaited<ReturnType<Payment['get']
         } catch (emailErr) {
           console.error('[processApprovedPayment] email exception:', emailErr);
         }
+      }
+
+      /* Admin alert — Santi se entera apenas cae algo. Se manda siempre
+         que la sub no estaba ya en estado final (idempotencia vía
+         emailSentAt del purchase). */
+      if (!purchaseRow.emailSentAt) {
+        await sendAdminAlert({
+          kind: isEncargo ? 'encargo' : (finalType === 'campaign' ? 'cafecito' : 'purchase'),
+          summary: `${productTitle} · $${amount.toLocaleString('es-AR')} ARS · ${finalEmail || 'sin email'}`,
+          details: {
+            supporterName: rawSupporterName,
+            email: finalEmail,
+            amount,
+            type: finalType,
+            itemId: finalItemId,
+            purchaseId,
+            paymentId,
+            message: message ? message.slice(0, 300) : ''
+          }
+        }).catch((e) => console.error('[processApprovedPayment] admin alert error', e));
       }
 
       deliveryInfo.downloadUrl = downloadUrl;
@@ -278,6 +319,23 @@ const processApprovedPayment = async (payment: Awaited<ReturnType<Payment['get']
     processedAt,
     createdAt
   );
+
+  /* Admin alert para el path legacy (cafecitos sin purchaseId capturado).
+     Idempotencia garantizada por la PK de processed_payments arriba: si el
+     webhook reintenta, `existing` arriba corta el flow antes de llegar acá. */
+  if (!purchaseId) {
+    await sendAdminAlert({
+      kind: 'cafecito',
+      summary: `${supporterName} · $${amount.toLocaleString('es-AR')} ARS · ${campaignId}`,
+      details: {
+        supporterName,
+        amount,
+        campaignId,
+        paymentId,
+        message: message ? message.slice(0, 300) : ''
+      }
+    }).catch((e) => console.error('[processApprovedPayment] legacy admin alert error', e));
+  }
 
   return {
     processed: true,
@@ -1339,14 +1397,48 @@ router.post('/upload', requireAuth, upload.single('file'), (req, res) => {
 });
 
 // --- MEDIA (video_ia, foto, wallpaper, cancion) ---
-const mapMedia = (m: any) => ({
-  ...m,
-  thumbUrl: m.thumbUrl || null,
-  isLocked: Boolean(m.isLocked),
-  active: Boolean(m.active),
-  featured: Boolean(m.featured),
-  playCount: Number(m.playCount || 0)
-});
+/**
+ * Early drops: si `publicFrom` es una fecha futura, el item está en ventana
+ * early — sólo los Baloskiers lo ven completo. A los no-miembros les mandamos
+ * la tarjeta con la miniatura pero sin `mediaUrl` (no se puede abrir/bajar).
+ * El flag `isEarlyDrop` + `publicFrom` le dice al frontend que muestre el
+ * badge y el CTA a sumarse.
+ *
+ * viewerFull = true cuando el request viene del admin o de un Baloskier
+ * autenticado (cookie de sesión). En ese caso no hay redacción.
+ */
+const mapMedia = (m: any, viewerFull: boolean = true) => {
+  const publicFromMs = m.publicFrom ? new Date(m.publicFrom).getTime() : null;
+  const inEarlyWindow = publicFromMs !== null && publicFromMs > Date.now();
+  const shouldRedact = inEarlyWindow && !viewerFull;
+
+  return {
+    ...m,
+    thumbUrl: m.thumbUrl || null,
+    // Redactamos el archivo jugable/bajable durante la ventana early.
+    mediaUrl: shouldRedact ? null : m.mediaUrl,
+    isLocked: Boolean(m.isLocked) || shouldRedact,
+    isMemberOnly: Boolean(m.isMemberOnly),
+    active: Boolean(m.active),
+    featured: Boolean(m.featured),
+    playCount: Number(m.playCount || 0),
+    aspectRatio: m.aspectRatio || null,
+    publicFrom: m.publicFrom || null,
+    isEarlyDrop: inEarlyWindow,
+    // Default true when column is null/undefined (older rows) so nothing changes
+    // for content the admin hasn't touched yet.
+    showDescription: m.showDescription === 0 || m.showDescription === false ? false : true,
+    showPrompt: m.showPrompt === 0 || m.showPrompt === false ? false : true,
+    showTool: m.showTool === 0 || m.showTool === false ? false : true
+  };
+};
+
+/* viewerHasFullAccess: admin OR socio del club. Si es true, ve todo
+ * (incluido is_member_only y los early drops sin redactar). */
+function viewerHasFullAccess(req: express.Request) {
+  if (req.headers.authorization) return true;
+  return Boolean(readMemberFromCookie(req));
+}
 
 router.get('/media', async (req, res) => {
   try {
@@ -1354,7 +1446,13 @@ router.get('/media', async (req, res) => {
     const rows = kind
       ? await db.prepare('SELECT * FROM media WHERE kind = ? ORDER BY sortOrder ASC, createdAt DESC').all(String(kind))
       : await db.prepare('SELECT * FROM media ORDER BY kind ASC, sortOrder ASC').all();
-    res.json(rows.map(mapMedia));
+
+    const viewerFull = viewerHasFullAccess(req);
+    // is_member_only sigue siendo filtro duro — no aparece en la lista para
+    // no-miembros. Los early drops sí aparecen, pero con la URL redactada.
+    const filtered = viewerFull ? rows : rows.filter((r: any) => !r.isMemberOnly);
+
+    res.json(filtered.map((r: any) => mapMedia(r, viewerFull)));
   } catch (e) {
     console.error('[GET /media]', e);
     res.status(500).json({ error: 'database error' });
@@ -1365,7 +1463,7 @@ router.get('/media/:id', async (req, res) => {
   try {
     const row = await db.prepare('SELECT * FROM media WHERE id = ?').get(req.params.id);
     if (!row) return res.status(404).json({ error: 'Not found' });
-    res.json(mapMedia(row));
+    res.json(mapMedia(row, viewerHasFullAccess(req)));
   } catch (e) {
     console.error('[GET /media/:id]', e);
     res.status(500).json({ error: 'database error' });
@@ -1378,17 +1476,28 @@ router.post('/media', requireAuth, async (req, res) => {
     if (!m.kind || !m.title) return res.status(400).json({ error: 'kind and title required' });
     const id = m.id || `med_${m.kind.slice(0,2)}_${Date.now()}`;
     const createdAt = new Date().toISOString();
+    const aspectRatio = (['9:16','16:9','1:1'].includes(String(m.aspectRatio)) ? m.aspectRatio : null);
+    const showDesc = m.showDescription === false ? 0 : 1;
+    const showPrompt = m.showPrompt === false ? 0 : 1;
+    const showTool = m.showTool === false ? 0 : 1;
+    // Early drop: aceptamos ISO string o timestamp. Si no parsea, lo ignoramos.
+    const publicFrom = m.publicFrom ? (() => {
+      const d = new Date(m.publicFrom);
+      return isNaN(d.getTime()) ? null : d.toISOString();
+    })() : null;
     await db.prepare(`
-      INSERT INTO media (id, kind, title, description, category, mediaUrl, thumbUrl, embedUrl, coverImage, duration, aiTool, aiPrompt, isLocked, active, featured, sortOrder, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO media (id, kind, title, description, category, mediaUrl, thumbUrl, embedUrl, coverImage, duration, aiTool, aiPrompt, aspectRatio, showDescription, showPrompt, showTool, isLocked, active, featured, sortOrder, publicFrom, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, m.kind, m.title, m.description || null, m.category || null,
       m.mediaUrl || null, m.thumbUrl || null, m.embedUrl || null, m.coverImage || null, m.duration || null,
       m.aiTool || null, m.aiPrompt || null,
+      aspectRatio, showDesc, showPrompt, showTool,
       m.isLocked ? 1 : 0,
       m.active === false ? 0 : 1,
       m.featured ? 1 : 0,
       m.sortOrder || 0,
+      publicFrom,
       createdAt
     );
     const row = await db.prepare('SELECT * FROM media WHERE id = ?').get(id);
@@ -1419,10 +1528,27 @@ router.put('/media/:id', requireAuth, async (req, res) => {
     if (m.duration !== undefined)    cols.push(['duration', m.duration || null]);
     if (m.aiTool !== undefined)      cols.push(['aiTool', m.aiTool || null]);
     if (m.aiPrompt !== undefined)    cols.push(['aiPrompt', m.aiPrompt || null]);
+    if (m.aspectRatio !== undefined) {
+      const valid = ['9:16','16:9','1:1'].includes(String(m.aspectRatio));
+      cols.push(['aspectRatio', valid ? m.aspectRatio : null]);
+    }
+    if (m.showDescription !== undefined) cols.push(['showDescription', m.showDescription === false ? 0 : 1]);
+    if (m.showPrompt !== undefined)      cols.push(['showPrompt', m.showPrompt === false ? 0 : 1]);
+    if (m.showTool !== undefined)        cols.push(['showTool', m.showTool === false ? 0 : 1]);
     if (m.isLocked !== undefined)    cols.push(['isLocked', m.isLocked ? 1 : 0]);
     if (m.active !== undefined)      cols.push(['active', m.active === false ? 0 : 1]);
     if (m.featured !== undefined)    cols.push(['featured', m.featured ? 1 : 0]);
     if (m.sortOrder !== undefined)   cols.push(['sortOrder', Number(m.sortOrder) || 0]);
+    if (m.publicFrom !== undefined) {
+      // null/'' limpian la columna (vuelve a ser público normal). Fecha válida
+      // la guardamos como ISO; inválida la ignoramos para no romper.
+      if (!m.publicFrom) {
+        cols.push(['publicFrom', null]);
+      } else {
+        const d = new Date(m.publicFrom);
+        if (!isNaN(d.getTime())) cols.push(['publicFrom', d.toISOString()]);
+      }
+    }
 
     if (cols.length) {
       const setClause = cols.map(([c]) => `${c} = ?`).join(', ');
@@ -1927,6 +2053,8 @@ async function processPreapproval(preapprovalId: string) {
   }
 
   const now = new Date().toISOString();
+  const wasJustAuthorized = status === 'authorized' && sub.status !== 'authorized';
+
   await db.prepare(`
     UPDATE subscriptions
     SET status = ?, memberId = ?, nextPaymentAt = ?, mpPreapprovalId = ?,
@@ -1942,6 +2070,48 @@ async function processPreapproval(preapprovalId: string) {
     now,
     sub.id
   );
+
+  /* ---------- Bienvenida al Baloskier nuevo ----------
+     Sólo la mandamos la primera vez que la sub pasa a `authorized`
+     (detectado con el diff entre sub.status previo y el status nuevo).
+     Llevamos magic-login token para que entre al /club sin fricción. */
+  if (wasJustAuthorized && memberId && email) {
+    try {
+      const membership: any = await db
+        .prepare('SELECT id, name, price FROM memberships WHERE id = ?')
+        .get(sub.membershipId);
+
+      const magicToken = jwt.sign(
+        { typ: 'member-verify', mid: memberId, email },
+        EFFECTIVE_JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+      const appUrl = (process.env.APP_URL || '').replace(/\/$/, '') || 'https://balosky.com';
+      const magicLoginUrl = `${appUrl}/api/members/verify/${magicToken}`;
+
+      await sendWelcomeBaloskier({
+        to: email,
+        membershipName: membership?.name || 'Baloskier',
+        magicLoginUrl,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        amount: membership?.price ? Number(membership.price) : undefined
+      }).catch((e) => console.error('[processPreapproval] welcome email error', e));
+
+      await sendAdminAlert({
+        kind: 'subscription',
+        summary: `Baloskier nuevo · ${membership?.name || sub.membershipId} · ${email}`,
+        details: {
+          email,
+          membership: membership?.name || sub.membershipId,
+          subscriptionId: sub.id,
+          amount: membership?.price,
+          preapprovalId
+        }
+      }).catch((e) => console.error('[processPreapproval] admin alert error', e));
+    } catch (welcomeErr) {
+      console.error('[processPreapproval] welcome flow exception', welcomeErr);
+    }
+  }
 
   return { ok: true, status, memberId, subscriptionId: sub.id, email };
 }
@@ -2037,14 +2207,10 @@ router.post('/members/request-link', magicLinkLimiter, async (req, res) => {
       const baseUrl = getBaseUrl(req);
       const magicUrl = `${baseUrl}/api/members/verify/${token}`;
       try {
-        await sendDeliveryEmail({
+        await sendMagicLinkEmail({
           to: email,
-          productTitle: 'Acceso al Club Balosky',
-          downloadUrl: magicUrl,
-          expiresAt: new Date(Date.now() + 30 * 60 * 1000),
-          amount: 0,
-          purchaseId: member.id,
-          supporterName: ''
+          magicUrl,
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000)
         });
       } catch (e) {
         console.error('[members/request-link] email send failed', e);

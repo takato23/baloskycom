@@ -42,12 +42,24 @@ export type UserProfile = {
   purchases: any[]; // We'll use any for now to avoid circular deps or complex imports, or just import Purchase
 };
 
+/**
+ * Delirio supports five themes. `dark` and `light` are the core pair; `90s`,
+ * `soft`, and `a11y` are expressive modes. Persisted to localStorage under
+ * `balosky_theme` — the same key the static delirio.html uses, so the theme
+ * carries seamlessly between the (still-static) home and the React app.
+ */
+export type ThemeMode = 'dark' | 'light' | '90s' | 'soft' | 'a11y';
+
 interface AppState {
   campaigns: Campaign[];
   rewards: Reward[];
   supporters: Supporter[];
   userProfile: UserProfile;
+  /** Convenience boolean for legacy code — true when `theme === 'dark'`. */
   darkMode: boolean;
+  /** Full 5-way theme. Prefer this over darkMode going forward. */
+  theme: ThemeMode;
+  setTheme: (t: ThemeMode) => void;
   settings: SiteSettings | null;
   isLoading: boolean;
   currency: Currency;
@@ -57,6 +69,7 @@ interface AppState {
   blogPosts: BlogPost[];
   newlyUnlockedRewards: string[];
   clearNewlyUnlockedRewards: () => void;
+  /** Legacy: flips between dark and light. Prefer `setTheme`. */
   toggleDarkMode: () => void;
   setCurrency: (currency: Currency) => void;
   addContribution: (amount: number, name: string, message: string, campaignId?: string) => void;
@@ -204,11 +217,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [supporters, setSupporters] = useState<Supporter[]>([]);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile>(initialUserProfile);
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('darkMode');
-    if (saved !== null) return saved === 'true';
-    return true;
+  const [theme, setThemeState] = useState<ThemeMode>(() => {
+    // Prefer the Delirio key `balosky_theme` (set by the static home). Fall
+    // back to the legacy `darkMode` boolean so users who were on the React
+    // app before this migration don't get reset.
+    const saved = localStorage.getItem('balosky_theme');
+    if (saved === 'dark' || saved === 'light' || saved === '90s' || saved === 'soft' || saved === 'a11y') {
+      return saved;
+    }
+    const legacy = localStorage.getItem('darkMode');
+    if (legacy === 'false') return 'light';
+    return 'dark';
   });
+  const darkMode = theme === 'dark';
   const [isLoading, setIsLoading] = useState(true);
   const [currency, setCurrency] = useState<Currency>('ARS');
   const [polls, setPolls] = useState<Poll[]>(mockPolls);
@@ -289,13 +310,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadData();
   }, []);
 
-  // Dark mode: sync to DOM + localStorage
+  // Theme: sync to <html data-mode="…"> + localStorage. Keep the legacy
+  // `darkMode` key in sync too so any old code paths that still read it get
+  // a sensible boolean.
   useEffect(() => {
-    document.documentElement.setAttribute('data-mode', darkMode ? 'dark' : 'light');
-    localStorage.setItem('darkMode', String(darkMode));
-  }, [darkMode]);
+    document.documentElement.setAttribute('data-mode', theme);
+    localStorage.setItem('balosky_theme', theme);
+    localStorage.setItem('darkMode', String(theme === 'dark'));
+  }, [theme]);
 
-  const toggleDarkMode = () => setDarkMode(prev => !prev);
+  const setTheme = (t: ThemeMode) => setThemeState(t);
+  const toggleDarkMode = () =>
+    setThemeState(prev => (prev === 'dark' ? 'light' : 'dark'));
 
   const shareCampaign = async (campaign: Campaign) => {
     const url = `${window.location.origin}/checkout/${campaign.id}`;
@@ -450,13 +476,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const contextValue = useMemo(() => ({
-    campaigns, rewards, supporters, userProfile, darkMode, settings, isLoading, currency, polls, posts,
+    campaigns, rewards, supporters, userProfile, darkMode, theme, setTheme,
+    settings, isLoading, currency, polls, posts,
     galleryImages, blogPosts,
     newlyUnlockedRewards, clearNewlyUnlockedRewards,
     toggleDarkMode, setCurrency, addContribution, updateCampaign, shareCampaign, refreshData: loadData, votePoll, likePost, addComment,
     voteGalleryImage, addBlogComment
   }), [
-    campaigns, rewards, supporters, userProfile, darkMode, settings, isLoading, currency, polls, posts,
+    campaigns, rewards, supporters, userProfile, darkMode, theme, settings, isLoading, currency, polls, posts,
     galleryImages, blogPosts, newlyUnlockedRewards,
   ]);
 

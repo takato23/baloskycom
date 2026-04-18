@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Club · Balosky</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --fg: #f5f5f5;
+    --muted: #999;
+    --accent: #FA5D29;
+    --border: #222;
+    --card: #111;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+  body {
+    font-family: 'Inter Tight', 'Inter', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    line-height: 1.4;
+  }
+  .wrap {
+    width: 100%;
+    max-width: 520px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 32px;
+  }
+  .eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 18px;
+  }
+  h1 {
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    margin: 0 0 12px 0;
+    line-height: 1.05;
+  }
+  p { color: var(--muted); margin: 0 0 16px 0; font-size: 15px; }
+  p strong { color: var(--fg); }
+  .status-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 8px;
+    vertical-align: middle;
+    animation: pulse 2s infinite;
+  }
+  .status-dot.ok { background: #22c55e; animation: none; }
+  .status-dot.err { background: #ef4444; animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+  form { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+  input[type="email"] {
+    background: #0a0a0a;
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 14px 16px;
+    border-radius: 12px;
+    font: inherit;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="email"]:focus { border-color: var(--accent); }
+  .btn {
+    background: var(--accent);
+    color: #0a0a0a;
+    border: 0;
+    padding: 14px 20px;
+    border-radius: 999px;
+    font: inherit;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.15s;
+  }
+  .btn:hover { transform: translateY(-1px); background: #ff7746; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn.ghost {
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  .btn.ghost:hover { border-color: var(--fg); background: transparent; }
+  .msg { margin-top: 8px; font-size: 14px; min-height: 20px; }
+  .msg.ok { color: #22c55e; }
+  .msg.err { color: #ef4444; }
+  .meta {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .meta .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .meta .row .k { color: var(--muted); }
+  .meta .row .v { color: var(--fg); }
+  .link-home {
+    display: inline-block;
+    margin-top: 20px;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .link-home:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="card">
+    <div class="eyebrow" id="eyebrow">club</div>
+    <h1 id="title">Un ratito…</h1>
+    <p id="desc"><span class="status-dot" id="dot"></span>Verificando tu acceso.</p>
+    <div id="body"></div>
+    <a href="/" class="link-home">← volver al sitio</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  var qs = new URLSearchParams(location.search);
+  var subParam = qs.get('sub');
+  var authParam = qs.get('auth'); // ok | expired | invalid | gone | error
+  var card = document.getElementById('card');
+  var eyebrow = document.getElementById('eyebrow');
+  var title = document.getElementById('title');
+  var desc = document.getElementById('desc');
+  var body = document.getElementById('body');
+  var dot = document.getElementById('dot');
+
+  function setState(opts){
+    eyebrow.textContent = opts.eyebrow || 'club';
+    title.textContent = opts.title || '';
+    desc.innerHTML = '';
+    if (opts.dot) {
+      var dotEl = document.createElement('span');
+      dotEl.className = 'status-dot ' + (opts.dot || '');
+      desc.appendChild(dotEl);
+    }
+    desc.appendChild(document.createTextNode(opts.desc || ''));
+    body.innerHTML = opts.bodyHtml || '';
+  }
+
+  function formatDate(iso) {
+    try { return new Date(iso).toLocaleDateString('es-AR', { day:'numeric', month:'long', year:'numeric' }); }
+    catch (e) { return iso; }
+  }
+
+  function renderLoggedIn(member, sub){
+    var rows = '';
+    if (sub) {
+      rows += '<div class="row"><span class="k">plan</span><span class="v">' + (sub.membershipName || sub.membershipId) + '</span></div>';
+      rows += '<div class="row"><span class="k">estado</span><span class="v">' + sub.status + '</span></div>';
+      if (sub.nextPaymentAt) {
+        rows += '<div class="row"><span class="k">próximo cobro</span><span class="v">' + formatDate(sub.nextPaymentAt) + '</span></div>';
+      }
+    } else {
+      rows += '<div class="row"><span class="k">estado</span><span class="v">sin plan activo</span></div>';
+    }
+    setState({
+      eyebrow: 'ya entraste',
+      title: 'Hola, ' + (member.email.split('@')[0]) + '.',
+      dot: 'ok',
+      desc: ' Tu acceso al club está activo.',
+      bodyHtml: '<div class="meta">' + rows + '</div>'
+        + '<form id="logoutForm" style="margin-top:16px;"><button class="btn ghost" type="submit">Cerrar sesión</button></form>'
+    });
+    var lf = document.getElementById('logoutForm');
+    if (lf) lf.addEventListener('submit', async function(e){
+      e.preventDefault();
+      try { await fetch('/api/members/logout', { method: 'POST' }); } catch(_) {}
+      location.reload();
+    });
+  }
+
+  function renderLoginForm(statusMsg, statusCls){
+    setState({
+      eyebrow: 'club · ingreso',
+      title: 'Entrar al club',
+      desc: ' Dejá tu email y te mando un link mágico. Válido 30 min.',
+      bodyHtml:
+        '<form id="magicForm" autocomplete="off" novalidate>'
+      +   '<input type="email" id="magicEmail" placeholder="tu@mail.com" required autocomplete="email" />'
+      +   '<button class="btn" type="submit" id="magicSubmit">Mandar link</button>'
+      +   '<div class="msg ' + (statusCls || '') + '" id="magicMsg">' + (statusMsg || '') + '</div>'
+      + '</form>'
+    });
+    var f = document.getElementById('magicForm');
+    f.addEventListener('submit', async function(e){
+      e.preventDefault();
+      var email = (document.getElementById('magicEmail').value || '').trim();
+      var submit = document.getElementById('magicSubmit');
+      var msg = document.getElementById('magicMsg');
+      msg.className = 'msg';
+      msg.textContent = '';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        msg.textContent = 'Email inválido'; msg.className = 'msg err'; return;
+      }
+      submit.disabled = true; submit.textContent = 'Mandando…';
+      try {
+        var r = await fetch('/api/members/request-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        });
+        if (r.status === 429) {
+          msg.textContent = 'Demasiados intentos, esperá unos minutos.'; msg.className = 'msg err';
+          submit.disabled = false; submit.textContent = 'Reintentar'; return;
+        }
+        msg.textContent = 'Si tu email está registrado, te mandé un link.'; msg.className = 'msg ok';
+        submit.textContent = 'Revisá tu inbox';
+      } catch (err) {
+        msg.textContent = 'Error de red. Probá de nuevo.'; msg.className = 'msg err';
+        submit.disabled = false; submit.textContent = 'Reintentar';
+      }
+    });
+  }
+
+  async function renderSubscriptionPending(subId){
+    setState({
+      eyebrow: 'suscripción',
+      title: 'Estamos confirmando tu plan.',
+      desc: ' Apenas MP autorice el primer cobro te mando el link de acceso al mail. Podés cerrar esta pantalla.'
+    });
+    var tries = 0;
+    var maxTries = 30; // ~90s
+    async function poll(){
+      tries++;
+      try {
+        var r = await fetch('/api/subscriptions/' + encodeURIComponent(subId) + '/status');
+        if (r.ok) {
+          var data = await r.json();
+          if (data.status === 'authorized') {
+            setState({
+              eyebrow: 'bienvenido',
+              title: 'Plan activado.',
+              dot: 'ok',
+              desc: ' Te mandé un link a tu email para entrar al club.',
+              bodyHtml: '<p style="margin-top:12px;">Revisá tu bandeja (y el spam, por las dudas).</p>'
+            });
+            return;
+          }
+          if (data.status === 'cancelled' || data.status === 'failed') {
+            setState({
+              eyebrow: 'algo falló',
+              title: 'No se pudo activar la suscripción.',
+              dot: 'err',
+              desc: ' Probá de nuevo desde la home o escribinos.',
+              bodyHtml: '<a href="/#club" class="link-home">↩ volver al club</a>'
+            });
+            return;
+          }
+        }
+      } catch(_) {}
+      if (tries < maxTries) setTimeout(poll, 3000);
+      else {
+        setState({
+          eyebrow: 'seguimos esperando',
+          title: 'Sigue pendiente.',
+          desc: ' Cuando MP nos avise vas a recibir un mail. Podés cerrar esta pantalla tranqui.'
+        });
+      }
+    }
+    poll();
+  }
+
+  async function boot(){
+    if (subParam) {
+      renderSubscriptionPending(subParam);
+      return;
+    }
+
+    var authMsg = '';
+    var authCls = '';
+    if (authParam === 'expired') { authMsg = 'El link expiró. Pedí uno nuevo.'; authCls = 'err'; }
+    else if (authParam === 'invalid') { authMsg = 'Link inválido. Pedí uno nuevo.'; authCls = 'err'; }
+    else if (authParam === 'gone') { authMsg = 'Ya no estás registrado. Suscribite de nuevo.'; authCls = 'err'; }
+    else if (authParam === 'error') { authMsg = 'Hubo un error al validar. Probá de nuevo.'; authCls = 'err'; }
+
+    try {
+      var r = await fetch('/api/members/me', { credentials: 'same-origin' });
+      if (r.ok) {
+        var data = await r.json();
+        if (data && data.member) {
+          renderLoggedIn(data.member, data.subscription);
+          return;
+        }
+      }
+    } catch(_) {}
+    renderLoginForm(authMsg, authCls);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

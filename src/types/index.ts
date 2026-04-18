@@ -416,11 +416,36 @@ export interface Media {
    * laboratorio page for transparency. Optional.
    */
   aiPrompt?: string | null;
+  /**
+   * Aspect ratio hint for the laboratorio grid. When all visible items share
+   * one ratio the grid uses it; when mixed, the grid falls back to 1:1 so
+   * nothing gets cropped aggressively.
+   */
+  aspectRatio?: '9:16' | '16:9' | '1:1' | null;
+  /** When false, hides the description in the public card/modal. */
+  showDescription?: boolean;
+  /** When false, hides the AI prompt block in the public modal. */
+  showPrompt?: boolean;
+  /** When false, hides the AI tool chip in the public card/modal. */
+  showTool?: boolean;
   isLocked: boolean;
   active: boolean;
   featured: boolean;
   sortOrder: number;
   createdAt: string;
+  /**
+   * Early-drop timestamp (ISO). Cuando existe y todavía no pasó, el item
+   * es "adelanto para Baloskiers": lo ven los miembros, pero para el
+   * público general el mediaUrl viene redacted y se marca como locked.
+   * Cuando el timestamp pasa, queda visible para todos automáticamente.
+   * null = item normal (sin ventana early), se rige sólo por isLocked.
+   */
+  publicFrom?: string | null;
+  /**
+   * Derived flag set por el backend — indica que el item está en su
+   * ventana early (`publicFrom > now`). Sólo de lectura desde el cliente.
+   */
+  isEarlyDrop?: boolean;
 }
 
 // ===== SOCIALS =====

@@ -53,7 +53,12 @@ const COLUMN_MAP: Record<string, string> = {
   authorizedAt: 'authorized_at',
   cancelledAt: 'cancelled_at',
   lastLoginAt: 'last_login_at',
-  isMemberOnly: 'is_member_only'
+  isMemberOnly: 'is_member_only',
+  aspectRatio: 'aspect_ratio',
+  showDescription: 'show_description',
+  showPrompt: 'show_prompt',
+  showTool: 'show_tool',
+  publicFrom: 'public_from'
 };
 
 // Reverse map: snake_case to camelCase
@@ -492,6 +497,38 @@ async function initDb() {
     ALTER TABLE media ADD COLUMN IF NOT EXISTS is_member_only INTEGER NOT NULL DEFAULT 0
   `);
 
+  /* Aspecto del video para la grilla inteligente.
+   * Valores esperados: '9:16' | '16:9' | '1:1'. Nullable: default 9:16 para
+   * video_ia cuando no se especifica. */
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS aspect_ratio TEXT
+  `);
+
+  /* Flags per-item para que el admin elija qué mostrar públicamente.
+   * Default 1 (todo visible) para no romper items existentes. */
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS show_description INTEGER NOT NULL DEFAULT 1
+  `);
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS show_prompt INTEGER NOT NULL DEFAULT 1
+  `);
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS show_tool INTEGER NOT NULL DEFAULT 1
+  `);
+
+  /* Early drops: fecha a partir de la cual este item pasa a ser público.
+   * NULL = no hay ventana early (se comporta como siempre: público si no
+   * is_member_only, privado si sí). Fecha futura = sólo Baloskiers hasta
+   * esa fecha, después público. Pasada la fecha se comporta como null. */
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS public_from TIMESTAMPTZ
+  `);
+
+  /* Cleanup: el HP argento se sembró con un id mientras no existía el .mp4,
+   * lo que causaba una card rota al lado del molinete. Si seguís teniendo el
+   * archivo, lo podés volver a crear desde /admin/media con ese mismo id. */
+  await sql.unsafe(`DELETE FROM media WHERE id = 'med_vi_hp_argento'`).catch(() => {});
+
   // Create indexes
   await sql.unsafe(`
     CREATE INDEX IF NOT EXISTS idx_messages_approved_created
@@ -667,6 +704,54 @@ async function initDb() {
     await db.prepare('INSERT INTO purchases (id, supporterName, type, itemId, title, createdAt) VALUES (?, ?, ?, ?, ?, ?)').run('pur1', 'Santi Balosky', 'product', 'p1', 'Guía de Viaje: Tokyo Low Cost', now);
   }
 
+  // Idempotent seed for the 3 Club tiers (base / orbita / cerrada).
+  // Estos ids son los que ClubSection.tsx pasa al endpoint
+  // POST /api/subscriptions/create. Se inserta solo si no existen, así
+  // no piso planes que el admin haya creado o renombrado vía UI.
+  const clubTiers: Array<[string, string, number, string, string[], number, number]> = [
+    [
+      'base',
+      'Base',
+      3000,
+      'Demos, voice-notes mensuales y muro privado.',
+      ['Demos + voice-notes mensuales', 'Muro privado de miembros', '10% off en encargos', 'Nombre en créditos web'],
+      0,
+      1,
+    ],
+    [
+      'orbita',
+      'Órbita',
+      9000,
+      'Lo de Base + vivos privados, descuentos y entrevistas en proceso.',
+      ['Todo lo de Base', 'Vivo privado mensual (Q&A)', '25% off + early a drops', 'Entrevistas en proceso', 'Early a merch limitado'],
+      1,
+      2,
+    ],
+    [
+      'cerrada',
+      'Órbita cerrada',
+      25000,
+      'Lo de Órbita + 1:1 trimestral y feedback personal.',
+      ['Todo lo de Órbita', 'Zoom 1:1 trimestral', 'Feedback personal', 'Invitación prioritaria a lives', 'Merch físico trimestral'],
+      0,
+      3,
+    ],
+  ];
+  const nowClub = new Date().toISOString();
+  for (const [id, name, price, description, benefits, isHighlighted, sortOrder] of clubTiers) {
+    const existing = await db
+      .prepare('SELECT id FROM memberships WHERE id = ?')
+      .get(id);
+    if (!existing) {
+      await db
+        .prepare(
+          `INSERT INTO memberships (id, name, price, billingPeriod, description, benefits, isHighlighted, active, sortOrder, createdAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(id, name, price, 'monthly', description, JSON.stringify(benefits), isHighlighted, 1, sortOrder, nowClub);
+    }
+  }
+
   // Idempotent seed for ideas
   const countIdeas = await db.prepare('SELECT COUNT(*) as count FROM ideas').all();
   if (countIdeas.length === 0 || (countIdeas[0] as any).count === 0) {
@@ -766,51 +851,53 @@ async function initDb() {
       }
     }
 
-    // Per-id idempotent seeds for Santi's real video_ia pieces. Lives
-    // outside the "empty media table" branch above so these videos land in
-    // production DBs too. Each entry is inserted once (by id); renaming or
-    // deleting from /admin keeps it gone on next boot.
-    const realVideos: Array<{
-      id: string;
-      title: string;
-      description: string | null;
-      category: string | null;
-      mediaUrl: string;
-      coverImage: string | null;
-      duration: string | null;
-      aiTool: string | null;
-      aiPrompt: string | null;
-      featured: 0 | 1;
-      sortOrder: number;
-    }> = [
-      {
-        id: 'med_vi_hp_argento',
-        title: 'Harry Potter argento',
-        description: 'Si Harry Potter hubiese sido filmado en el conurbano. Sátira generada con IA.',
-        category: 'SÁTIRA · IA',
-        mediaUrl: '/uploads/2026/04/harry-potter-argento.mp4',
-        coverImage: '/uploads/2026/04/harry-potter-argento.jpg',
-        duration: '5:10',
-        aiTool: 'Veo 3',
-        aiPrompt: 'Harry Potter movie set in a Buenos Aires suburb, with argentinian accent, chori y fernet en Hogwarts, cinematic 9:16',
-        featured: 1,
-        sortOrder: 0,
-      },
-    ];
-    const nowVid = new Date().toISOString();
-    for (const v of realVideos) {
-      const existing = await db.prepare('SELECT id FROM media WHERE id = ?').get(v.id);
-      if (!existing) {
-        await db.prepare(`
-          INSERT INTO media (id, kind, title, description, category, mediaUrl, coverImage, duration, aiTool, aiPrompt, isLocked, active, featured, sortOrder, createdAt)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          v.id, 'video_ia', v.title, v.description, v.category,
-          v.mediaUrl, v.coverImage, v.duration,
-          v.aiTool, v.aiPrompt,
-          0, 1, v.featured, v.sortOrder, nowVid,
-        );
-      }
+  }
+
+  // Per-id idempotent seeds for Santi's real video_ia pieces. Lives OUTSIDE
+  // the "empty campaigns" branch above so these videos land in production DBs
+  // (which already have campaigns seeded) on every boot. Each entry is
+  // inserted once (by id); renaming or deleting from /admin keeps it gone.
+  const realVideos: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    category: string | null;
+    mediaUrl: string;
+    coverImage: string | null;
+    duration: string | null;
+    aiTool: string | null;
+    aiPrompt: string | null;
+    featured: 0 | 1;
+    sortOrder: number;
+  }> = [
+    {
+      // Subido a /public/uploads/videos/. Cubre la subcategoría "ideas con AI".
+      id: 'med_vi_molinete_conurbano',
+      title: 'El molinete del conurbano',
+      description: 'La épica del molinete del tren en hora pico, contada como western generado con IA.',
+      category: 'IDEAS · IA',
+      mediaUrl: '/uploads/videos/balosky-molinete-conurbano.mp4',
+      coverImage: null,
+      duration: null,
+      aiTool: 'Veo 3',
+      aiPrompt: 'Argentine subway turnstile rush hour, cinematic western tone, dust and chaos, 9:16',
+      featured: 1,
+      sortOrder: 1,
+    },
+  ];
+  const nowVid = new Date().toISOString();
+  for (const v of realVideos) {
+    const existing = await db.prepare('SELECT id FROM media WHERE id = ?').get(v.id);
+    if (!existing) {
+      await db.prepare(`
+        INSERT INTO media (id, kind, title, description, category, mediaUrl, coverImage, duration, aiTool, aiPrompt, isLocked, active, featured, sortOrder, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        v.id, 'video_ia', v.title, v.description, v.category,
+        v.mediaUrl, v.coverImage, v.duration,
+        v.aiTool, v.aiPrompt,
+        0, 1, v.featured, v.sortOrder, nowVid,
+      );
     }
   }
 

@@ -4,103 +4,103 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 
 type Mood = 'idle' | 'talking' | 'surprised' | 'happy' | 'hungry' | 'asleep';
 
-/* ── ASCII cat mascot, roams free (no box) ── */
-/* Two feet phases per mood for walk cycle */
+/* ── "Spark" mascot (à la Claude Code): tiny orange sparkle-creature ── */
+/* Two feet phases per mood for walk cycle. Top line = animated emote. */
 const FRAMES: Record<Mood, [string[], string[]]> = {
   idle: [
     [
-      '  ∧＿∧  ',
-      ' ( •_• ) ',
-      ' /|    |\\',
-      '  |    |  ',
-      '  U    U  ',
+      ' ·✦· ',
+      '╭───╮',
+      '│• •│',
+      '╰─◡─╯',
+      ' U U ',
     ],
     [
-      '  ∧＿∧  ',
-      ' ( •_• ) ',
-      ' /|    |\\',
-      '  |    |  ',
-      '  u    U  ',
+      ' ·∙· ',
+      '╭───╮',
+      '│• •│',
+      '╰─◡─╯',
+      ' u U ',
     ],
   ],
   talking: [
     [
-      '  ∧＿∧  ',
-      ' ( ◕‿◕ )',
-      ' /|    |\\',
-      '  | ♪  |  ',
-      '  U    U  ',
+      ' ·♪· ',
+      '╭───╮',
+      '│^ ^│',
+      '╰─o─╯',
+      ' U U ',
     ],
     [
-      '  ∧＿∧  ',
-      ' ( ◕‿◕ )',
-      ' /|    |\\',
-      '  | ♪  |  ',
-      '  u    U  ',
+      ' ♫·♪ ',
+      '╭───╮',
+      '│^ ^│',
+      '╰─o─╯',
+      ' u U ',
     ],
   ],
   surprised: [
     [
-      '  ∧＿∧  ',
-      ' ( ⊙△⊙ )',
-      ' /|    |\\',
-      '  | !  |  ',
-      '  U    U  ',
+      ' !!! ',
+      '╭───╮',
+      '│⊙ ⊙│',
+      '╰─o─╯',
+      ' U U ',
     ],
     [
-      '  ∧＿∧  ',
-      ' ( ⊙△⊙ )',
-      ' /|    |\\',
-      '  | !  |  ',
-      '  U    U  ',
+      ' !!! ',
+      '╭───╮',
+      '│⊙ ⊙│',
+      '╰─o─╯',
+      ' U U ',
     ],
   ],
   happy: [
     [
-      '  ∧＿∧  ',
-      ' ( ≧▽≦ )',
-      ' /|    |\\',
-      '  | ♥  |  ',
-      '  U    U  ',
+      '✦·♥·✦',
+      '╭───╮',
+      '│^ ^│',
+      '╰─v─╯',
+      ' U U ',
     ],
     [
-      '  ∧＿∧  ',
-      ' ( ≧▽≦ )',
-      ' /|    |\\',
-      '  | ♥  |  ',
-      '  u    u  ',
+      '·✦♥✦·',
+      '╭───╮',
+      '│^ ^│',
+      '╰─v─╯',
+      ' u u ',
     ],
   ],
   hungry: [
     [
-      '  ∧＿∧  ',
-      ' ( ；_； )',
-      ' /|    |\\',
-      '  | …  |  ',
-      '  U    U  ',
+      ' ~~~ ',
+      '╭───╮',
+      '│; ;│',
+      '╰───╯',
+      ' U U ',
     ],
     [
-      '  ∧＿∧  ',
-      ' ( ；_； )',
-      ' /|    |\\',
-      '  | …  |  ',
-      '  U    U  ',
+      ' ·~· ',
+      '╭───╮',
+      '│; ;│',
+      '╰───╯',
+      ' u U ',
     ],
   ],
   asleep: [
     [
-      '  ∧＿∧  ',
-      ' ( -ω- ) ',
-      ' /|    |\\',
-      '  |    |  ',
-      '  U    U  ',
+      ' zzz ',
+      '╭───╮',
+      '│- -│',
+      '╰───╯',
+      ' U U ',
     ],
     [
-      '  ∧＿∧  ',
-      ' ( -ω- ) ',
-      ' /|    |\\',
-      '  |    |  ',
-      '  U    U  ',
+      ' ZZZ ',
+      '╭───╮',
+      '│- -│',
+      '╰───╯',
+      ' U U ',
     ],
   ],
 };
@@ -170,7 +170,20 @@ export default function MascotCompanion() {
   const [posX, setPosX] = useState<number>(() =>
     typeof window !== 'undefined' ? window.innerWidth - 140 : 800
   ); // pixels from left
-  const [dir, setDir] = useState<1 | -1>(-1); // 1 = walks right, -1 = walks left
+  const [dir, setDirState] = useState<1 | -1>(-1); // 1 = walks right, -1 = walks left
+  const dirRef = useRef<1 | -1>(-1);
+  const setDir = (d: 1 | -1 | ((prev: 1 | -1) => 1 | -1)) => {
+    if (typeof d === 'function') {
+      setDirState((prev) => {
+        const next = (d as (p: 1 | -1) => 1 | -1)(prev);
+        dirRef.current = next;
+        return next;
+      });
+    } else {
+      dirRef.current = d;
+      setDirState(d);
+    }
+  };
   const [walkPhase, setWalkPhase] = useState(0); // 0 or 1 for feet animation
   const [isPaused, setIsPaused] = useState(false);
 
@@ -380,11 +393,11 @@ export default function MascotCompanion() {
             targetXRef.current = null;
           } else {
             const want: 1 | -1 = diff > 0 ? 1 : -1;
-            if (want !== dir) setDir(want);
+            if (want !== dirRef.current) setDir(want);
           }
         }
 
-        let nx = x + dir * speed * dt;
+        let nx = x + dirRef.current * speed * dt;
 
         // Edge bounds
         const margin = isMobile ? 12 : 32;
@@ -395,8 +408,8 @@ export default function MascotCompanion() {
         // Look-ahead obstacle check: scan a window in front of the mascot.
         // If something is there, turn around smoothly (no bump, no phrase).
         const lookAhead = 28;
-        const aheadLeft = dir === 1 ? nx + MASCOT_W : nx - lookAhead;
-        const aheadRight = dir === 1 ? nx + MASCOT_W + lookAhead : nx;
+        const aheadLeft = dirRef.current === 1 ? nx + MASCOT_W : nx - lookAhead;
+        const aheadRight = dirRef.current === 1 ? nx + MASCOT_W + lookAhead : nx;
         const rectTop = window.innerHeight - BASELINE_PX - MASCOT_H;
         const rectBottom = window.innerHeight - BASELINE_PX;
 
@@ -409,7 +422,7 @@ export default function MascotCompanion() {
             rectBottom > obs.top
           ) {
             // Obstacle ahead — turn quietly, cancel chase target
-            setDir((d) => (d === 1 ? -1 : 1));
+            setDir(dirRef.current === 1 ? -1 : 1);
             targetXRef.current = null;
             nx = x; // hold position this frame
             avoided = true;
@@ -439,8 +452,8 @@ export default function MascotCompanion() {
                 flashMood('surprised', 500);
                 say(pick(PHRASES_BUMP), 1200);
               }
-              nx = x - dir * 8;
-              setDir((d) => (d === 1 ? -1 : 1));
+              nx = x - dirRef.current * 8;
+              setDir(dirRef.current === 1 ? -1 : 1);
               targetXRef.current = null;
               break;
             }
@@ -455,7 +468,11 @@ export default function MascotCompanion() {
     };
     walkRafRef.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(walkRafRef.current);
-  }, [hidden, isMobile, mood, dir, isPaused, MASCOT_W, MASCOT_H, BASELINE_PX]);
+    // dir is intentionally NOT in the dep list: we read it via dirRef.current
+    // inside the rAF step. Putting it in deps would tear down and re-create the
+    // animation frame on every turn, triggering update-depth warnings.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hidden, isMobile, mood, isPaused, MASCOT_W, MASCOT_H, BASELINE_PX]);
 
   // Occasionally pause/turn/change direction to feel alive
   useEffect(() => {
@@ -532,7 +549,6 @@ export default function MascotCompanion() {
     );
   }
 
-  const thought = mood === 'asleep' ? ' zzz' : mood === 'hungry' ? ' ??!' : '';
   // Frames: two phases per mood for walk cycle; pick phase based on walkPhase and movement
   const walking = !isPaused && mood !== 'asleep' && mood !== 'surprised' && mood !== 'happy';
   const lines = FRAMES[mood][walking ? walkPhase : 0];
@@ -573,12 +589,13 @@ export default function MascotCompanion() {
         className="pointer-events-auto cursor-pointer relative group"
         style={{
           filter: mood === 'asleep'
-            ? 'grayscale(0.6) brightness(0.7) drop-shadow(1px 2px 0 rgba(0,0,0,0.25))'
-            : 'drop-shadow(1px 2px 0 rgba(0,0,0,0.25))',
+            ? 'grayscale(0.35) brightness(0.85) drop-shadow(0 0 2px rgba(250,93,41,0.25)) drop-shadow(1px 2px 0 rgba(0,0,0,0.25))'
+            : 'drop-shadow(0 0 4px rgba(250,93,41,0.45)) drop-shadow(0 0 10px rgba(250,93,41,0.18)) drop-shadow(1px 2px 0 rgba(0,0,0,0.25))',
+          animation: mood === 'asleep' ? 'none' : 'mascot-pulse 2.4s ease-in-out infinite',
         }}
       >
         <pre
-          className={`m-0 font-mono ${isMobile ? 'text-[10px] leading-[1.05]' : 'text-[13px] leading-[1.1]'} tracking-tight text-[var(--black)] group-hover:text-[var(--accent)] transition-colors`}
+          className={`m-0 font-mono ${isMobile ? 'text-[11px] leading-[1.05]' : 'text-[14px] leading-[1.1]'} tracking-tight text-[var(--accent)] group-hover:brightness-125 transition-[filter]`}
           style={{
             animation: mood === 'asleep'
               ? 'mascot-sleep 3s ease-in-out infinite'
@@ -588,9 +605,6 @@ export default function MascotCompanion() {
             transform: flip,
           }}
         >
-          <span className="text-[var(--accent)] text-[10px]" style={{ transform: flip, display: 'inline-block' }}>
-            {thought}
-          </span>{'\n'}
           <span ref={faceRef} style={{ display: 'inline-block', transition: 'transform 0.05s' }}>
             {lines.join('\n')}
           </span>
@@ -622,6 +636,20 @@ export default function MascotCompanion() {
         @keyframes mascot-sleep {
           0%, 100% { transform: translateY(0) rotate(-1deg) ${flip}; }
           50% { transform: translateY(2px) rotate(1deg) ${flip}; }
+        }
+        @keyframes mascot-pulse {
+          0%, 100% {
+            filter:
+              drop-shadow(0 0 4px rgba(250,93,41,0.45))
+              drop-shadow(0 0 10px rgba(250,93,41,0.18))
+              drop-shadow(1px 2px 0 rgba(0,0,0,0.25));
+          }
+          50% {
+            filter:
+              drop-shadow(0 0 7px rgba(250,93,41,0.7))
+              drop-shadow(0 0 16px rgba(250,93,41,0.3))
+              drop-shadow(1px 2px 0 rgba(0,0,0,0.25));
+          }
         }
       `}</style>
     </div>

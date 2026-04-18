@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useMusicPlayer } from '@/context/MusicPlayerContext';
 import { Visualizer, VisualizerPicker, useVisualizerCycle } from '@/components/music/Visualizers';
+import PublicSongsCatalog from '@/components/music/PublicSongsCatalog';
 import LoadingScreen from '@/components/effects/LoadingScreen';
 import Marquee from '@/components/Marquee';
 import Particles from '@/components/effects/Particles';
@@ -484,22 +485,18 @@ export default function Home() {
           </div>
 
           {/* Avatar cutout — right side (desktop) / top-right circle (mobile) */}
-          {settings?.creatorAvatar && (
-            <>
-              {/* Desktop: large cutout at bottom-right */}
-              <div
-                className="hidden sm:block absolute bottom-0 z-[1] pointer-events-none right-0 md:right-[5%] w-[35vw] max-w-[600px]"
-                style={{ maskImage: 'linear-gradient(to top, black 60%, transparent 100%)' }}
-              >
-                <img
-                  src={settings.creatorAvatar}
-                  alt={settings.creatorName}
-                  decoding="async"
-                  className="w-full h-auto object-cover grayscale-[30%] contrast-110"
-                />
-              </div>
-            </>
-          )}
+          {/* Desktop: large cutout at bottom-right */}
+          <div
+            className="hidden sm:block absolute bottom-0 z-[1] pointer-events-none right-0 md:right-[5%] w-[35vw] max-w-[600px]"
+            style={{ maskImage: 'linear-gradient(to top, black 60%, transparent 100%)' }}
+          >
+            <img
+              src={settings?.creatorAvatar || '/images/santi-avatar.jpeg'}
+              alt={settings?.creatorName || 'Santi Balosky'}
+              decoding="async"
+              className="w-full h-auto object-cover grayscale-[30%] contrast-110"
+            />
+          </div>
 
           {/* Hero content */}
           <div className={cn(SECTION_PAD, 'relative z-[3] pb-0')}>
@@ -574,24 +571,22 @@ export default function Home() {
           </div>
 
           {/* Mobile: full-width dramatic photo below hero text (mockup style) */}
-          {settings?.creatorAvatar && (
-            <div
-              className="sm:hidden relative w-full z-[1] pointer-events-none -mt-4"
-              style={{
-                height: '50vh',
-                maskImage: 'linear-gradient(to bottom, black 0%, black 75%, transparent 100%)',
-                WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 75%, transparent 100%)',
-              }}
-            >
-              <img
-                src={settings.creatorAvatar}
-                alt={settings.creatorName}
-                decoding="async"
-                className="w-full h-full object-cover object-top grayscale-[20%] contrast-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-[rgba(250,93,41,0.08)]" />
-            </div>
-          )}
+          <div
+            className="sm:hidden relative w-full z-[1] pointer-events-none -mt-4"
+            style={{
+              height: '50vh',
+              maskImage: 'linear-gradient(to bottom, black 0%, black 75%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 75%, transparent 100%)',
+            }}
+          >
+            <img
+              src={settings?.creatorAvatar || '/images/santi-avatar.jpeg'}
+              alt={settings?.creatorName || 'Santi Balosky'}
+              decoding="async"
+              className="w-full h-full object-cover object-top grayscale-[20%] contrast-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-[rgba(250,93,41,0.08)]" />
+          </div>
 
           {/* Stats bar at bottom */}
           <motion.div
@@ -1287,6 +1282,17 @@ export default function Home() {
                     </>
                   )}
                 </div>
+              </motion.div>
+
+              {/* Full catalogue from the media table — one card per cancion
+                  with per-track embed / MP3 fallback and category filter. */}
+              <motion.div
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-40px' }}
+              >
+                <PublicSongsCatalog />
               </motion.div>
             </div>
           </section>

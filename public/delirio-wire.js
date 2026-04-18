@@ -23,6 +23,240 @@
     });
   };
 
+  /* =====================================================================
+   * CHECKOUT MODAL · unificado
+   * ---------------------------------------------------------------------
+   * Cualquier botón con [data-checkout-type] dispara este modal. Pide
+   * email + nombre + (opcional) monto, postea a /api/checkout/create y
+   * redirige a Mercado Pago. Al volver de MP, el usuario cae en
+   * /pago-exitoso?purchase=<id> que hace polling hasta approved.
+   * =================================================================== */
+  var _buyCurrent = null;
+
+  function ensureCheckoutModal(){
+    if (document.getElementById('buyGate')) return;
+    var el = document.createElement('div');
+    el.id = 'buyGate';
+    el.className = 'wp-gate';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-hidden', 'true');
+    el.setAttribute('aria-label', 'Checkout');
+    el.innerHTML =
+      '<div class="wp-card">'
+    +   '<button class="wp-close" id="buyClose" data-cursor="CERRAR" aria-label="Cerrar">&#10006;</button>'
+    +   '<div class="wp-eyebrow" id="buyEyebrow">Apoyá</div>'
+    +   '<h4 id="buyTitle">Confirmar</h4>'
+    +   '<div class="wp-desc" id="buyDesc">Dejá tu mail. Te llevo al pago seguro de Mercado Pago y te mando el link de descarga al volver.</div>'
+    +   '<form id="buyForm" autocomplete="off" novalidate>'
+    +     '<input type="email" id="buyEmail" name="email" placeholder="tu@mail.com" required aria-label="Email" autocomplete="email" />'
+    +     '<div id="buyExtra" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">'
+    +       '<input type="text" id="buyName" name="name" placeholder="tu nombre (opcional)" aria-label="Nombre" autocomplete="name" maxlength="80" style="background:transparent;border:0;color:inherit;font:inherit;padding:10px 14px;border-radius:10px;outline:none;" />'
+    +       '<input type="number" id="buyAmount" name="amount" placeholder="monto en $ (mínimo 100)" aria-label="Monto" min="100" step="100" style="background:transparent;border:0;color:inherit;font:inherit;padding:10px 14px;border-radius:10px;outline:none;display:none;" />'
+    +     '</div>'
+    +     '<button type="submit" class="wp-submit" id="buySubmit">Ir a pagar</button>'
+    +   '</form>'
+    +   '<div class="wp-msg" id="buyMsg" role="status" aria-live="polite"></div>'
+    +   '<div class="wp-fine">Pago procesado por Mercado Pago. El link de descarga llega al mail y también queda a la vista al volver.</div>'
+    + '</div>';
+    document.body.appendChild(el);
+
+    var closeBtn = el.querySelector('#buyClose');
+    if (closeBtn) closeBtn.addEventListener('click', closeCheckoutModal);
+    el.addEventListener('click', function(ev){ if (ev.target === el) closeCheckoutModal(); });
+    document.addEventListener('keydown', function(ev){
+      if (ev.key === 'Escape' && el.classList.contains('open')) closeCheckoutModal();
+    });
+
+    var form = el.querySelector('#buyForm');
+    form.addEventListener('submit', submitCheckoutForm);
+  }
+
+  function openCheckoutModal(opts){
+    ensureCheckoutModal();
+    _buyCurrent = opts || {};
+    var el = document.getElementById('buyGate');
+    if (!el) return;
+
+    var eyebrow = el.querySelector('#buyEyebrow');
+    var title = el.querySelector('#buyTitle');
+    var desc = el.querySelector('#buyDesc');
+    var amountInput = el.querySelector('#buyAmount');
+    var submit = el.querySelector('#buySubmit');
+    var msg = el.querySelector('#buyMsg');
+    var email = el.querySelector('#buyEmail');
+
+    if (eyebrow) eyebrow.textContent = _buyCurrent.eyebrow || 'Apoyá';
+    if (title) title.textContent = _buyCurrent.title || 'Confirmar tu apoyo';
+    if (desc) desc.textContent = _buyCurrent.desc || 'Dejá tu mail. Te llevo al pago seguro y el link de descarga queda en la pantalla de éxito.';
+    if (submit) {
+      var label = _buyCurrent.amount ? ('Ir a pagar · $' + Number(_buyCurrent.amount).toLocaleString('es-AR')) : 'Ir a pagar';
+      submit.textContent = label;
+      submit.disabled = false;
+    }
+    if (msg) { msg.textContent = ''; msg.className = 'wp-msg'; }
+    if (amountInput) {
+      if (_buyCurrent.editableAmount) {
+        amountInput.style.display = '';
+        amountInput.value = _buyCurrent.amount ? String(_buyCurrent.amount) : '';
+      } else {
+        amountInput.style.display = 'none';
+        amountInput.value = '';
+      }
+    }
+
+    el.classList.add('open');
+    el.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    setTimeout(function(){ if (email) email.focus(); }, 50);
+    trackPlausible('checkout_open', {
+      type: _buyCurrent.type || 'unknown',
+      itemId: _buyCurrent.itemId || '',
+      amount: _buyCurrent.amount ? Number(_buyCurrent.amount) : 0
+    });
+  }
+
+  function closeCheckoutModal(){
+    var el = document.getElementById('buyGate');
+    if (!el) return;
+    el.classList.remove('open');
+    el.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  async function submitCheckoutForm(ev){
+    ev.preventDefault();
+    if (!_buyCurrent) return;
+    var el = document.getElementById('buyGate');
+    if (!el) return;
+    var email = String((el.querySelector('#buyEmail') || {}).value || '').trim().toLowerCase();
+    var name = String((el.querySelector('#buyName') || {}).value || '').trim();
+    var amountRaw = Number((el.querySelector('#buyAmount') || {}).value || 0);
+    var submit = el.querySelector('#buySubmit');
+    var msg = el.querySelector('#buyMsg');
+
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      if (msg) { msg.textContent = 'Email inválido'; msg.className = 'wp-msg err'; }
+      return;
+    }
+
+    // Membresías: flujo recurrente — pegamos a /api/subscriptions/create
+    // que usa MP Preapproval. Devuelve initPoint igual que checkout.
+    if (_buyCurrent.type === 'membership') {
+      if (!_buyCurrent.itemId) {
+        if (msg) { msg.textContent = 'Plan inválido'; msg.className = 'wp-msg err'; }
+        return;
+      }
+      if (submit) { submit.disabled = true; submit.textContent = 'Creando suscripción…'; }
+      try {
+        var rs = await fetch('/api/subscriptions/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ membershipId: _buyCurrent.itemId, email: email })
+        });
+        var subData = null;
+        try { subData = await rs.json(); } catch(_) {}
+        if (!rs.ok || !subData) {
+          var subErr = (subData && subData.error) || 'No pude crear la suscripción.';
+          if (msg) { msg.textContent = subErr; msg.className = 'wp-msg err'; }
+          if (submit) { submit.disabled = false; submit.textContent = 'Reintentar'; }
+          return;
+        }
+        trackPlausible('subscription_created', {
+          subscriptionId: subData.subscriptionId || '',
+          membershipId: _buyCurrent.itemId
+        });
+        var subTarget = subData.initPoint || subData.sandboxInitPoint;
+        if (subTarget) {
+          window.location.assign(subTarget);
+        } else {
+          if (msg) { msg.textContent = 'No recibí el link de MP.'; msg.className = 'wp-msg err'; }
+          if (submit) { submit.disabled = false; submit.textContent = 'Reintentar'; }
+        }
+      } catch (e) {
+        console.warn('[subscriptions] create failed', e);
+        if (msg) { msg.textContent = 'Error de red. Probá de nuevo.'; msg.className = 'wp-msg err'; }
+        if (submit) { submit.disabled = false; submit.textContent = 'Reintentar'; }
+      }
+      return;
+    }
+
+    var body = {
+      type: _buyCurrent.type,
+      email: email,
+      supporterName: name || undefined
+    };
+    if (_buyCurrent.itemId) body.itemId = _buyCurrent.itemId;
+    // amount: override manual > amount del opts (fijo) > nada (campaña con monto libre)
+    if (_buyCurrent.editableAmount && amountRaw > 0) {
+      body.amount = amountRaw;
+    } else if (_buyCurrent.amount) {
+      body.amount = Number(_buyCurrent.amount);
+    }
+
+    if (submit) { submit.disabled = true; submit.textContent = 'Creando pago…'; }
+    if (msg) { msg.textContent = ''; msg.className = 'wp-msg'; }
+
+    try {
+      var r = await fetch('/api/checkout/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      var data = null;
+      try { data = await r.json(); } catch(_) {}
+      if (!r.ok || !data) {
+        var errTxt = (data && data.error) || 'No pude crear el pago. Probá de nuevo.';
+        if (msg) { msg.textContent = errTxt; msg.className = 'wp-msg err'; }
+        if (submit) { submit.disabled = false; submit.textContent = 'Reintentar'; }
+        return;
+      }
+      trackPlausible('checkout_created', {
+        type: _buyCurrent.type || 'unknown',
+        purchaseId: data.purchaseId || ''
+      });
+      var target = data.initPoint || data.sandboxInitPoint;
+      if (target) {
+        window.location.assign(target);
+      } else {
+        if (msg) { msg.textContent = 'No recibí el link de Mercado Pago, intentá de nuevo.'; msg.className = 'wp-msg err'; }
+        if (submit) { submit.disabled = false; submit.textContent = 'Reintentar'; }
+      }
+    } catch (e) {
+      console.warn('[checkout] create failed', e);
+      if (msg) { msg.textContent = 'Error de red. Probá de nuevo.'; msg.className = 'wp-msg err'; }
+      if (submit) { submit.disabled = false; submit.textContent = 'Reintentar'; }
+    }
+  }
+
+  /* Click interceptor global: cualquier elemento con [data-checkout-type] abre
+     el modal. Usamos capture=true para anticiparnos a los onclick que navegan
+     al href viejo /checkout/c3. */
+  document.addEventListener('click', function(e){
+    var target = e.target;
+    if (!(target instanceof Element)) return;
+    var btn = target.closest('[data-checkout-type]');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var type = btn.getAttribute('data-checkout-type') || 'campaign';
+    var itemId = btn.getAttribute('data-checkout-itemid') || '';
+    var amountAttr = btn.getAttribute('data-checkout-amount');
+    var amount = amountAttr ? Number(amountAttr) : 0;
+    var editable = btn.getAttribute('data-checkout-editable') === '1';
+    var title = btn.getAttribute('data-checkout-title') || '';
+    var eyebrow = btn.getAttribute('data-checkout-eyebrow') || '';
+    var desc = btn.getAttribute('data-checkout-desc') || '';
+    openCheckoutModal({
+      type: type,
+      itemId: itemId,
+      amount: amount > 0 ? amount : 0,
+      editableAmount: editable,
+      title: title,
+      eyebrow: eyebrow,
+      desc: desc
+    });
+  }, true);
+
   async function fetchJSON(url){
     try {
       var r = await fetch(url, { credentials: 'same-origin' });
@@ -48,6 +282,185 @@
     link.as = 'image';
     link.href = href;
     if (!existing) head.appendChild(link);
+  }
+
+  function clearChildren(el){
+    while (el && el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function setMultilineHeading(el, primary, secondary){
+    if (!el) return;
+    clearChildren(el);
+    el.appendChild(document.createTextNode(primary || ''));
+    el.appendChild(document.createElement('br'));
+    el.appendChild(document.createTextNode(secondary || ''));
+  }
+
+  function setAmountSummary(el, current, goal){
+    if (!el) return;
+    clearChildren(el);
+    el.appendChild(document.createTextNode('$' + fmtK(current)));
+    var detail = document.createElement('span');
+    detail.style.fontSize = '0.45em';
+    detail.style.color = 'rgba(255,255,255,0.7)';
+    detail.textContent = ' k / $' + fmtK(goal) + 'k';
+    el.appendChild(detail);
+  }
+
+  function setPriceMarkup(el, amount, suffixTag, suffixText){
+    if (!el) return;
+    clearChildren(el);
+    el.appendChild(document.createTextNode('$' + fmtK(amount)));
+    if (suffixTag && suffixText) {
+      var suffix = document.createElement(suffixTag);
+      suffix.textContent = suffixText;
+      el.appendChild(suffix);
+    }
+  }
+
+  function setMembershipPrice(el, amount, billingPeriod){
+    if (!el) return;
+    clearChildren(el);
+    el.appendChild(document.createTextNode('$' + fmtK(amount)));
+    var small = document.createElement('small');
+    small.textContent = 'k / ' + (billingPeriod === 'yearly' ? 'año' : 'mes');
+    el.appendChild(small);
+  }
+
+  function renderListItems(listEl, items){
+    if (!listEl) return;
+    clearChildren(listEl);
+    (items || []).forEach(function(item){
+      var li = document.createElement('li');
+      li.textContent = item == null ? '' : String(item);
+      listEl.appendChild(li);
+    });
+  }
+
+  function createLeaderRow(rank, name, amount, kind, isEmpty){
+    var row = document.createElement('div');
+    row.className = 'leader-row';
+    if (isEmpty) {
+      row.style.opacity = '0.55';
+      row.style.gridTemplateColumns = '1fr';
+      var emptyName = document.createElement('span');
+      emptyName.className = 'name';
+      emptyName.style.textAlign = 'center';
+      emptyName.style.padding = '14px';
+      emptyName.textContent = name;
+      row.appendChild(emptyName);
+      return row;
+    }
+    [['rank', rank], ['name', name], ['amt', '$' + fmtK(amount) + 'k'], ['kind', kind]].forEach(function(part){
+      var span = document.createElement('span');
+      span.className = part[0];
+      span.textContent = part[1];
+      row.appendChild(span);
+    });
+    return row;
+  }
+
+  function createFeedEntryNode(m, i, markAsNew){
+    var mk = _feedMarkers[i % _feedMarkers.length];
+    var who = m.supporterName || m.name || 'Anónimo';
+    var entry = document.createElement('div');
+    entry.className = 'feed-entry' + (markAsNew ? ' is-new' : '');
+    entry.dataset.id = m.id || ('m' + i);
+
+    var marker = document.createElement('span');
+    marker.className = 'mk ' + mk;
+    entry.appendChild(marker);
+
+    var body = document.createElement('div');
+    body.className = 'body';
+
+    var msg = document.createElement('div');
+    msg.className = 'msg';
+    var whoStrong = document.createElement('b');
+    whoStrong.textContent = who;
+    msg.appendChild(whoStrong);
+
+    if (m.amount) {
+      msg.appendChild(document.createTextNode(' aportó '));
+      var amtStrong = document.createElement('b');
+      amtStrong.textContent = '$' + fmtK(m.amount) + 'k';
+      msg.appendChild(amtStrong);
+    } else if (m.message) {
+      msg.appendChild(document.createTextNode(': "' + String(m.message).substring(0, 140) + '"'));
+    } else {
+      msg.appendChild(document.createTextNode(' dejó un mensaje'));
+    }
+
+    var time = document.createElement('div');
+    time.className = 'time';
+    time.textContent = fmtTime(m.createdAt);
+
+    body.appendChild(msg);
+    body.appendChild(time);
+    entry.appendChild(body);
+
+    var pin = document.createElement('button');
+    pin.className = 'pin';
+    pin.setAttribute('data-cursor', 'FAV');
+    pin.setAttribute('aria-label', 'Pin');
+    pin.textContent = '★';
+    entry.appendChild(pin);
+
+    return entry;
+  }
+
+  function createPinnedFeedNode(settings){
+    var pinned = settings && settings.pinnedMessage;
+    if (!pinned || !pinned.enabled || (!pinned.text && !pinned.author)) return null;
+
+    var entry = document.createElement('div');
+    entry.className = 'feed-entry is-pinned';
+    entry.dataset.id = 'pinned';
+    entry.style.background = 'rgba(250,93,41,0.12)';
+    entry.style.border = '1px solid rgba(250,93,41,0.45)';
+    entry.style.borderRadius = '10px';
+    entry.style.padding = '10px 12px';
+    entry.style.marginBottom = '10px';
+
+    var marker = document.createElement('span');
+    marker.className = 'mk o';
+    entry.appendChild(marker);
+
+    var body = document.createElement('div');
+    body.className = 'body';
+
+    var msg = document.createElement('div');
+    msg.className = 'msg';
+    msg.style.fontFamily = "'Inter Tight',sans-serif";
+    msg.style.fontWeight = '700';
+    if (pinned.author) {
+      var author = document.createElement('b');
+      author.textContent = pinned.author;
+      msg.appendChild(author);
+      msg.appendChild(document.createTextNode(': '));
+    }
+    msg.appendChild(document.createTextNode(pinned.text || ''));
+
+    var time = document.createElement('div');
+    time.className = 'time';
+    time.style.color = 'var(--accent)';
+    time.style.letterSpacing = '0.1em';
+    time.style.textTransform = 'uppercase';
+    time.style.fontSize = '10px';
+    time.textContent = 'Anclado';
+
+    body.appendChild(msg);
+    body.appendChild(time);
+    entry.appendChild(body);
+
+    var pin = document.createElement('span');
+    pin.className = 'pin';
+    pin.setAttribute('aria-hidden', 'true');
+    pin.style.color = 'var(--accent)';
+    pin.textContent = '★';
+    entry.appendChild(pin);
+
+    return entry;
   }
 
   function trackPlausible(eventName, props){
@@ -96,6 +509,16 @@
       document.querySelectorAll('#apoya a.mini-btn').forEach(function(btn){
         if (!btn.getAttribute('href')) btn.setAttribute('href', '/checkout/c3');
         btn.setAttribute('draggable', 'false');
+        /* Default: aporte a la campaña catch-all 'c3' con monto editable. Los
+           hijos específicos (producto, featured, pack) sobreescriben después. */
+        if (!btn.hasAttribute('data-checkout-type')) {
+          btn.setAttribute('data-checkout-type', 'campaign');
+          btn.setAttribute('data-checkout-itemid', 'c3');
+          btn.setAttribute('data-checkout-editable', '1');
+          btn.setAttribute('data-checkout-title', 'Apoyá con un cafecito');
+          btn.setAttribute('data-checkout-eyebrow', 'Cafecito');
+          btn.setAttribute('data-checkout-desc', 'Elegí el monto que quieras aportar. Te lleva al pago seguro de Mercado Pago.');
+        }
       });
       document.querySelectorAll('[draggable="true"] a, [draggable="true"] button').forEach(function(el){
         el.setAttribute('draggable', 'false');
@@ -112,24 +535,32 @@
              hacemos nada (dejamos que el browser haga lo suyo). */
           if (t.closest('a, button, input, textarea, select, label, .split-slider, .milestones, .progress, [role="slider"]')) return;
           var btn = card.querySelector('a.mini-btn');
-          var href = btn && btn.getAttribute('href');
-          if (href) {
-            ev.preventDefault();
-            trackPlausible('checkout_start', { href: href });
-            window.location.assign(href);
+          if (!btn) return;
+          ev.preventDefault();
+          /* Si el botón tiene data-checkout-type, delego al modal nuevo. */
+          if (btn.hasAttribute('data-checkout-type')) {
+            btn.click();
+          } else {
+            var href = btn.getAttribute('href');
+            if (href) {
+              trackPlausible('checkout_start', { href: href });
+              window.location.assign(href);
+            }
           }
         });
       });
-      /* Click-handler de fallback para los <button class="tier-btn"> del Club
-         en caso de que el fetch de memberships no llegue. */
+      /* Fallback sync para los <button class="tier-btn"> del Club en caso de
+         que el fetch de memberships no llegue: abrimos modal genérico de
+         aporte libre. El interceptor global lo maneja por data-attrs. */
       document.querySelectorAll('#club .tier-btn').forEach(function(btn){
-        if (!btn.onclick) {
-          btn.onclick = function(e){
-            if (btn.getAttribute('data-wired') === '1') return; /* ya wireado con precio real */
-            e.preventDefault();
-            trackPlausible('checkout_start', { href: '/checkout/c3' });
-            window.location.assign('/checkout/c3');
-          };
+        if (btn.getAttribute('data-wired') === '1') return;
+        if (!btn.hasAttribute('data-checkout-type')) {
+          btn.setAttribute('data-checkout-type', 'campaign');
+          btn.setAttribute('data-checkout-itemid', 'c3');
+          btn.setAttribute('data-checkout-editable', '1');
+          btn.setAttribute('data-checkout-title', 'Sumarte al Club');
+          btn.setAttribute('data-checkout-eyebrow', 'Club Balosky');
+          btn.setAttribute('data-checkout-desc', 'Estamos terminando la suscripción recurrente. Dejá el monto que te cierra y te activo el acceso.');
         }
       });
       /* También toda la .tier del Club: click en cualquier parte → sumarse. */
@@ -194,7 +625,7 @@
         if (card) {
           var h3 = card.querySelector('h3');
           if (h3 && featured.title) {
-            h3.innerHTML = esc(featured.title) + '<br/>' + esc(featured.shortDescription || '');
+            setMultilineHeading(h3, featured.title, featured.shortDescription || '');
           }
           var goal   = Number(featured.targetAmount) || 0;
           var raised = Number(featured.currentAmount) || 0;
@@ -206,12 +637,18 @@
           if (fill) fill.style.width = pct + '%';
           var footAmount = card.querySelector('.foot > div');
           if (footAmount) {
-            footAmount.innerHTML = '$' + fmtK(raised)
-              + '<span style="font-size:0.45em;color:rgba(255,255,255,0.7);"> k / $'
-              + fmtK(goal) + 'k</span>';
+            setAmountSummary(footAmount, raised, goal);
           }
           var aportarBtn = card.querySelector('.foot a.mini-btn');
-          if (aportarBtn) aportarBtn.setAttribute('href', '/checkout/' + encodeURIComponent(featured.id || featured.slug || ''));
+          if (aportarBtn) {
+            aportarBtn.setAttribute('href', '/checkout/' + encodeURIComponent(featured.id || featured.slug || ''));
+            aportarBtn.setAttribute('data-checkout-type', 'campaign');
+            aportarBtn.setAttribute('data-checkout-itemid', featured.id || 'c3');
+            aportarBtn.setAttribute('data-checkout-editable', '1');
+            aportarBtn.setAttribute('data-checkout-title', 'Apoyá a ' + (featured.title || 'esta campaña'));
+            aportarBtn.setAttribute('data-checkout-eyebrow', 'Campaña destacada');
+            aportarBtn.setAttribute('data-checkout-desc', 'Elegí el monto. Tu aporte suma al objetivo y aparece en el muro.');
+          }
         }
       }
     } catch (e) { console.warn('[wire] featured', e); }
@@ -229,7 +666,9 @@
         /* Price text: prefer the explicit .price node, else fall back to .foot > div */
         var priceEl = card.querySelector('.price') || card.querySelector('.foot > div');
         if (priceEl && p.price) {
-          priceEl.innerHTML = '$' + fmtK(p.price) + '<span class="u">k</span>';
+          setPriceMarkup(priceEl, p.price, 'span', 'k');
+          var suffix = priceEl.querySelector('span:last-child');
+          if (suffix) suffix.className = 'u';
         }
         /* Wire the mini button to go to checkout with this product's amount. */
         var btn = card.querySelector('a.mini-btn, .foot a');
@@ -239,6 +678,14 @@
             '/checkout/c3?amount=' + encodeURIComponent(p.price)
           );
           btn.setAttribute('data-product-id', p.id || '');
+          /* Nuevo: checkout real type=product con itemId fijo y precio cerrado. */
+          btn.setAttribute('data-checkout-type', 'product');
+          btn.setAttribute('data-checkout-itemid', p.id || '');
+          btn.setAttribute('data-checkout-amount', String(p.price));
+          btn.removeAttribute('data-checkout-editable');
+          btn.setAttribute('data-checkout-title', p.title || 'Balosky · producto');
+          btn.setAttribute('data-checkout-eyebrow', 'Producto');
+          btn.setAttribute('data-checkout-desc', 'Dejá tu mail para que te llegue el link de descarga. Pago seguro por Mercado Pago.');
         }
       });
     } catch (e) { console.warn('[wire] products', e); }
@@ -261,10 +708,10 @@
         var name = tier.querySelector('.name');
         if (name) name.textContent = (m.name || '').toLowerCase() + ' · ' + (m.billingPeriod || 'mensual');
         var price = tier.querySelector('.price');
-        if (price) price.innerHTML = '$' + fmtK(m.price) + '<small>k / ' + (m.billingPeriod === 'yearly' ? 'año' : 'mes') + '</small>';
+        if (price) setMembershipPrice(price, m.price, m.billingPeriod);
         var ul = tier.querySelector('ul');
         if (ul && Array.isArray(m.benefits) && m.benefits.length) {
-          ul.innerHTML = m.benefits.map(function(b){ return '<li>' + esc(b) + '</li>'; }).join('');
+          renderListItems(ul, m.benefits);
         }
       });
       /* Convert the <button class="tier-btn"> into real links that hit checkout
@@ -275,65 +722,29 @@
         if (!btn) return;
         var m = memberships[i];
         var price = m && m.price ? m.price : null;
-        var href = price ? ('/checkout/c3?amount=' + encodeURIComponent(price)) : '/checkout/c3';
-        btn.onclick = function(e){ e.preventDefault(); trackPlausible('checkout_start', { href: href }); window.location.assign(href); };
+        /* Limpio el onclick legacy y dejo que el interceptor global maneje el click. */
+        btn.onclick = null;
         btn.setAttribute('data-membership-id', m && m.id ? m.id : '');
         btn.setAttribute('data-wired', '1');
+        if (m && m.id) {
+          /* MVP: aporte único equivalente al primer ciclo. La suscripción
+             recurrente real (Preapprovals MP) la trae el Epic 3. */
+          btn.setAttribute('data-checkout-type', 'membership');
+          btn.setAttribute('data-checkout-itemid', m.id);
+          if (price) btn.setAttribute('data-checkout-amount', String(price));
+          btn.removeAttribute('data-checkout-editable');
+          btn.setAttribute('data-checkout-title', 'Sumarte al Club · ' + (m.name || 'tier'));
+          btn.setAttribute('data-checkout-eyebrow', 'Club Balosky');
+          btn.setAttribute('data-checkout-desc', 'Activá tu acceso al Club. Por ahora cobramos el primer ciclo; en la próxima vuelta lo convertimos en recurrente automático.');
+        }
       });
     } catch (e) { console.warn('[wire] memberships', e); }
 
     /* ---------- LIVE FEED (right column of muro) ---------- */
-    try {
-      var stream = document.getElementById('feedStream');
-      if (stream) {
-        var markers = ['o','t','v','g','m'];
-        var approved = (messages || []).filter(function(m){ return m.isApproved !== false; });
-        var pinned = settings && settings.pinnedMessage;
-        var pinnedHtml = '';
-
-        if (pinned && pinned.enabled && (pinned.text || pinned.author)) {
-          pinnedHtml =
-            '<div class="feed-entry is-pinned" data-id="pinned" style="background:rgba(250,93,41,0.12); border:1px solid rgba(250,93,41,0.45); border-radius:10px; padding:10px 12px; margin-bottom:10px;">'
-              + '<span class="mk o"></span>'
-              + '<div class="body">'
-                + '<div class="msg" style="font-family:\'Inter Tight\',sans-serif; font-weight:700;">'
-                  + (pinned.author ? '<b>' + esc(pinned.author) + '</b>: ' : '')
-                  + esc(pinned.text || '')
-                + '</div>'
-                + '<div class="time" style="color:var(--accent); letter-spacing:0.1em; text-transform:uppercase; font-size:10px;">Anclado</div>'
-              + '</div>'
-              + '<span class="pin" aria-hidden="true" style="color:var(--accent);">★</span>'
-            + '</div>';
-        }
-
-        var feedHtml = approved.slice(0, pinnedHtml ? 4 : 5).map(function(m, i){
-          var mk = markers[i % markers.length];
-          var who = m.supporterName || m.name || 'Anónimo';
-          var amt = m.amount ? (' aportó <b>$' + fmtK(m.amount) + 'k</b>') : '';
-          var text = m.message ? ': "' + esc(String(m.message).substring(0,60)) + '"' : '';
-          var body = amt || text || ' dejó un mensaje';
-          return '<div class="feed-entry" data-id="m' + i + '">'
-              + '<span class="mk ' + mk + '"></span>'
-              + '<div class="body">'
-                + '<div class="msg"><b>' + esc(who) + '</b>' + body + '</div>'
-                + '<div class="time">' + fmtTime(m.createdAt) + '</div>'
-              + '</div>'
-              + '<button class="pin" data-cursor="FAV" aria-label="Pin">★</button>'
-              + '</div>';
-        }).join('');
-
-        if (pinnedHtml || feedHtml) {
-          stream.innerHTML = pinnedHtml + feedHtml;
-        } else {
-          /* Muro arranca vacío: estado inicial bonito */
-          stream.innerHTML =
-            '<div class="feed-entry" style="opacity:0.55; border:1px dashed rgba(255,255,255,0.18); border-radius:10px; padding:14px;">'
-            + '<div class="body"><div class="msg" style="font-family:\'Inter Tight\',sans-serif; font-weight:600;">El muro todavía está vacío.</div>'
-            + '<div class="time">Sé el primero en dejar un mensaje o aportar ✦</div></div>'
-            + '</div>';
-        }
-      }
-    } catch (e) { console.warn('[wire] feed', e); }
+    try { renderFeedEntries(messages || [], settings); } catch (e) { console.warn('[wire] feed', e); }
+    /* Cableamos form + auto-refresh una sola vez */
+    try { attachMuroForm(); } catch (e) { console.warn('[wire] muroForm', e); }
+    try { startMuroRefresh(); } catch (e) { console.warn('[wire] muroRefresh', e); }
 
     /* ---------- LEADERBOARD ---------- */
     try {
@@ -353,21 +764,14 @@
                           .slice(0, 10);
         if (ranked.length) {
           var kinds = ['ÓRBITA','ENCARGO','DISCO','ÓRBITA','ENCARGO','CAFECITO','DISCO','BASE','CAFECITO','DISCO'];
-          board.innerHTML = ranked.map(function(r, i){
-            var rank = (i+1).toString().padStart(2, '0');
-            return '<div class="leader-row">'
-                + '<span class="rank">' + rank + '</span>'
-                + '<span class="name">' + esc(r.name) + '</span>'
-                + '<span class="amt">$' + fmtK(r.amt) + 'k</span>'
-                + '<span class="kind">' + kinds[i] + '</span>'
-                + '</div>';
-          }).join('');
+          clearChildren(board);
+          ranked.forEach(function(r, i){
+            board.appendChild(createLeaderRow((i+1).toString().padStart(2, '0'), r.name, r.amt, kinds[i], false));
+          });
         } else {
           /* Sin aportes todavía: mensaje en estado vacío */
-          board.innerHTML =
-            '<div class="leader-row" style="opacity:0.55; grid-template-columns:1fr;">'
-            + '<span class="name" style="text-align:center; padding:14px;">El Top se arma solo con cada aporte ✦</span>'
-            + '</div>';
+          clearChildren(board);
+          board.appendChild(createLeaderRow('', 'El Top se arma solo con cada aporte ✦', 0, '', true));
         }
       }
     } catch (e) { console.warn('[wire] leaderboard', e); }
@@ -386,6 +790,233 @@
     try { await wireCanciones(); } catch(e) { console.warn('[wire] canciones', e); }
     try { await wireSocials();   } catch(e) { console.warn('[wire] socials', e); }
     try { attachNewsletterForm(); } catch(e) { console.warn('[wire] newsletter', e); }
+  }
+
+  /* =====================================================================
+   * MURO · feed + form + auto-refresh
+   * =================================================================== */
+  var _feedMarkers = ['o','t','v','g','m'];
+  var _feedSettings = null;
+  var _feedSeenIds = Object.create(null);
+
+  function renderFeedEntries(messages, settings){
+    if (settings) _feedSettings = settings;
+    var stream = document.getElementById('feedStream');
+    if (!stream) return;
+    var approved = (messages || []).filter(function(m){ return m.isApproved !== false; });
+    // ordenar más nuevos primero
+    approved.sort(function(a,b){
+      return (new Date(b.createdAt || 0).getTime()) - (new Date(a.createdAt || 0).getTime());
+    });
+    var max = 8;
+    var pinnedNode = createPinnedFeedNode(_feedSettings || settings);
+    var slice = approved.slice(0, pinnedNode ? max - 1 : max);
+    // reset seen set to lo que acabamos de renderizar
+    _feedSeenIds = Object.create(null);
+    slice.forEach(function(m){ if (m && m.id) _feedSeenIds[m.id] = 1; });
+
+    clearChildren(stream);
+    if (pinnedNode || slice.length) {
+      if (pinnedNode) stream.appendChild(pinnedNode);
+      slice.forEach(function(m, i){
+        stream.appendChild(createFeedEntryNode(m, i, false));
+      });
+    } else {
+      var emptyEntry = document.createElement('div');
+      emptyEntry.className = 'feed-entry';
+      emptyEntry.style.opacity = '0.55';
+      emptyEntry.style.border = '1px dashed rgba(255,255,255,0.18)';
+      emptyEntry.style.borderRadius = '10px';
+      emptyEntry.style.padding = '14px';
+      var emptyBody = document.createElement('div');
+      emptyBody.className = 'body';
+      var emptyMsg = document.createElement('div');
+      emptyMsg.className = 'msg';
+      emptyMsg.style.fontFamily = "'Inter Tight',sans-serif";
+      emptyMsg.style.fontWeight = '600';
+      emptyMsg.textContent = 'El muro todavía está vacío.';
+      var emptyTime = document.createElement('div');
+      emptyTime.className = 'time';
+      emptyTime.textContent = 'Sé el primero en dejar un mensaje ✦';
+      emptyBody.appendChild(emptyMsg);
+      emptyBody.appendChild(emptyTime);
+      emptyEntry.appendChild(emptyBody);
+      stream.appendChild(emptyEntry);
+    }
+  }
+
+  function prependMessageToFeed(m){
+    if (!m || !m.id) return;
+    if (_feedSeenIds[m.id]) return;
+    _feedSeenIds[m.id] = 1;
+    var stream = document.getElementById('feedStream');
+    if (!stream) return;
+    // Si el estado vacío está, lo limpiamos.
+    var empty = stream.querySelector('.feed-entry[style*="dashed"]');
+    if (empty) empty.remove();
+    var node = createFeedEntryNode(m, 0, true);
+    // Si hay pinned, insertar después. Si no, al tope.
+    var pinnedNode = stream.querySelector('.feed-entry.is-pinned');
+    if (pinnedNode && pinnedNode.nextSibling) {
+      stream.insertBefore(node, pinnedNode.nextSibling);
+    } else if (pinnedNode) {
+      stream.appendChild(node);
+    } else {
+      stream.insertBefore(node, stream.firstChild);
+    }
+    // Mantener cap de entries
+    var entries = stream.querySelectorAll('.feed-entry:not(.is-pinned)');
+    if (entries.length > 10) {
+      for (var i = 10; i < entries.length; i++) entries[i].remove();
+    }
+    // Remove flash class después de la animación para evitar acumular
+    setTimeout(function(){ if (node && node.classList) node.classList.remove('is-new'); }, 2400);
+  }
+
+  function attachMuroForm(){
+    var form = document.getElementById('muroForm');
+    if (!form || form.dataset.wired === '1') return;
+    form.dataset.wired = '1';
+    var nameInput = document.getElementById('muroName');
+    var msgInput = document.getElementById('muroMessage');
+    var hpInput = document.getElementById('muroHp');
+    var submit = document.getElementById('muroSubmit');
+    var msgEl = document.getElementById('muroMsg');
+    var counter = document.getElementById('muroCount');
+
+    function setStatus(text, cls){
+      if (!msgEl) return;
+      msgEl.textContent = text || '';
+      msgEl.className = 'muro-post__msg' + (cls ? ' ' + cls : '');
+    }
+    function updateCounter(){
+      if (!counter || !msgInput) return;
+      var n = (msgInput.value || '').length;
+      counter.textContent = n + ' / 240';
+      counter.classList.remove('is-warn', 'is-bad');
+      if (n > 220) counter.classList.add('is-bad');
+      else if (n > 180) counter.classList.add('is-warn');
+    }
+
+    if (msgInput) {
+      msgInput.addEventListener('input', updateCounter);
+      updateCounter();
+    }
+
+    form.addEventListener('submit', async function(ev){
+      ev.preventDefault();
+      if (!msgInput) return;
+      var message = (msgInput.value || '').trim();
+      var name = (nameInput && nameInput.value || '').trim();
+      var hp = (hpInput && hpInput.value || '').trim();
+
+      if (message.length < 2) {
+        setStatus('Escribí algo un poco más largo.', 'err');
+        msgInput.focus();
+        return;
+      }
+      if (message.length > 240) {
+        setStatus('Máximo 240 caracteres.', 'err');
+        return;
+      }
+
+      if (submit) submit.disabled = true;
+      setStatus('enviando…', '');
+
+      try {
+        var r = await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            supporterName: name || '',
+            message: message,
+            isAnonymous: !name,
+            website: hp // honeypot
+          })
+        });
+
+        if (r.status === 204) {
+          // honeypot accionado — mostramos igual un ok para no dar hint a bots
+          setStatus('listo', 'ok');
+          form.reset();
+          updateCounter();
+          if (submit) submit.disabled = false;
+          return;
+        }
+        if (r.status === 429) {
+          setStatus('muchos mensajes en poco tiempo. probá en un rato.', 'err');
+          if (submit) submit.disabled = false;
+          return;
+        }
+        if (!r.ok) {
+          var err = null;
+          try { err = await r.json(); } catch(_) {}
+          setStatus((err && err.error) || 'no se pudo enviar', 'err');
+          if (submit) submit.disabled = false;
+          return;
+        }
+
+        var created = await r.json();
+        setStatus('listo, aparece arriba ✦', 'ok');
+        form.reset();
+        updateCounter();
+        prependMessageToFeed(created);
+        trackPlausible('muro_sent', { named: name ? 1 : 0 });
+        // Reactivar después de un pequeño cool-down visual
+        setTimeout(function(){ if (submit) submit.disabled = false; }, 1200);
+      } catch (e) {
+        console.warn('[muro] submit error', e);
+        setStatus('error de red, probá de nuevo', 'err');
+        if (submit) submit.disabled = false;
+      }
+    });
+  }
+
+  /* Auto-refresh feed: polling cada 15s, pausa cuando la pestaña está hidden. */
+  var _muroRefreshTimer = null;
+  var _muroRefreshInterval = 15000;
+  var _muroRefreshing = false;
+
+  async function refreshMuroOnce(){
+    if (_muroRefreshing) return;
+    if (document.hidden) return;
+    var stream = document.getElementById('feedStream');
+    if (!stream) return;
+    _muroRefreshing = true;
+    try {
+      var list = await fetchJSON('/api/messages?limit=10');
+      if (!Array.isArray(list)) return;
+      // Filtrar aprobados
+      list = list.filter(function(m){ return m.isApproved !== false; });
+      // orden más nuevos primero
+      list.sort(function(a,b){
+        return (new Date(b.createdAt || 0).getTime()) - (new Date(a.createdAt || 0).getTime());
+      });
+      // Detectar nuevos (comparando ids contra _feedSeenIds)
+      var fresh = [];
+      for (var i = 0; i < list.length; i++) {
+        var m = list[i];
+        if (!m || !m.id) continue;
+        if (!_feedSeenIds[m.id]) fresh.push(m);
+      }
+      // Si hay nuevos, prepend en orden cronológico asc (el más viejo primero) para
+      // que el más reciente quede arriba del stack.
+      if (fresh.length) {
+        fresh.reverse(); // ahora el más viejo está primero
+        fresh.forEach(function(m){ prependMessageToFeed(m); });
+      }
+    } finally {
+      _muroRefreshing = false;
+    }
+  }
+
+  function startMuroRefresh(){
+    if (_muroRefreshTimer) return;
+    if (!document.getElementById('feedStream')) return;
+    _muroRefreshTimer = setInterval(function(){ refreshMuroOnce(); }, _muroRefreshInterval);
+    document.addEventListener('visibilitychange', function(){
+      if (!document.hidden) refreshMuroOnce();
+    });
   }
 
   /* =====================================================================
@@ -704,7 +1335,12 @@
       var res = esc(m.description || '4K · 2160×3840');
       var cat = esc((m.category || '').toLowerCase());
       if (m.isLocked) {
-        return '<a class="wall locked no-steal steal-watermark" data-cat="' + cat + '" data-cursor="PACK" href="/checkout/c3?amount=3500" data-wall-locked="1">'
+        return '<a class="wall locked no-steal steal-watermark" data-cat="' + cat + '" data-cursor="PACK" href="/checkout/c3?amount=3500" data-wall-locked="1"'
+          + ' data-checkout-type="pack" data-checkout-itemid="' + esc(m.id) + '"'
+          + ' data-checkout-amount="3500"'
+          + ' data-checkout-title="Pack · ' + name + '"'
+          + ' data-checkout-eyebrow="Pack de wallpapers"'
+          + ' data-checkout-desc="Dejá tu mail para que te llegue el link (válido 48 h post-pago). Pago seguro por Mercado Pago.">'
           + '<img src="' + thumb + '" alt="' + name + '" loading="lazy" draggable="false"/>'
           + '<div class="w-overlay"></div>'
           + '<span class="w-btn">pack 10 &rarr;</span>'

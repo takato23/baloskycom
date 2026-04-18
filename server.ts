@@ -48,8 +48,10 @@ app.get('/api/health', (req, res) => {
 app.use('/api', apiRouter);
 
 // ────────────────────────────────────────────────────────────────────────────
-// Balosky public home must stay on the static Delirio landing at `/`.
-// Keep `/delirio` mapped to the same file for explicit QA access.
+// Balosky public home is now served by the React SPA (HomePreview at `/`).
+// The legacy static landing remains available at `/delirio` as a backup —
+// flip the index back to `serveDelirio` here (and the `/` route in App.tsx)
+// if we ever need to revert.
 // These routes must be registered before the Vite middleware so the raw HTML
 // wins over the SPA shell in development.
 // ────────────────────────────────────────────────────────────────────────────
@@ -68,7 +70,6 @@ const serveDelirio = (_req: express.Request, res: express.Response) => {
   });
 };
 
-app.get('/', serveDelirio);
 app.get('/delirio', serveDelirio);
 
 // Post-checkout pages (served as static HTML in dev via express.static; in prod
@@ -85,6 +86,7 @@ const servePage = (file: string) => (_req: express.Request, res: express.Respons
 app.get('/pago-exitoso', servePage('pago-exitoso.html'));
 app.get('/pago-pendiente', servePage('pago-pendiente.html'));
 app.get('/pago-fallido', servePage('pago-fallido.html'));
+app.get('/club', servePage('club.html'));
 
 // Expose the wire-up script and other /public files directly in dev.
 // (In production, Vite copies /public into /dist, so the dist static handler

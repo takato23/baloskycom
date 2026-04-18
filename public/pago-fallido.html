@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Pago no aprobado · Balosky</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root { --black:#0a0a0a; --panel:#0f0d0b; --border:#1f1b17; --text:#f3efe6; --muted:#999; --body:#c9c4bb; --accent:#FA5D29; }
+    *{box-sizing:border-box;} html,body{margin:0;padding:0;}
+    body{background:var(--black);color:var(--text);font-family:'Inter',Arial,sans-serif;min-height:100dvh;display:flex;flex-direction:column;}
+    main{flex:1;display:flex;align-items:center;justify-content:center;padding:48px 20px;}
+    .card{max-width:520px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:36px 30px;text-align:center;}
+    .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#ef4444;margin-bottom:14px;}
+    h1{font-family:'Inter Tight',Inter,sans-serif;font-weight:900;font-size:32px;letter-spacing:-.04em;margin:0 0 12px;}
+    h1 .pt{color:var(--accent);}
+    p{color:var(--body);font-size:15px;line-height:1.6;margin:0 0 16px;}
+    .ref{font-family:'JetBrains Mono',monospace;font-size:11px;color:#777;}
+    a.cta{display:inline-block;background:var(--accent);color:var(--black);font-family:'Inter Tight',sans-serif;font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase;padding:13px 22px;border-radius:999px;text-decoration:none;margin-top:12px;}
+    a.alt{display:inline-block;color:var(--text);border:1px solid var(--border);padding:13px 22px;border-radius:999px;text-decoration:none;font-size:13px;margin-top:12px;margin-left:8px;text-transform:uppercase;font-family:'Inter Tight',sans-serif;font-weight:600;letter-spacing:.04em;}
+  </style>
+</head>
+<body>
+  <main>
+    <article class="card">
+      <div class="eyebrow">pago no aprobado</div>
+      <h1>no entró el pago<span class="pt">.</span></h1>
+      <p>No se aprobó el pago en Mercado Pago. Puede ser el medio de pago, el límite, o un rechazo del banco. Probá de nuevo o escribime y lo resolvemos.</p>
+      <p style="font-size:12px;color:var(--muted);">Ref: <span class="ref" id="ref">—</span></p>
+      <a class="cta" href="/">reintentar</a>
+      <a class="alt" href="mailto:hola@balosky.com">escribir</a>
+    </article>
+  </main>
+  <script>
+    (function(){
+      var p=new URLSearchParams(location.search);
+      var id=p.get('purchase')||p.get('purchase_id')||'';
+      if(id) document.getElementById('ref').textContent=id;
+    })();
+  </script>
+</body>
+</html>
