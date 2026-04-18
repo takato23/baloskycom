@@ -12,7 +12,8 @@
     "lint": "tsc --noEmit",
     "bulk-upload": "tsx scripts/bulk-upload.ts",
     "classify-media": "tsx scripts/classify-media.ts",
-    "generate-thumbs": "tsx scripts/generate-thumbs.ts"
+    "generate-thumbs": "tsx scripts/generate-thumbs.ts",
+    "build-og": "tsx scripts/build-og.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -25,6 +26,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.3.2",
     "html2canvas": "^1.4.1",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.546.0",

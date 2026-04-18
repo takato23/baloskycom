@@ -5,6 +5,7 @@ import { verifyPassword } from '../auth.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import rateLimit from 'express-rate-limit';
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-local-dev';
 
@@ -14,6 +15,16 @@ const mpClient = new MercadoPagoConfig({
 });
 const preferenceClient = new Preference(mpClient);
 const paymentClient = new Payment(mpClient);
+
+const publicLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/webhook/mercadopago' || Boolean(req.headers.authorization)
+});
+
+router.use(publicLimiter);
 
 const getBaseUrl = (req: express.Request) => {
   const configuredUrl = process.env.APP_URL?.trim();
@@ -39,6 +50,32 @@ const getNotificationUrl = (req: express.Request) => {
   }
 
   return `${baseUrl}/api/webhook/mercadopago`;
+};
+
+const getClientIp = (req: express.Request) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim();
+  }
+  if (Array.isArray(forwarded) && forwarded.length > 0) {
+    return forwarded[0];
+  }
+  return req.ip || req.socket.remoteAddress || null;
+};
+
+const upsertNewsletterSubscriber = async (email: string, source: string) => {
+  const existing = await db.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?').get(email) as { id: string } | undefined;
+  if (existing) {
+    return { duplicate: true };
+  }
+
+  const id = `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await db.prepare(`
+    INSERT INTO newsletter_subscribers (id, email, source, active, createdAt)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, email, source, 1, new Date().toISOString());
+
+  return { duplicate: false };
 };
 
 const getPaymentIdFromWebhook = (req: express.Request) => {
@@ -1094,16 +1131,8 @@ router.post('/newsletter', async (req, res) => {
       return res.status(400).json({ error: 'Email inválido' });
     }
     const normalized = String(email).trim().toLowerCase();
-    const existing = await db.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?').get(normalized);
-    if (existing) {
-      return res.json({ success: true, duplicate: true });
-    }
-    const id = `sub_${Date.now()}`;
-    await db.prepare(`
-      INSERT INTO newsletter_subscribers (id, email, source, active, createdAt)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, normalized, source || 'footer', 1, new Date().toISOString());
-    res.json({ success: true, duplicate: false });
+    const result = await upsertNewsletterSubscriber(normalized, source || 'footer');
+    res.json({ success: true, duplicate: result.duplicate });
   } catch (e) {
     console.error('[POST /newsletter]', e);
     res.status(500).json({ error: 'server error' });
@@ -1134,26 +1163,25 @@ router.post('/wallpapers/request', async (req, res) => {
     }
 
     const normalized = String(email).trim().toLowerCase();
+    const userAgent = typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null;
+    const ip = getClientIp(req);
 
     // Verify wallpaper exists, is active, and is not locked (locked ones need a purchase)
     const wp: any = await db.prepare(
-      "SELECT id, mediaUrl, isLocked, isActive, kind FROM media WHERE id = ? AND kind = 'wallpaper'"
+      "SELECT id, mediaUrl, isLocked, active, kind FROM media WHERE id = ? AND kind = 'wallpaper'"
     ).get(wallpaperId);
     if (!wp) return res.status(404).json({ error: 'Wallpaper no encontrado' });
-    if (!wp.isActive) return res.status(404).json({ error: 'Wallpaper no disponible' });
+    if (!wp.active) return res.status(404).json({ error: 'Wallpaper no disponible' });
     if (wp.isLocked) return res.status(402).json({ error: 'Wallpaper parte del pack, necesita compra' });
     if (!wp.mediaUrl) return res.status(404).json({ error: 'Archivo no disponible' });
 
-    // Upsert subscriber (ignore duplicates)
+    await db.prepare(`
+      INSERT INTO wallpaper_leads (email, wallpaperId, userAgent, ip)
+      VALUES (?, ?, ?, ?)
+    `).run(normalized, wallpaperId, userAgent, ip);
+
     try {
-      const existing: any = await db.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?').get(normalized);
-      if (!existing) {
-        const id = `sub_${Date.now()}`;
-        await db.prepare(`
-          INSERT INTO newsletter_subscribers (id, email, source, active, createdAt)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(id, normalized, 'wallpaper-gate', 1, new Date().toISOString());
-      }
+      await upsertNewsletterSubscriber(normalized, 'wallpaper-gate');
     } catch (e) {
       console.warn('[wallpapers/request] subscriber upsert failed, continuing', e);
     }
@@ -1192,9 +1220,9 @@ router.get('/wallpapers/download', async (req, res) => {
     }
 
     const wp: any = await db.prepare(
-      "SELECT id, mediaUrl, title, isLocked, isActive, kind FROM media WHERE id = ? AND kind = 'wallpaper'"
+      "SELECT id, mediaUrl, title, isLocked, active, kind FROM media WHERE id = ? AND kind = 'wallpaper'"
     ).get(decoded.wid);
-    if (!wp || !wp.isActive || wp.isLocked || !wp.mediaUrl) {
+    if (!wp || !wp.active || wp.isLocked || !wp.mediaUrl) {
       return res.status(404).send('Wallpaper no disponible');
     }
 

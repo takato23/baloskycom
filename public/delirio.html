@@ -3,35 +3,37 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Balosky — plataforma abierta del creador</title>
-<meta name="description" content="Donde termina el feed, empezamos nosotros. Aportá, sumate al Club, descargá wallpapers, mirá videos IA y escuchá canciones. BA, 2026." />
+<title>Balosky — donde termina el feed, empezamos nosotros</title>
+<meta name="description" content="Balosky · plataforma abierta para sostener lo que hacemos. Fotos, música, wallpapers, apoyo directo." />
 <meta name="theme-color" content="#FA5D29" />
 <meta name="author" content="Santiago Balosky" />
 
 <!-- Open Graph -->
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Balosky" />
-<meta property="og:title" content="Balosky — plataforma abierta del creador" />
-<meta property="og:description" content="Donde termina el feed, empezamos nosotros. Aportá, sumate al Club, descargá wallpapers, mirá videos IA y escuchá canciones." />
+<meta property="og:title" content="Balosky — donde termina el feed, empezamos nosotros" />
+<meta property="og:description" content="Apoyá, llevate el wallpaper, escuchá lo nuevo, dejá tu mensaje en el muro." />
 <meta property="og:url" content="https://balosky.com" />
-<meta property="og:image" content="https://balosky.com/og-cover.jpg" />
+<meta property="og:image" content="https://balosky.com/og-card.jpg" />
 <meta property="og:image:alt" content="Balosky — la plataforma del creador" />
 <meta property="og:locale" content="es_AR" />
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Balosky — plataforma abierta del creador" />
-<meta name="twitter:description" content="Aportá, sumate al Club, descargá wallpapers y escuchá mis canciones." />
-<meta name="twitter:image" content="https://balosky.com/og-cover.jpg" />
+<meta name="twitter:title" content="Balosky — donde termina el feed, empezamos nosotros" />
+<meta name="twitter:description" content="Apoyá, llevate el wallpaper, escuchá lo nuevo, dejá tu mensaje en el muro." />
+<meta name="twitter:image" content="https://balosky.com/og-card.jpg" />
 <meta name="twitter:site" content="@santiagobalosky" />
 <meta name="twitter:creator" content="@santiagobalosky" />
 
 <link rel="canonical" href="https://balosky.com/" />
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&family=Permanent+Marker&family=Bowlby+One&family=Sansita:wght@900&display=swap" rel="stylesheet" />
+<script defer data-domain="balosky.com" src="https://plausible.io/js/script.tagged-events.outbound-links.js"></script>
 <style>
   :root {
     --black: #0a0908;
@@ -5325,7 +5327,13 @@ setInterval(() => {
   window.addEventListener('keydown', (e) => {
     if (e.code === code[idx]) {
       idx++;
-      if (idx === code.length) { idx = 0; trigger(); }
+      if (idx === code.length) {
+        idx = 0;
+        if (typeof window.plausible === 'function') {
+          try { window.plausible('konami_triggered'); } catch (err) {}
+        }
+        trigger();
+      }
     } else {
       idx = (e.code === code[0]) ? 1 : 0;
     }

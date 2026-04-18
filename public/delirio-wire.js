@@ -50,6 +50,38 @@
     if (!existing) head.appendChild(link);
   }
 
+  function trackPlausible(eventName, props){
+    if (typeof window.plausible !== 'function') return;
+    try {
+      if (props && Object.keys(props).length) window.plausible(eventName, { props: props });
+      else window.plausible(eventName);
+    } catch (_) {}
+  }
+
+  (function instrumentMessagePosts(){
+    if (window.__baloskyFetchWrapped || typeof window.fetch !== 'function') return;
+    window.__baloskyFetchWrapped = true;
+    var originalFetch = window.fetch.bind(window);
+    window.fetch = function(input, init){
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      var method = (init && init.method) || (typeof input !== 'string' && input && input.method) || 'GET';
+      return originalFetch(input, init).then(function(response){
+        if (response && response.ok && String(method).toUpperCase() === 'POST' && /\/api\/messages(?:\?|$)/.test(url)) {
+          trackPlausible('muro_sent');
+        }
+        return response;
+      });
+    };
+  })();
+
+  document.addEventListener('click', function(e){
+    var target = e.target;
+    if (!(target instanceof Element)) return;
+    var link = target.closest('a[href*="/checkout"]');
+    if (!link) return;
+    trackPlausible('checkout_start', { href: link.getAttribute('href') || '/checkout' });
+  }, true);
+
   /* -----------------------------------------------------------------------
    * SYNC: enganchar todos los botones de Apoyá y Club al checkout ANTES de
    * cualquier fetch. Así aunque el backend tarde o falle, los botones ya
@@ -83,6 +115,7 @@
           var href = btn && btn.getAttribute('href');
           if (href) {
             ev.preventDefault();
+            trackPlausible('checkout_start', { href: href });
             window.location.assign(href);
           }
         });
@@ -94,6 +127,7 @@
           btn.onclick = function(e){
             if (btn.getAttribute('data-wired') === '1') return; /* ya wireado con precio real */
             e.preventDefault();
+            trackPlausible('checkout_start', { href: '/checkout/c3' });
             window.location.assign('/checkout/c3');
           };
         }
@@ -242,7 +276,7 @@
         var m = memberships[i];
         var price = m && m.price ? m.price : null;
         var href = price ? ('/checkout/c3?amount=' + encodeURIComponent(price)) : '/checkout/c3';
-        btn.onclick = function(e){ e.preventDefault(); window.location.assign(href); };
+        btn.onclick = function(e){ e.preventDefault(); trackPlausible('checkout_start', { href: href }); window.location.assign(href); };
         btn.setAttribute('data-membership-id', m && m.id ? m.id : '');
         btn.setAttribute('data-wired', '1');
       });
@@ -1110,6 +1144,8 @@
       state.items = collectItems();
       if (!state.items.length) return;
       state.idx = Math.max(0, Math.min(idx, state.items.length - 1));
+      var current = state.items[state.idx];
+      trackPlausible('photo_open', { title: current && current.cap ? current.cap : String(state.idx + 1) });
       render();
       modal.classList.add('open');
       document.body.style.overflow = 'hidden';
@@ -1297,6 +1333,7 @@
     var sd = document.getElementById('wppSamsungDate'); if (sd) sd.textContent = date;
 
     _setWallpaperPreviewDevice('ios');
+    trackPlausible('wallpaper_preview_open', { id: (wp && wp.id) || '', title: (wp && wp.title) || 'Wallpaper' });
     pre.classList.add('open');
     document.body.style.overflow = 'hidden';
     _syncTouchWatermarkBoost();
@@ -1436,6 +1473,7 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        trackPlausible('wallpaper_download', { id: _wpCurrent.id, title: _wpCurrent.title || 'Wallpaper' });
         setTimeout(function(){
           if (gate.classList.contains('open')) {
             closeWallpaperGate();
@@ -2074,6 +2112,11 @@
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(json){
         if (!json) return;
+        var item = _sunoAllItems.find(function(x){ return x.id === id; });
+        trackPlausible('song_play', {
+          id: id,
+          title: item && item.title ? item.title : ''
+        });
         var card = document.querySelector('.suno-card[data-id="' + id + '"]');
         if (card){
           card.setAttribute('data-plays', String(json.playCount));
@@ -2089,7 +2132,6 @@
             }
           }
         }
-        var item = _sunoAllItems.find(function(x){ return x.id === id; });
         if (item) item.playCount = json.playCount;
       })
       .catch(function(){});

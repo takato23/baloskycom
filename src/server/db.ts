@@ -26,10 +26,12 @@ const COLUMN_MAP: Record<string, string> = {
   passwordHash: 'password_hash',
   discountPercent: 'discount_percent',
   itemId: 'item_id',
+  wallpaperId: 'wallpaper_id',
   paymentId: 'payment_id',
   messageId: 'message_id',
   externalReference: 'external_reference',
   processedAt: 'processed_at',
+  userAgent: 'user_agent',
   mediaUrl: 'media_url',
   thumbUrl: 'thumb_url',
   embedUrl: 'embed_url',
@@ -394,6 +396,17 @@ async function initDb() {
     )
   `);
 
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS wallpaper_leads (
+      id BIGSERIAL PRIMARY KEY,
+      email TEXT NOT NULL,
+      wallpaper_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      user_agent TEXT,
+      ip TEXT
+    )
+  `);
+
   // Create indexes
   await sql.unsafe(`
     CREATE INDEX IF NOT EXISTS idx_messages_approved_created
@@ -426,6 +439,14 @@ async function initDb() {
   await sql.unsafe(`
     CREATE INDEX IF NOT EXISTS idx_socials_active_sort
     ON socials(active, sort_order)
+  `);
+  await sql.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_wallpaper_leads_email
+    ON wallpaper_leads(email)
+  `);
+  await sql.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_wallpaper_leads_wallpaper
+    ON wallpaper_leads(wallpaper_id, created_at DESC)
   `);
 
   // Check if we need to seed data
