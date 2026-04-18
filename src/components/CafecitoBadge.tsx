@@ -10,9 +10,18 @@ import { useEffect, useState } from 'react';
  * Estética: variante "sticker orgánico" del mockup — wobble suave, anillo
  * punteado giratorio, peel highlight.
  *
- * Slot para imagen IA: si existe `/images/cafecito-badge.png` se renderiza;
- * sino cae a un emoji ☕. Generá el PNG con Nano Banana siguiendo el prompt
- * en design-mockups/checkout/badge-cafecito.html y pegalo en /public/images.
+ * Slot central: por default mostramos un SVG inline de tacita (dark coffee
+ * silhouette) porque los PNGs generados por IA casi siempre vienen con un
+ * fondo blanco sólido que se ve como un cuadrado sobre el disco naranja.
+ * Si pasás `imageSrc="/images/cafecito-badge.png"` explícitamente (y la
+ * imagen tiene transparencia limpia) se renderiza en vez del SVG.
+ *
+ * IMPORTANTE: montar el componente FUERA de cualquier ancestro con
+ * `transform`/`filter` aplicado (framer-motion.div, etc). Un transform en
+ * un ancestro crea un nuevo containing block para `position: fixed` y
+ * hace que el badge "scrollee" con la página en vez de quedar pegado al
+ * viewport. En este repo eso significa: montarlo en `Layout.tsx` afuera
+ * del `<main>`.
  */
 
 interface CafecitoBadgeProps {
@@ -28,17 +37,17 @@ interface CafecitoBadgeProps {
    */
   showAfterScroll?: number;
   /**
-   * Path a la imagen IA. Si falla carga, muestra un SVG fallback
-   * (ver `.cb-img-fallback::before` en index.css).
-   * @default '/images/cafecito-badge.png'
+   * Path opcional a una imagen IA. Tiene que tener fondo TRANSPARENTE
+   * (alpha limpio). Si no se pasa o falla la carga, usamos el SVG
+   * fallback (`.cb-img-fallback::before` en index.css).
    */
-  imageSrc?: string;
+  imageSrc?: string | null;
 }
 
 export default function CafecitoBadge({
   floating = true,
   showAfterScroll = 0,
-  imageSrc = '/images/cafecito-badge.png',
+  imageSrc = null,
 }: CafecitoBadgeProps) {
   // `showAfterScroll <= 0` significa "siempre visible" desde el primer
   // render. Si el usuario pasó un umbral positivo arrancamos oculto y
@@ -79,9 +88,9 @@ export default function CafecitoBadge({
         {/* peel highlight top-left */}
         <span className="cb-peel" aria-hidden="true" />
 
-        {/* slot imagen IA o emoji fallback */}
+        {/* slot imagen IA (opcional) o SVG fallback */}
         <span className="cb-img">
-          {!imgFailed && (
+          {imageSrc && !imgFailed && (
             <img
               src={imageSrc}
               alt=""
@@ -90,7 +99,9 @@ export default function CafecitoBadge({
               style={{ opacity: imgLoaded ? 1 : 0 }}
             />
           )}
-          {(imgFailed || !imgLoaded) && <span className="cb-img-fallback" aria-hidden="true" />}
+          {(!imageSrc || imgFailed || !imgLoaded) && (
+            <span className="cb-img-fallback" aria-hidden="true" />
+          )}
         </span>
 
         {/* labels */}

@@ -1553,7 +1553,11 @@ router.get('/media/:id', async (req, res) => {
   try {
     const row = await db.prepare('SELECT * FROM media WHERE id = ?').get(req.params.id);
     if (!row) return res.status(404).json({ error: 'Not found' });
-    res.json(mapMedia(row, viewerHasFullAccess(req)));
+    const viewerFull = viewerHasFullAccess(req);
+    if (!viewerFull && row.isMemberOnly) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    res.json(mapMedia(row, viewerFull));
   } catch (e) {
     console.error('[GET /media/:id]', e);
     res.status(500).json({ error: 'database error' });
@@ -1566,6 +1570,7 @@ router.post('/media', requireAuth, async (req, res) => {
     if (!m.kind || !m.title) return res.status(400).json({ error: 'kind and title required' });
     const id = m.id || `med_${m.kind.slice(0,2)}_${Date.now()}`;
     const createdAt = new Date().toISOString();
+    const isMemberOnly = m.isMemberOnly ? 1 : 0;
     const aspectRatio = (['9:16','16:9','1:1'].includes(String(m.aspectRatio)) ? m.aspectRatio : null);
     const showDesc = m.showDescription === false ? 0 : 1;
     const showPrompt = m.showPrompt === false ? 0 : 1;
@@ -1576,13 +1581,13 @@ router.post('/media', requireAuth, async (req, res) => {
       return isNaN(d.getTime()) ? null : d.toISOString();
     })() : null;
     await db.prepare(`
-      INSERT INTO media (id, kind, title, description, category, mediaUrl, thumbUrl, embedUrl, coverImage, duration, aiTool, aiPrompt, aspectRatio, showDescription, showPrompt, showTool, isLocked, active, featured, sortOrder, publicFrom, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO media (id, kind, title, description, category, mediaUrl, thumbUrl, embedUrl, coverImage, duration, aiTool, aiPrompt, isMemberOnly, aspectRatio, showDescription, showPrompt, showTool, isLocked, active, featured, sortOrder, publicFrom, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, m.kind, m.title, m.description || null, m.category || null,
       m.mediaUrl || null, m.thumbUrl || null, m.embedUrl || null, m.coverImage || null, m.duration || null,
       m.aiTool || null, m.aiPrompt || null,
-      aspectRatio, showDesc, showPrompt, showTool,
+      isMemberOnly, aspectRatio, showDesc, showPrompt, showTool,
       m.isLocked ? 1 : 0,
       m.active === false ? 0 : 1,
       m.featured ? 1 : 0,
@@ -1618,6 +1623,7 @@ router.put('/media/:id', requireAuth, async (req, res) => {
     if (m.duration !== undefined)    cols.push(['duration', m.duration || null]);
     if (m.aiTool !== undefined)      cols.push(['aiTool', m.aiTool || null]);
     if (m.aiPrompt !== undefined)    cols.push(['aiPrompt', m.aiPrompt || null]);
+    if (m.isMemberOnly !== undefined) cols.push(['isMemberOnly', m.isMemberOnly ? 1 : 0]);
     if (m.aspectRatio !== undefined) {
       const valid = ['9:16','16:9','1:1'].includes(String(m.aspectRatio));
       cols.push(['aspectRatio', valid ? m.aspectRatio : null]);

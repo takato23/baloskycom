@@ -910,9 +910,9 @@ img {
   mix-blend-mode: multiply;
 }
 
-/* Fallback: SVG inline de tacita. Evitamos el emoji ☕ porque en muchos
-   SO el glyph viene con fondo/cup blanco sólido que queda raro sobre
-   naranja. Este SVG es todo color sólido + stroke, sin background. */
+/* Fallback: SVG inline de tacita — silueta OSCURA (sin fondo blanco).
+   Es todo path negro sólido sobre el disco naranja, cero cuadrado ni
+   backdrop. El vapor arriba son 3 trazos curvos. */
 .cafecito-badge .cb-img-fallback {
   display: flex;
   width: 100%;
@@ -926,13 +926,15 @@ img {
   width: 100%;
   height: 100%;
   background: url("data:image/svg+xml;utf8,\
-<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'>\
-<path d='M12 22h34v18a12 12 0 0 1-12 12H24a12 12 0 0 1-12-12V22z' fill='%23fff' stroke='%231a1a1a' stroke-width='3' stroke-linejoin='round'/>\
-<path d='M46 26h6a6 6 0 0 1 6 6v2a6 6 0 0 1-6 6h-6' stroke='%231a1a1a' stroke-width='3' fill='none' stroke-linecap='round'/>\
-<path d='M22 8c-2 4 2 6 0 10M32 8c-2 4 2 6 0 10M42 8c-2 4 2 6 0 10' stroke='%231a1a1a' stroke-width='2.5' stroke-linecap='round' fill='none'/>\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>\
+<path d='M10 26h32v14a14 14 0 0 1-14 14h-4a14 14 0 0 1-14-14V26z' fill='%23181510'/>\
+<path d='M42 28h6a7 7 0 0 1 7 7v1a7 7 0 0 1-7 7h-6v-15z' fill='%23181510'/>\
+<rect x='39' y='32' width='13' height='7' rx='3.5' fill='%23FA5D29'/>\
+<path d='M20 6c-3 5 3 7 0 12' stroke='%23181510' stroke-width='3' stroke-linecap='round' fill='none'/>\
+<path d='M30 6c-3 5 3 7 0 12' stroke='%23181510' stroke-width='3' stroke-linecap='round' fill='none'/>\
+<path d='M40 6c-3 5 3 7 0 12' stroke='%23181510' stroke-width='3' stroke-linecap='round' fill='none'/>\
 </svg>") center / contain no-repeat;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
-  mix-blend-mode: multiply;
 }
 
 /* Si la imagen cargó, ocultar el fallback (sino se ven los dos en paralelo) */

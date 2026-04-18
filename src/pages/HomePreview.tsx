@@ -16,7 +16,9 @@ import ArchivoSection from '@/components/home/ArchivoSection';
 import RedesSection from '@/components/home/RedesSection';
 import AntiTheftGuard from '@/components/home/AntiTheftGuard';
 import ClubReturnBanner from '@/components/home/ClubReturnBanner';
-import CafecitoBadge from '@/components/CafecitoBadge';
+// CafecitoBadge vive en Layout.tsx (fuera del <motion.div> que envuelve el
+// Outlet) para evitar que el `transform: translateY(0)` de framer-motion le
+// rompa el position:fixed al badge.
 
 /**
  * Delirio home — full React port. Now served at `/` (and `/home-preview` for
@@ -87,12 +89,6 @@ export default function HomePreview() {
       <RedesSection />
 
       <AntiTheftGuard />
-
-      {/* FAB flotante — siempre visible desde el primer paint (el sticker
-          es parte de la identidad, no un "aparece si scrolleás").
-          Un toque → /api/checkout/quick?mode=cafecito → 302 a Mercado Pago.
-          Cero fricción, cero pasos intermedios. */}
-      <CafecitoBadge floating />
     </>
   );
 }

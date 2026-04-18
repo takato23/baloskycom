@@ -13,6 +13,7 @@ import DelirioFooter from '@/components/delirio/DelirioFooter';
 import DelirioCursor from '@/components/delirio/DelirioCursor';
 import MobileNav from '@/components/delirio/MobileNav';
 import ThemeFab from '@/components/delirio/ThemeFab';
+import CafecitoBadge from '@/components/CafecitoBadge';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 /**
@@ -192,11 +193,11 @@ export default function Layout() {
 
         <MusicPlayerDock hidden={isFullBleed} />
 
-        {/* Botón "↑ volver arriba" removido en abril 2026 — el
-            `<CafecitoBadge />` ahora ocupa el slot bottom-right y no
-            queremos dos FABs peleándose por el mismo espacio. Si se
-            necesita re-agregar, usar `bottom-left` o esconderlo en
-            mobile para no pisar el sticker. */}
+        {/* CafecitoBadge vive acá (fuera del <main>/<motion.div>) para que
+            su `position: fixed` se ancle al viewport y no al containing
+            block creado por el `transform` de framer-motion. Lo ocultamos
+            en admin y en el propio checkout (ya estás pagando). */}
+        {!isAdmin && !isCheckout && <CafecitoBadge floating />}
 
         <KonamiEasterEgg />
         <ModoHomerEasterEgg />

@@ -48,14 +48,20 @@ function emptyMedia(kind: MediaKind): Partial<Media> {
     title: '',
     description: '',
     category: '',
+    isMemberOnly: false,
     mediaUrl: '',
     embedUrl: '',
     coverImage: '',
     duration: '',
+    aspectRatio: null,
+    showDescription: true,
+    showPrompt: true,
+    showTool: true,
     isLocked: false,
     active: true,
     featured: false,
     sortOrder: 0,
+    publicFrom: null,
   };
 }
 
@@ -364,8 +370,13 @@ function BulkDropZone({
         title,
         description,
         category: '',
+        isMemberOnly: false,
         mediaUrl: up.url,
         coverImage: up.url,
+        aspectRatio: null,
+        showDescription: true,
+        showPrompt: true,
+        showTool: true,
         isLocked: false,
         active: true,
         featured: false,
@@ -624,6 +635,8 @@ function SelectionBar({
       <div className="flex-1" />
       <button onClick={() => onBatch({ active: true })}   className="px-2.5 py-1 rounded-md hover:bg-violet-900/60 flex items-center gap-1"><Eye className="w-4 h-4" />Activar</button>
       <button onClick={() => onBatch({ active: false })}  className="px-2.5 py-1 rounded-md hover:bg-violet-900/60 flex items-center gap-1"><EyeOff className="w-4 h-4" />Ocultar</button>
+      <button onClick={() => onBatch({ isMemberOnly: true })} className="px-2.5 py-1 rounded-md hover:bg-violet-900/60 flex items-center gap-1"><Lock className="w-4 h-4" />Sólo miembros</button>
+      <button onClick={() => onBatch({ isMemberOnly: false })} className="px-2.5 py-1 rounded-md hover:bg-violet-900/60 flex items-center gap-1"><Unlock className="w-4 h-4" />Público</button>
       <button onClick={() => onBatch({ featured: true })} className="px-2.5 py-1 rounded-md hover:bg-violet-900/60 flex items-center gap-1"><Star className="w-4 h-4" />Destacar</button>
       <button onClick={() => onBatch({ featured: false })} className="px-2.5 py-1 rounded-md hover:bg-violet-900/60 flex items-center gap-1"><StarOff className="w-4 h-4" />Quitar ★</button>
       <div className="relative">
@@ -695,7 +708,7 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
   const load = async () => {
     setLoading(true);
     try {
-      const rows = await api.getMedia(kind);
+      const rows = await api.getAdminMedia(kind);
       setItems(rows);
     } catch (e) {
       console.error('[admin/media] load', e);
@@ -1172,6 +1185,15 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
                 />
                 Destacado
               </label>
+              <label className="flex items-center gap-2 text-sm text-zinc-800 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={!!editing.isMemberOnly}
+                  onChange={(e) => setEditing({ ...editing, isMemberOnly: e.target.checked })}
+                  className="h-4 w-4 rounded border-zinc-300 text-[var(--accent,#FA5D29)] focus:ring-[var(--accent,#FA5D29)]/30"
+                />
+                Sólo miembros <span className="text-zinc-400">· oculto en el público</span>
+              </label>
               {fields.supportsLock && (
                 <label className="flex items-center gap-2 text-sm text-zinc-800 cursor-pointer select-none">
                   <input
@@ -1277,7 +1299,9 @@ function GridTile({
       {/* Badges */}
       <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
         {m.featured && <span className="text-[9px] uppercase tracking-wider bg-violet-600 text-white px-1.5 py-0.5 rounded-full">★</span>}
+        {m.isMemberOnly && <span className="text-[9px] uppercase tracking-wider bg-fuchsia-700 text-white px-1.5 py-0.5 rounded-full">Miembros</span>}
         {m.isLocked && <span className="text-[9px] uppercase tracking-wider bg-amber-600 text-white px-1.5 py-0.5 rounded-full">Lock</span>}
+        {m.publicFrom && <span className="text-[9px] uppercase tracking-wider bg-sky-700 text-white px-1.5 py-0.5 rounded-full">Early</span>}
         {!m.active && <span className="text-[9px] uppercase tracking-wider bg-zinc-700 text-zinc-200 px-1.5 py-0.5 rounded-full">Oculto</span>}
       </div>
 
@@ -1358,7 +1382,9 @@ function ListRow({
         <div className="flex items-center gap-2 flex-wrap">
           <h3 className="text-white font-medium truncate">{m.title}</h3>
           {m.featured && <span className="text-[10px] uppercase tracking-wider bg-violet-600/20 text-violet-300 px-2 py-0.5 rounded-full">Destacado</span>}
+          {m.isMemberOnly && <span className="text-[10px] uppercase tracking-wider bg-fuchsia-600/20 text-fuchsia-300 px-2 py-0.5 rounded-full">Sólo miembros</span>}
           {m.isLocked && <span className="text-[10px] uppercase tracking-wider bg-amber-600/20 text-amber-300 px-2 py-0.5 rounded-full">Lockeado</span>}
+          {m.publicFrom && <span className="text-[10px] uppercase tracking-wider bg-sky-600/20 text-sky-300 px-2 py-0.5 rounded-full">Early drop</span>}
           {!m.active && <span className="text-[10px] uppercase tracking-wider bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">Oculto</span>}
           {m.embedUrl && parseEmbedUrl(m.embedUrl) && (
             <span

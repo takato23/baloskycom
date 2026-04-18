@@ -391,6 +391,12 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch media');
     return res.json();
   },
+  getAdminMedia: async (kind?: MediaKind): Promise<Media[]> => {
+    const url = kind ? `${API_URL}/media?kind=${kind}` : `${API_URL}/media`;
+    const res = await fetch(url, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch media');
+    return res.json();
+  },
   createMedia: async (m: Partial<Media>): Promise<Media> => {
     const res = await fetch(`${API_URL}/media`, {
       method: 'POST', headers: getHeaders(), body: JSON.stringify(m)

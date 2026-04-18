@@ -1,5 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
-import HeroOrb3D from './HeroOrb3D';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import OrbPlaceholder from './OrbPlaceholder';
+
+/**
+ * HeroOrb3D es Three.js (icosahedron + shader + 180 particles + 4 planetas
+ * + cassette + vinyl + torus @ 60fps RAF). Pesado: ~180kb de JS + GPU
+ * corriendo siempre. Lo lazy-loadeamos para que el bundle inicial no lo
+ * arrastre y sólo lo montamos en desktop sin `prefers-reduced-motion`.
+ * En mobile cae a `OrbPlaceholder` (CSS puro con radial gradients).
+ */
+const HeroOrb3D = lazy(() => import('./HeroOrb3D'));
 
 /**
  * Port of the `<section class="hero">` block from delirio.html.
@@ -84,6 +95,13 @@ function StatNum({ stat, run }: { stat: Stat; run: boolean }) {
 
 export default function HeroSection() {
   const clock = useLiveClock();
+  const isMobile = useIsMobile();
+  const reducedMotion = usePrefersReducedMotion();
+  // Si la viewport es mobile (<769px) o el usuario tiene
+  // `prefers-reduced-motion` activado, no cargamos la escena Three.js:
+  // mostramos `OrbPlaceholder` (CSS puro, ~0 CPU) que mantiene la estética
+  // de esfera colorida pero sin comerse la batería del iPhone.
+  const useLightOrb = isMobile || reducedMotion;
 
   const dotRef = useRef<HTMLSpanElement | null>(null);
   const stripRef = useRef<HTMLDivElement | null>(null);
@@ -122,7 +140,13 @@ export default function HeroSection() {
     <section className="hero">
       <div className="hero-aura" aria-hidden="true" />
       <div className="hero-canvas-wrap">
-        <HeroOrb3D />
+        {useLightOrb ? (
+          <OrbPlaceholder />
+        ) : (
+          <Suspense fallback={<OrbPlaceholder />}>
+            <HeroOrb3D />
+          </Suspense>
+        )}
       </div>
       <div className="orbit-stickers" aria-hidden="true">
         {ORBIT_STICKERS.map((s) => (

@@ -395,6 +395,8 @@ export interface Media {
   title: string;
   description?: string | null;
   category?: string | null;
+  /** Hard-hide from non-members in public media endpoints. */
+  isMemberOnly?: boolean;
   /** Direct-hosted media URL (e.g. uploaded .mp3, .mp4). */
   mediaUrl?: string | null;
   /**

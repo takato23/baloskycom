@@ -3692,3 +3692,47 @@
     .media-modal { padding: 20px; }
     .media-modal .mm-close { top: 14px; right: 14px; width: 40px; height: 40px; }
   }
+
+  /* =====================================================================
+   * PERF MOBILE — abril 2026
+   * En iPhones (testeado en iPhone 17 Pro Max) las capas de blur grandes
+   * + animaciones continuas + mix-blend-mode hacen que Safari repaintee
+   * todo el viewport a 60fps y la página se sienta "pegajosa".
+   *
+   * Apagamos/reducimos lo siguiente en <769px:
+   *   1. `.mesh-bg .blob` — blur 80px → 40px, animación OFF, bajamos de
+   *      4 a 2 blobs (los otros 2 se ocultan). Mantiene la estética
+   *      colorida pero estática.
+   *   2. `.hero-aura` — blur 60px → 30px, auraPulse OFF.
+   *   3. `.grain` — mix-blend-mode: overlay → normal, opacity 0.12 → 0.05.
+   *      El overlay forzaba repaint en cada frame de scroll.
+   *   4. `will-change: transform` de orbit-stickers → quitado para no
+   *      promover capas GPU innecesarias que suman memoria.
+   * ================================================================== */
+  @media (max-width: 768px) {
+    .mesh-bg .blob {
+      filter: blur(40px);
+      animation: none;
+      opacity: 0.55;
+    }
+    .mesh-bg .b3, .mesh-bg .b4 { display: none; }
+
+    .hero-aura {
+      filter: blur(30px);
+      animation: none;
+    }
+
+    .grain {
+      mix-blend-mode: normal;
+      opacity: 0.05;
+    }
+
+    .orbit-sticker { will-change: auto; }
+  }
+
+  /* Respeta prefers-reduced-motion — apagamos todas las animaciones
+   * continuas del fondo independientemente del viewport. */
+  @media (prefers-reduced-motion: reduce) {
+    .mesh-bg .blob { animation: none; }
+    .hero-aura { animation: none; }
+  }
