@@ -40,7 +40,20 @@ const COLUMN_MAP: Record<string, string> = {
   aiPrompt: 'ai_prompt',
   isLocked: 'is_locked',
   colorFrom: 'color_from',
-  colorTo: 'color_to'
+  colorTo: 'color_to',
+  preferenceId: 'preference_id',
+  downloadToken: 'download_token',
+  downloadExpiresAt: 'download_expires_at',
+  emailSentAt: 'email_sent_at',
+  paidAt: 'paid_at',
+  memberId: 'member_id',
+  membershipId: 'membership_id',
+  mpPreapprovalId: 'mp_preapproval_id',
+  nextPaymentAt: 'next_payment_at',
+  authorizedAt: 'authorized_at',
+  cancelledAt: 'cancelled_at',
+  lastLoginAt: 'last_login_at',
+  isMemberOnly: 'is_member_only'
 };
 
 // Reverse map: snake_case to camelCase
@@ -314,6 +327,27 @@ async function initDb() {
     )
   `);
 
+  /* Extensión idempotente de purchases para el flujo checkout + delivery.
+     No rompe filas existentes (seed). Se corre en cada boot. */
+  await sql.unsafe(`
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS email TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS amount INTEGER;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS payment_id TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS preference_id TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS external_reference TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS download_token TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS download_expires_at TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS email_sent_at TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS paid_at TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS updated_at TEXT;
+  `);
+  await sql.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_purchases_ext_ref ON purchases(external_reference);
+    CREATE INDEX IF NOT EXISTS idx_purchases_email ON purchases(email);
+    CREATE INDEX IF NOT EXISTS idx_purchases_status_created ON purchases(status, created_at DESC);
+  `);
+
   await sql.unsafe(`
     CREATE TABLE IF NOT EXISTS processed_payments (
       payment_id TEXT PRIMARY KEY,
@@ -405,6 +439,57 @@ async function initDb() {
       user_agent TEXT,
       ip TEXT
     )
+  `);
+
+  /* ==== CLUB / MEMBRESÍAS RECURRENTES =====================================
+   * members: persona con acceso al club. Se crea al aprobarse un preapproval.
+   * subscriptions: mapea membership ↔ MP preapproval. Una row por intento.
+   * Status aceptados (espejo de MP):
+   *   pending | authorized | paused | cancelled
+   * -------------------------------------------------------------------- */
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS members (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT,
+      created_at TEXT NOT NULL,
+      last_login_at TEXT
+    )
+  `);
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      member_id TEXT,
+      email TEXT NOT NULL,
+      membership_id TEXT NOT NULL,
+      mp_preapproval_id TEXT UNIQUE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      amount INTEGER NOT NULL,
+      frequency TEXT NOT NULL DEFAULT 'monthly',
+      next_payment_at TEXT,
+      authorized_at TEXT,
+      cancelled_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT
+    )
+  `);
+  await sql.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_status
+    ON subscriptions(status)
+  `);
+  await sql.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_email
+    ON subscriptions(email)
+  `);
+  await sql.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_member
+    ON subscriptions(member_id)
+  `);
+
+  /* Flag que marca contenido sólo visible al miembro activo.
+   * Se filtra en cualquier GET público de /api/media. */
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS is_member_only INTEGER NOT NULL DEFAULT 0
   `);
 
   // Create indexes
@@ -769,23 +854,21 @@ async function initDb() {
     if (!user.passwordHash && user.password) {
       await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(user.password), user.id);
     }
+    if (user.password) {
+      await db.prepare('UPDATE users SET password = NULL WHERE id = ?').run(user.id);
+    }
   }
 
   // Clean up insecure default admin
   const defaultUser = await db.prepare('SELECT id, username, password, password_hash FROM users WHERE username = ?').get('admin');
-  if (defaultUser && (defaultUser.password === 'admin123' || verifyPassword('admin123', defaultUser.passwordHash))) {
+  if (defaultUser && (
+    defaultUser.password === 'admin123' ||
+    defaultUser.password === 'admin' ||
+    verifyPassword('admin123', defaultUser.passwordHash) ||
+    verifyPassword('admin', defaultUser.passwordHash)
+  )) {
     await db.prepare('DELETE FROM users WHERE id = ?').run(defaultUser.id);
     console.warn('[auth] Se eliminó el admin por defecto inseguro. Creá un nuevo acceso desde /admin/login usando el bootstrap inicial.');
-  }
-
-  // Ensure at least one admin user exists
-  const adminUsersCount = await db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'admin'").all();
-  if (adminUsersCount.length === 0 || (adminUsersCount[0] as any).count === 0) {
-    const now = new Date().toISOString();
-    await db.prepare(
-      'INSERT INTO users (id, username, password, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run('admin_default', 'admin', 'admin', hashPassword('admin'), 'admin', now);
-    console.warn('[auth] Se creó un admin local por defecto: admin / admin');
   }
 }
 
@@ -802,7 +885,7 @@ export const createAdminUser = async (username: string, password: string) => {
 
   await db.prepare(
     'INSERT INTO users (id, username, password, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(id, username, password, passwordHash, 'admin', now);
+  ).run(id, username, null, passwordHash, 'admin', now);
 
   return { id, username, role: 'admin', createdAt: now };
 };
@@ -812,7 +895,7 @@ export const updateAdminUserCredentials = async (userId: string, username: strin
 
   await db.prepare(
     'UPDATE users SET username = ?, password = ?, password_hash = ? WHERE id = ?'
-  ).run(username, password, passwordHash, userId);
+  ).run(username, null, passwordHash, userId);
 };
 
 // Initialize on module load

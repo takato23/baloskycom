@@ -2,12 +2,43 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
+import helmet from 'helmet';
 import apiRouter from './src/server/routes/api.js';
 
 const app = express();
+const isProduction = process.env.NODE_ENV === 'production';
+const configuredAppUrl = process.env.APP_URL?.trim();
+const allowedOrigins = new Set<string>();
 
-app.use(cors());
-app.use(express.json());
+if (configuredAppUrl) {
+  try {
+    allowedOrigins.add(new URL(configuredAppUrl).origin);
+  } catch (error) {
+    console.warn('[server] Invalid APP_URL, skipping CORS allowlist entry:', error);
+  }
+}
+
+const isAllowedOrigin = (origin?: string) => {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+  if (!isProduction && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) return true;
+  return false;
+};
+
+app.set('trust proxy', isProduction ? 1 : false);
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
+
+app.use(cors({
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(new Error('Origin not allowed by CORS'));
+  }
+}));
+app.use(express.json({ limit: '1mb' }));
 
 // API Routes
 app.get('/api/health', (req, res) => {
@@ -39,6 +70,21 @@ const serveDelirio = (_req: express.Request, res: express.Response) => {
 
 app.get('/', serveDelirio);
 app.get('/delirio', serveDelirio);
+
+// Post-checkout pages (served as static HTML in dev via express.static; in prod
+// we need explicit routes because app.get('*') falls through to dist/index.html).
+const servePage = (file: string) => (_req: express.Request, res: express.Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(path.join(publicDir, file), (err) => {
+    if (err) {
+      console.error(`[${file}] sendFile error:`, err);
+      if (!res.headersSent) res.status(500).send(`${file} not found`);
+    }
+  });
+};
+app.get('/pago-exitoso', servePage('pago-exitoso.html'));
+app.get('/pago-pendiente', servePage('pago-pendiente.html'));
+app.get('/pago-fallido', servePage('pago-fallido.html'));
 
 // Expose the wire-up script and other /public files directly in dev.
 // (In production, Vite copies /public into /dist, so the dist static handler
