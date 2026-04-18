@@ -29,7 +29,16 @@ const COLUMN_MAP: Record<string, string> = {
   paymentId: 'payment_id',
   messageId: 'message_id',
   externalReference: 'external_reference',
-  processedAt: 'processed_at'
+  processedAt: 'processed_at',
+  mediaUrl: 'media_url',
+  thumbUrl: 'thumb_url',
+  embedUrl: 'embed_url',
+  playCount: 'play_count',
+  aiTool: 'ai_tool',
+  aiPrompt: 'ai_prompt',
+  isLocked: 'is_locked',
+  colorFrom: 'color_from',
+  colorTo: 'color_to'
 };
 
 // Reverse map: snake_case to camelCase
@@ -317,6 +326,74 @@ async function initDb() {
     )
   `);
 
+  // Unified media table for video_ia, foto, wallpaper, cancion
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS media (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      category TEXT,
+      media_url TEXT,
+      thumb_url TEXT,
+      embed_url TEXT,
+      cover_image TEXT,
+      duration TEXT,
+      is_locked INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      featured INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )
+  `);
+  // Migration: add embed_url to existing media tables that were created before
+  // this column existed. `ADD COLUMN IF NOT EXISTS` is Postgres 9.6+.
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS thumb_url TEXT
+  `);
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS embed_url TEXT
+  `);
+  // Migration: add play_count for SUNO catalog "más escuchados" ordering.
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS play_count INTEGER NOT NULL DEFAULT 0
+  `);
+  // Migration: AI metadata for video_ia (Laboratorio IA page).
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS ai_tool TEXT
+  `);
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS ai_prompt TEXT
+  `);
+
+  // Social links
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS socials (
+      id TEXT PRIMARY KEY,
+      platform TEXT NOT NULL,
+      name TEXT NOT NULL,
+      handle TEXT NOT NULL,
+      url TEXT NOT NULL,
+      icon TEXT,
+      color_from TEXT,
+      color_to TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )
+  `);
+
+  // Newsletter subscribers
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      source TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    )
+  `);
+
   // Create indexes
   await sql.unsafe(`
     CREATE INDEX IF NOT EXISTS idx_messages_approved_created
@@ -341,6 +418,14 @@ async function initDb() {
   await sql.unsafe(`
     CREATE INDEX IF NOT EXISTS idx_ideas_active_sort
     ON ideas(active, sort_order)
+  `);
+  await sql.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_media_kind_active_sort
+    ON media(kind, active, sort_order)
+  `);
+  await sql.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_socials_active_sort
+    ON socials(active, sort_order)
   `);
 
   // Check if we need to seed data
@@ -496,6 +581,165 @@ async function initDb() {
       1,
       nowIdeas
     );
+  }
+
+  // ===================================================================
+  // SEEDS DESHABILITADOS (socials + media mockups)
+  // Para volver a popular la DB con mocks (videos IA, fotos, wallpapers,
+  // canciones, y redes sociales) cambiar SEED_MOCKS a true.
+  // ===================================================================
+  const SEED_MOCKS = false as boolean;
+  if (SEED_MOCKS) {
+    // Idempotent seed for socials (redes sociales reales)
+    const countSocials = await db.prepare('SELECT COUNT(*) as count FROM socials').all();
+    if (countSocials.length === 0 || (countSocials[0] as any).count === 0) {
+      const nowSoc = new Date().toISOString();
+      const socialsSeed: Array<[string, string, string, string, string, string, string, string, number]> = [
+        ['soc_ig',  'instagram',   'Instagram',    '@santiagobalosky · 176K', 'https://instagram.com/santiagobalosky',     'IG', '#F02E65', '#FFB83D', 1],
+        ['soc_igf', 'instagram',   'Foto Balosky', '@fotobalosky',            'https://instagram.com/fotobalosky',         '📷', '#7C3FFF', '#F02E65', 2],
+        ['soc_tw',  'twitch',      'Twitch',       'balosky · streams',       'https://twitch.tv/balosky',                 'TV', '#9146FF', '#5c2bb5', 3],
+        ['soc_yt',  'youtube',     'YouTube',      '@santiagobalosky',        'https://youtube.com/@santiagobalosky',      '▶',  '#FF0000', '#b50000', 4],
+        ['soc_sp',  'spotify',     'Spotify',      'Balosky',                 'https://open.spotify.com/artist/balosky',   '♪',  '#1DB954', '#146c37', 5],
+        ['soc_am',  'apple-music', 'Apple Music',  'Balosky',                 'https://music.apple.com/ar/artist/balosky', '◉',  '#FA586A', '#C5326D', 6],
+        ['soc_tk',  'tiktok',      'TikTok',       '@santiagobalosky',        'https://tiktok.com/@santiagobalosky',       '♬',  '#FE2C55', '#25F4EE', 7],
+        ['soc_ml',  'mail',        'Mail',         'hola@balosky.com',        'mailto:hola@balosky.com',                   '@',  '#FA5D29', '#F02E65', 8],
+      ];
+      for (const s of socialsSeed) {
+        await db.prepare(`
+          INSERT INTO socials (id, platform, name, handle, url, icon, colorFrom, colorTo, active, sortOrder, createdAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], 1, s[8], nowSoc);
+      }
+    }
+
+    // Idempotent seed for media (videos IA, fotos, wallpapers, canciones)
+    const countMedia = await db.prepare('SELECT COUNT(*) as count FROM media').all();
+    if (countMedia.length === 0 || (countMedia[0] as any).count === 0) {
+      const nowMed = new Date().toISOString();
+      // Shape: [id, kind, title, description, category, mediaUrl, coverImage, duration, isLocked, featured, sortOrder]
+      const mediaSeed: Array<[string, string, string, string | null, string | null, string | null, string | null, string | null, number, number, number]> = [
+        // VIDEOS IA
+        ['med_vi_01', 'video_ia', 'Caballo blanco en la niebla', 'Generado con Gen-3 · prompt: "horse running in fog, cinematic, blue hour"', 'FILM · 2026', 'https://cdn.coverr.co/videos/coverr-a-running-horse-2864/1080p.mp4', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1400&auto=format&fit=crop', '0:24 · GEN-3', 0, 1, 1],
+        ['med_vi_02', 'video_ia', 'Neón líquido', 'Loop · experimento de color saturado', 'VISUAL · LOOP', 'https://cdn.coverr.co/videos/coverr-neon-lights-5566/1080p.mp4', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000&auto=format&fit=crop', '0:12', 0, 0, 2],
+        ['med_vi_03', 'video_ia', 'Mar de plástico', 'Experimento LUT · waves generado', 'EXPERIMENTO · LUT', 'https://cdn.coverr.co/videos/coverr-waves-crashing-on-the-shore-0036/1080p.mp4', 'https://images.unsplash.com/photo-1514533212735-5df27d970db0?q=80&w=1000&auto=format&fit=crop', '0:18', 0, 0, 3],
+        ['med_vi_04', 'video_ia', 'Luces tarde', 'Clip nocturno de Buenos Aires', 'CLIP · BUENOS AIRES', 'https://cdn.coverr.co/videos/coverr-city-traffic-lights-0321/1080p.mp4', 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?q=80&w=1000&auto=format&fit=crop', '0:15', 0, 0, 4],
+        ['med_vi_05', 'video_ia', 'Azul desde arriba', 'Drone cinematográfico oceánico', 'CINEMATIC · DRONE', 'https://cdn.coverr.co/videos/coverr-aerial-view-of-the-ocean-0568/1080p.mp4', 'https://images.unsplash.com/photo-1498855592-0a0c7a99b7e4?q=80&w=1000&auto=format&fit=crop', '0:20', 0, 0, 5],
+        ['med_vi_06', 'video_ia', 'Lo que queda del bosque', 'Corto generado con IA · destacado 2026', 'CORTO · 2026', 'https://cdn.coverr.co/videos/coverr-walking-in-the-forest-5677/1080p.mp4', 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1800&auto=format&fit=crop', '1:02 · DESTACADO', 0, 1, 6],
+        // FOTOS @fotobalosky
+        ['med_ft_01', 'foto', 'Buenos Aires 01', null, 'ba',      null, 'https://images.unsplash.com/photo-1589909202802-8f4aadce1849?q=80&w=900&auto=format&fit=crop', null, 0, 0, 1],
+        ['med_ft_02', 'foto', 'Patagonia 01',    null, 'sur',     null, 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=900&auto=format&fit=crop', null, 0, 0, 2],
+        ['med_ft_03', 'foto', 'Noche 35mm',      null, 'noche',   null, 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?q=80&w=900&auto=format&fit=crop', null, 0, 0, 3],
+        ['med_ft_04', 'foto', 'Retrato 01',      null, 'retrato', null, 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=900&auto=format&fit=crop', null, 0, 0, 4],
+        ['med_ft_05', 'foto', 'San Telmo',       null, 'ba',      null, 'https://images.unsplash.com/photo-1505761671935-60b3a7427bad?q=80&w=900&auto=format&fit=crop', null, 0, 0, 5],
+        ['med_ft_06', 'foto', 'El Chaltén',      null, 'sur',     null, 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=900&auto=format&fit=crop', null, 0, 0, 6],
+        ['med_ft_07', 'foto', 'Neón',            null, 'noche',   null, 'https://images.unsplash.com/photo-1516796181074-bf453fbfa3e6?q=80&w=900&auto=format&fit=crop', null, 0, 0, 7],
+        ['med_ft_08', 'foto', 'Retrato 35mm',    null, 'retrato', null, 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?q=80&w=900&auto=format&fit=crop', null, 0, 0, 8],
+        ['med_ft_09', 'foto', 'Palermo',         null, 'ba',      null, 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=900&auto=format&fit=crop', null, 0, 0, 9],
+        // WALLPAPERS
+        ['med_wp_01', 'wallpaper', 'Neón porteño',        '4K · 2160×3840', null, 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?q=80&w=2160&auto=format&fit=crop', 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?q=80&w=800&auto=format&fit=crop', '4K · iPhone', 0, 0, 1],
+        ['med_wp_02', 'wallpaper', 'Montaña al amanecer', '4K · 2160×3840', null, 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2160&auto=format&fit=crop', 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop', '4K · iPhone', 0, 0, 2],
+        ['med_wp_03', 'wallpaper', 'Chaltén puro',        '4K · 2160×3840', null, 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2160&auto=format&fit=crop', 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=800&auto=format&fit=crop', '4K · iPhone', 0, 0, 3],
+        ['med_wp_04', 'wallpaper', 'Pack completo',       '10 × 4K · iPhone + desktop', null, '/checkout/c3?amount=3500', 'https://images.unsplash.com/photo-1516796181074-bf453fbfa3e6?q=80&w=800&auto=format&fit=crop', null, 1, 0, 4],
+        // CANCIONES SUNO
+        ['med_cn_01', 'cancion', 'Protocolo nocturno', 'Techno · SUNO experimento', 'Electrónico', 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3', null, '3:42', 0, 0, 1],
+        ['med_cn_02', 'cancion', 'Ciudad líquida',     'Ambient · SUNO',            'Electrónico', 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_bb630cc098.mp3', null, '4:10', 0, 0, 2],
+        ['med_cn_03', 'cancion', 'Loop 4AM',           'Deep House · SUNO',         'Electrónico', 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3', null, '5:08', 0, 0, 3],
+        ['med_cn_04', 'cancion', 'Carta sin mandar',   'Folk · acústico SUNO',      'Folk',        'https://cdn.pixabay.com/download/audio/2022/10/30/audio_347111d6ea.mp3', null, '2:58', 0, 0, 4],
+        ['med_cn_05', 'cancion', 'Abuelo',             'Acústico',                  'Folk',        'https://cdn.pixabay.com/download/audio/2021/10/23/audio_1c7d07bfc3.mp3', null, '3:21', 0, 0, 5],
+        ['med_cn_06', 'cancion', 'Ruta sur',           'Folk · carretera',          'Folk',        'https://cdn.pixabay.com/download/audio/2023/06/11/audio_2e07bd43e1.mp3', null, '4:02', 0, 0, 6],
+        ['med_cn_07', 'cancion', 'Máquina en reposo',  'Ambient experimental',      'Experimental', 'https://cdn.pixabay.com/download/audio/2022/08/04/audio_d3c15d82b1.mp3', null, '5:50', 0, 0, 7],
+        ['med_cn_08', 'cancion', 'Ruido dulce',        'Noise',                     'Experimental', 'https://cdn.pixabay.com/download/audio/2022/02/15/audio_dd64862e5f.mp3', null, '2:18', 0, 0, 8],
+        ['med_cn_09', 'cancion', 'Nadie escucha (demo)', 'Rock · demo para SUNO',   'Rock',         'https://cdn.pixabay.com/download/audio/2023/05/15/audio_0efb58b9a1.mp3', null, '3:12', 0, 0, 9],
+        ['med_cn_10', 'cancion', 'Órbita bis',         'Pop · versión SUNO',        'Rock',         'https://cdn.pixabay.com/download/audio/2023/03/28/audio_7c6b3a6147.mp3', null, '3:34', 0, 0, 10],
+      ];
+      for (const m of mediaSeed) {
+        await db.prepare(`
+          INSERT INTO media (id, kind, title, description, category, mediaUrl, coverImage, duration, isLocked, active, featured, sortOrder, createdAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], 1, m[9], m[10], nowMed);
+      }
+    }
+
+    // Per-id idempotent seeds for Santi's real video_ia pieces. Lives
+    // outside the "empty media table" branch above so these videos land in
+    // production DBs too. Each entry is inserted once (by id); renaming or
+    // deleting from /admin keeps it gone on next boot.
+    const realVideos: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      category: string | null;
+      mediaUrl: string;
+      coverImage: string | null;
+      duration: string | null;
+      aiTool: string | null;
+      aiPrompt: string | null;
+      featured: 0 | 1;
+      sortOrder: number;
+    }> = [
+      {
+        id: 'med_vi_hp_argento',
+        title: 'Harry Potter argento',
+        description: 'Si Harry Potter hubiese sido filmado en el conurbano. Sátira generada con IA.',
+        category: 'SÁTIRA · IA',
+        mediaUrl: '/uploads/2026/04/harry-potter-argento.mp4',
+        coverImage: '/uploads/2026/04/harry-potter-argento.jpg',
+        duration: '5:10',
+        aiTool: 'Veo 3',
+        aiPrompt: 'Harry Potter movie set in a Buenos Aires suburb, with argentinian accent, chori y fernet en Hogwarts, cinematic 9:16',
+        featured: 1,
+        sortOrder: 0,
+      },
+    ];
+    const nowVid = new Date().toISOString();
+    for (const v of realVideos) {
+      const existing = await db.prepare('SELECT id FROM media WHERE id = ?').get(v.id);
+      if (!existing) {
+        await db.prepare(`
+          INSERT INTO media (id, kind, title, description, category, mediaUrl, coverImage, duration, aiTool, aiPrompt, isLocked, active, featured, sortOrder, createdAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          v.id, 'video_ia', v.title, v.description, v.category,
+          v.mediaUrl, v.coverImage, v.duration,
+          v.aiTool, v.aiPrompt,
+          0, 1, v.featured, v.sortOrder, nowVid,
+        );
+      }
+    }
+  }
+
+  // Ensure Santi's real artist socials exist. Idempotent: checks by id, so
+  // if you rename/remove one from /admin it won't come back. Only the first
+  // run (or explicit re-enable with a new id) inserts.
+  const artistSocials: Array<{
+    id: string; platform: string; name: string; handle: string; url: string;
+    icon: string; colorFrom: string; colorTo: string; sortOrder: number;
+  }> = [
+    {
+      id: 'soc_artist_sp', platform: 'spotify', name: 'Spotify',
+      handle: 'Balosky', url: 'https://open.spotify.com/artist/78X93Q2GliSAizEATBNJUp',
+      icon: '♪', colorFrom: '#1DB954', colorTo: '#146c37', sortOrder: 10,
+    },
+    {
+      id: 'soc_artist_am', platform: 'apple-music', name: 'Apple Music',
+      handle: 'Balosky', url: 'https://music.apple.com/ar/artist/balosky/1842867947',
+      icon: '◉', colorFrom: '#FA586A', colorTo: '#C5326D', sortOrder: 11,
+    },
+    {
+      id: 'soc_artist_yt', platform: 'youtube', name: 'YouTube',
+      handle: '@Santiagobalosky', url: 'https://www.youtube.com/@Santiagobalosky',
+      icon: '▶', colorFrom: '#FF0000', colorTo: '#b50000', sortOrder: 12,
+    },
+  ];
+  const nowSoc = new Date().toISOString();
+  for (const s of artistSocials) {
+    const existing = await db.prepare('SELECT id FROM socials WHERE id = ?').get(s.id);
+    if (!existing) {
+      await db.prepare(`
+        INSERT INTO socials (id, platform, name, handle, url, icon, colorFrom, colorTo, active, sortOrder, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(s.id, s.platform, s.name, s.handle, s.url, s.icon, s.colorFrom, s.colorTo, 1, s.sortOrder, nowSoc);
+    }
   }
 
   // Handle user migrations

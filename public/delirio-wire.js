@@ -34,6 +34,22 @@
     }
   }
 
+  function setImagePreload(href){
+    var head = document.head || document.getElementsByTagName('head')[0];
+    if (!head) return;
+    var existing = document.getElementById('delirio-image-preload');
+    if (!href) {
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      return;
+    }
+    var link = existing || document.createElement('link');
+    link.id = 'delirio-image-preload';
+    link.rel = 'preload';
+    link.as = 'image';
+    link.href = href;
+    if (!existing) head.appendChild(link);
+  }
+
   /* -----------------------------------------------------------------------
    * SYNC: enganchar todos los botones de Apoyá y Club al checkout ANTES de
    * cualquier fetch. Así aunque el backend tarde o falle, los botones ya
@@ -527,7 +543,7 @@
       var cat = esc((m.category || '').toLowerCase());
       var catLabel = esc((m.category || '').toUpperCase() || '—');
       var title = esc(m.title || 'Sin título');
-      var img = esc(m.coverImage || m.mediaUrl || '');
+      var img = esc(m.thumbUrl || m.coverImage || m.mediaUrl || '');
       return '<figure class="feed-tile no-steal steal-watermark" data-cat="' + cat + '" data-cursor="ABRIR" data-title="' + title + '">'
         +   '<div class="ft-img"><img src="' + img + '" alt="' + title + '" loading="lazy" draggable="false"/></div>'
         +   '<figcaption class="ft-caption">'
@@ -557,6 +573,7 @@
     }
 
     feed.innerHTML = gridHtml;
+    setImagePreload(shown.length ? (shown[0].thumbUrl || shown[0].coverImage || shown[0].mediaUrl || '') : '');
     _wireFotoMoreBtn(feed);
   }
 
@@ -647,7 +664,7 @@
     var list = _wallFiltered();
     var shown = list.slice(0, _wallVisibleCount);
     var html = shown.map(function(m){
-      var thumb = esc(m.coverImage || m.mediaUrl || '');
+      var thumb = esc(m.thumbUrl || m.coverImage || m.mediaUrl || '');
       var full = esc(m.mediaUrl || m.coverImage || '');
       var name = esc(m.title || 'Wallpaper');
       var res = esc(m.description || '4K · 2160×3840');
@@ -1260,7 +1277,7 @@
     var pre = document.getElementById('wpPreview');
     if (!pre) return;
     _wppCurrent = wp || null;
-    var src = (wp && (wp.full || wp.thumb)) || '';
+    var src = (wp && (wp.thumb || wp.full)) || '';
     var hero = document.getElementById('wppHero');
     var iph = document.getElementById('wppIphone');
     var sam = document.getElementById('wppSamsung');

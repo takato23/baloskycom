@@ -2,6 +2,9 @@ import express from 'express';
 import db, { createAdminUser, hasAdminUsers, updateAdminUserCredentials } from '../db.js';import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
 import jwt from 'jsonwebtoken';
 import { verifyPassword } from '../auth.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-local-dev';
 
@@ -575,10 +578,14 @@ router.post('/messages', async (req, res) => {
     const id = `msg_${Date.now()}`;
     const createdAt = new Date().toISOString();
 
+    // Policy: los mensajes son públicos automáticamente (sin moderación previa).
+    // Solo quedan ocultos si el cliente manda explícitamente isApproved: false.
+    const approvedFlag = isApproved === false ? 0 : 1;
+
     await db.prepare(`
       INSERT INTO messages (id, supporterName, amount, message, isAnonymous, isApproved, createdAt, campaignId)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, supporterName, amount, message, isAnonymous ? 1 : 0, isApproved ? 1 : 0, createdAt, campaignId || null);
+    `).run(id, supporterName, amount, message, isAnonymous ? 1 : 0, approvedFlag, createdAt, campaignId || null);
 
     // Update campaign amount if applicable
     if (campaignId) {
@@ -699,7 +706,8 @@ router.get('/settings', async (req, res) => {
     if (row) {
       res.json(JSON.parse(row.data));
     } else {
-      res.status(404).json({ error: 'Settings not found' });
+      /* Graceful fallback: return empty object so the frontend doesn't log a 404. */
+      res.json({});
     }
   } catch (e) {
     console.error('[GET /settings]', e);
@@ -829,6 +837,376 @@ router.post('/webhook/mercadopago', async (req, res) => {
   } catch (error) {
     console.error('[POST /webhook/mercadopago]', error);
     res.status(500).send('Error');
+  }
+});
+
+// --- FILE UPLOAD (admin) ---
+const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    // Partition by year/month to keep the folder tidy
+    const d = new Date();
+    const year = String(d.getFullYear());
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const dest = path.join(UPLOADS_DIR, year, month);
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    cb(null, dest);
+  },
+  filename: (_req, file, cb) => {
+    const safeBase = path.parse(file.originalname).name
+      .toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 40);
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${safeBase || 'file'}-${Date.now()}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB — enough for short videos + hi-res images
+  fileFilter: (_req, file, cb) => {
+    const allowed = /^(image|video|audio)\//.test(file.mimetype);
+    if (!allowed) return cb(new Error('Tipo de archivo no permitido. Solo image/video/audio.'));
+    cb(null, true);
+  }
+});
+
+router.post('/upload', requireAuth, upload.single('file'), (req, res) => {
+  try {
+    const f = req.file;
+    if (!f) return res.status(400).json({ error: 'No file uploaded' });
+    // Path relative to /public so it's served as static
+    const rel = path.relative(path.join(process.cwd(), 'public'), f.path);
+    const url = '/' + rel.split(path.sep).join('/');
+    res.json({
+      url,
+      filename: f.filename,
+      mimetype: f.mimetype,
+      size: f.size
+    });
+  } catch (e) {
+    console.error('[POST /upload]', e);
+    res.status(500).json({ error: 'upload failed' });
+  }
+});
+
+// --- MEDIA (video_ia, foto, wallpaper, cancion) ---
+const mapMedia = (m: any) => ({
+  ...m,
+  thumbUrl: m.thumbUrl || null,
+  isLocked: Boolean(m.isLocked),
+  active: Boolean(m.active),
+  featured: Boolean(m.featured),
+  playCount: Number(m.playCount || 0)
+});
+
+router.get('/media', async (req, res) => {
+  try {
+    const { kind } = req.query;
+    const rows = kind
+      ? await db.prepare('SELECT * FROM media WHERE kind = ? ORDER BY sortOrder ASC, createdAt DESC').all(String(kind))
+      : await db.prepare('SELECT * FROM media ORDER BY kind ASC, sortOrder ASC').all();
+    res.json(rows.map(mapMedia));
+  } catch (e) {
+    console.error('[GET /media]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.get('/media/:id', async (req, res) => {
+  try {
+    const row = await db.prepare('SELECT * FROM media WHERE id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    res.json(mapMedia(row));
+  } catch (e) {
+    console.error('[GET /media/:id]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.post('/media', requireAuth, async (req, res) => {
+  try {
+    const m = req.body;
+    if (!m.kind || !m.title) return res.status(400).json({ error: 'kind and title required' });
+    const id = m.id || `med_${m.kind.slice(0,2)}_${Date.now()}`;
+    const createdAt = new Date().toISOString();
+    await db.prepare(`
+      INSERT INTO media (id, kind, title, description, category, mediaUrl, thumbUrl, embedUrl, coverImage, duration, aiTool, aiPrompt, isLocked, active, featured, sortOrder, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, m.kind, m.title, m.description || null, m.category || null,
+      m.mediaUrl || null, m.thumbUrl || null, m.embedUrl || null, m.coverImage || null, m.duration || null,
+      m.aiTool || null, m.aiPrompt || null,
+      m.isLocked ? 1 : 0,
+      m.active === false ? 0 : 1,
+      m.featured ? 1 : 0,
+      m.sortOrder || 0,
+      createdAt
+    );
+    const row = await db.prepare('SELECT * FROM media WHERE id = ?').get(id);
+    res.json(mapMedia(row));
+  } catch (e) {
+    console.error('[POST /media]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.put('/media/:id', requireAuth, async (req, res) => {
+  try {
+    const m = req.body;
+    // Build a partial UPDATE so callers can patch a single field (e.g. just
+    // `{ sortOrder: 3 }` from the reorder buttons) without wiping everything
+    // else out. Booleans need the 1/0 coercion; strings get null-coerced so
+    // empty inputs clear the column.
+    type Col = [colName: string, value: unknown];
+    const cols: Col[] = [];
+    if (m.kind !== undefined)        cols.push(['kind', m.kind]);
+    if (m.title !== undefined)       cols.push(['title', m.title]);
+    if (m.description !== undefined) cols.push(['description', m.description || null]);
+    if (m.category !== undefined)    cols.push(['category', m.category || null]);
+    if (m.mediaUrl !== undefined)    cols.push(['mediaUrl', m.mediaUrl || null]);
+    if (m.thumbUrl !== undefined)    cols.push(['thumbUrl', m.thumbUrl || null]);
+    if (m.embedUrl !== undefined)    cols.push(['embedUrl', m.embedUrl || null]);
+    if (m.coverImage !== undefined)  cols.push(['coverImage', m.coverImage || null]);
+    if (m.duration !== undefined)    cols.push(['duration', m.duration || null]);
+    if (m.aiTool !== undefined)      cols.push(['aiTool', m.aiTool || null]);
+    if (m.aiPrompt !== undefined)    cols.push(['aiPrompt', m.aiPrompt || null]);
+    if (m.isLocked !== undefined)    cols.push(['isLocked', m.isLocked ? 1 : 0]);
+    if (m.active !== undefined)      cols.push(['active', m.active === false ? 0 : 1]);
+    if (m.featured !== undefined)    cols.push(['featured', m.featured ? 1 : 0]);
+    if (m.sortOrder !== undefined)   cols.push(['sortOrder', Number(m.sortOrder) || 0]);
+
+    if (cols.length) {
+      const setClause = cols.map(([c]) => `${c} = ?`).join(', ');
+      const values = cols.map(([, v]) => v);
+      await db.prepare(`UPDATE media SET ${setClause} WHERE id = ?`).run(...values, req.params.id);
+    }
+    const row = await db.prepare('SELECT * FROM media WHERE id = ?').get(req.params.id);
+    res.json(mapMedia(row));
+  } catch (e) {
+    console.error('[PUT /media/:id]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.delete('/media/:id', requireAuth, async (req, res) => {
+  try {
+    await db.prepare('DELETE FROM media WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[DELETE /media/:id]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+// POST /api/media/:id/play — increment playCount (no auth required).
+// Used by the SUNO public player to track listens.
+router.post('/media/:id/play', async (req, res) => {
+  try {
+    await db.prepare('UPDATE media SET play_count = COALESCE(play_count, 0) + 1 WHERE id = ?').run(req.params.id);
+    const row: any = await db.prepare('SELECT play_count FROM media WHERE id = ?').get(req.params.id);
+    res.json({ playCount: Number(row?.playCount || 0) });
+  } catch (e) {
+    console.error('[POST /media/:id/play]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+// --- SOCIALS ---
+const mapSocial = (s: any) => ({ ...s, active: Boolean(s.active) });
+
+router.get('/socials', async (_req, res) => {
+  try {
+    const rows = await db.prepare('SELECT * FROM socials WHERE active = 1 ORDER BY sortOrder ASC').all();
+    res.json(rows.map(mapSocial));
+  } catch (e) {
+    console.error('[GET /socials]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.post('/socials', requireAuth, async (req, res) => {
+  try {
+    const s = req.body;
+    if (!s.platform || !s.name || !s.url) return res.status(400).json({ error: 'platform, name, url required' });
+    const id = s.id || `soc_${Date.now()}`;
+    const createdAt = new Date().toISOString();
+    await db.prepare(`
+      INSERT INTO socials (id, platform, name, handle, url, icon, colorFrom, colorTo, active, sortOrder, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, s.platform, s.name, s.handle || '', s.url,
+      s.icon || null, s.colorFrom || null, s.colorTo || null,
+      s.active === false ? 0 : 1,
+      s.sortOrder || 0,
+      createdAt
+    );
+    const row = await db.prepare('SELECT * FROM socials WHERE id = ?').get(id);
+    res.json(mapSocial(row));
+  } catch (e) {
+    console.error('[POST /socials]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.put('/socials/:id', requireAuth, async (req, res) => {
+  try {
+    const s = req.body;
+    await db.prepare(`
+      UPDATE socials
+      SET platform = ?, name = ?, handle = ?, url = ?,
+          icon = ?, colorFrom = ?, colorTo = ?,
+          active = ?, sortOrder = ?
+      WHERE id = ?
+    `).run(
+      s.platform, s.name, s.handle || '', s.url,
+      s.icon || null, s.colorFrom || null, s.colorTo || null,
+      s.active === false ? 0 : 1,
+      s.sortOrder || 0,
+      req.params.id
+    );
+    const row = await db.prepare('SELECT * FROM socials WHERE id = ?').get(req.params.id);
+    res.json(mapSocial(row));
+  } catch (e) {
+    console.error('[PUT /socials/:id]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.delete('/socials/:id', requireAuth, async (req, res) => {
+  try {
+    await db.prepare('DELETE FROM socials WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[DELETE /socials/:id]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+// --- NEWSLETTER ---
+router.post('/newsletter', async (req, res) => {
+  try {
+    const { email, source } = req.body;
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
+    }
+    const normalized = String(email).trim().toLowerCase();
+    const existing = await db.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?').get(normalized);
+    if (existing) {
+      return res.json({ success: true, duplicate: true });
+    }
+    const id = `sub_${Date.now()}`;
+    await db.prepare(`
+      INSERT INTO newsletter_subscribers (id, email, source, active, createdAt)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, normalized, source || 'footer', 1, new Date().toISOString());
+    res.json({ success: true, duplicate: false });
+  } catch (e) {
+    console.error('[POST /newsletter]', e);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+
+router.get('/newsletter', requireAuth, async (_req, res) => {
+  try {
+    const rows = await db.prepare('SELECT * FROM newsletter_subscribers ORDER BY createdAt DESC').all();
+    res.json(rows.map((r: any) => ({ ...r, active: Boolean(r.active) })));
+  } catch (e) {
+    console.error('[GET /newsletter]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+// --- WALLPAPERS PAYWALL (email gate + signed download token) ---
+// 1. User submits email → we upsert a newsletter subscriber and return a short-lived signed URL.
+// 2. Browser hits GET /wallpapers/download?token=... → we verify, then redirect to the underlying file.
+router.post('/wallpapers/request', async (req, res) => {
+  try {
+    const { email, wallpaperId } = req.body || {};
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
+    }
+    if (!wallpaperId || typeof wallpaperId !== 'string') {
+      return res.status(400).json({ error: 'wallpaperId requerido' });
+    }
+
+    const normalized = String(email).trim().toLowerCase();
+
+    // Verify wallpaper exists, is active, and is not locked (locked ones need a purchase)
+    const wp: any = await db.prepare(
+      "SELECT id, mediaUrl, isLocked, isActive, kind FROM media WHERE id = ? AND kind = 'wallpaper'"
+    ).get(wallpaperId);
+    if (!wp) return res.status(404).json({ error: 'Wallpaper no encontrado' });
+    if (!wp.isActive) return res.status(404).json({ error: 'Wallpaper no disponible' });
+    if (wp.isLocked) return res.status(402).json({ error: 'Wallpaper parte del pack, necesita compra' });
+    if (!wp.mediaUrl) return res.status(404).json({ error: 'Archivo no disponible' });
+
+    // Upsert subscriber (ignore duplicates)
+    try {
+      const existing: any = await db.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?').get(normalized);
+      if (!existing) {
+        const id = `sub_${Date.now()}`;
+        await db.prepare(`
+          INSERT INTO newsletter_subscribers (id, email, source, active, createdAt)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(id, normalized, 'wallpaper-gate', 1, new Date().toISOString());
+      }
+    } catch (e) {
+      console.warn('[wallpapers/request] subscriber upsert failed, continuing', e);
+    }
+
+    // Sign a short-lived token that binds the wallpaper id + email.
+    const token = jwt.sign(
+      { wid: wallpaperId, em: normalized, typ: 'wp-dl' },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const baseUrl = getBaseUrl(req);
+    const downloadUrl = `${baseUrl}/api/wallpapers/download?token=${encodeURIComponent(token)}`;
+    res.json({ success: true, downloadUrl, email: normalized });
+  } catch (e) {
+    console.error('[POST /wallpapers/request]', e);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+
+router.get('/wallpapers/download', async (req, res) => {
+  try {
+    const token = String(req.query.token || '');
+    if (!token) return res.status(400).send('Token requerido');
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (e: any) {
+      const reason = e && e.name === 'TokenExpiredError' ? 'expirado' : 'inválido';
+      return res.status(401).send(`Token ${reason}`);
+    }
+
+    if (!decoded || decoded.typ !== 'wp-dl' || !decoded.wid) {
+      return res.status(401).send('Token inválido');
+    }
+
+    const wp: any = await db.prepare(
+      "SELECT id, mediaUrl, title, isLocked, isActive, kind FROM media WHERE id = ? AND kind = 'wallpaper'"
+    ).get(decoded.wid);
+    if (!wp || !wp.isActive || wp.isLocked || !wp.mediaUrl) {
+      return res.status(404).send('Wallpaper no disponible');
+    }
+
+    // Suggest a friendly filename; browser may override via the remote URL's headers.
+    const safeTitle = String(wp.title || 'wallpaper').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'wallpaper';
+    const ext = (wp.mediaUrl.match(/\.([a-z0-9]+)(\?|$)/i) || [, 'jpg'])[1];
+    res.setHeader('Content-Disposition', `attachment; filename="balosky-${safeTitle}.${ext}"`);
+    // Redirect to the underlying file (works for both /uploads/* and remote URLs).
+    res.redirect(302, wp.mediaUrl);
+  } catch (e) {
+    console.error('[GET /wallpapers/download]', e);
+    res.status(500).send('server error');
   }
 });
 

@@ -105,6 +105,15 @@ export interface SiteSettings {
   content: PublicContentSettings;
   discordWebhookUrl?: string;
   availabilityStatus?: 'available' | 'busy';
+  /**
+   * Mensaje anclado que aparece arriba del feed del muro (Delirio home).
+   * Si `enabled` es false o el objeto está ausente, no se muestra.
+   */
+  pinnedMessage?: {
+    enabled: boolean;
+    author: string;
+    text: string;
+  };
 }
 
 export interface HomeHeroContent {
@@ -375,4 +384,72 @@ export interface Webhook {
   url: string;
   event: 'new_support' | 'new_purchase';
   active: boolean;
+}
+
+// ===== MEDIA (video_ia, foto, wallpaper, cancion) =====
+export type MediaKind = 'video_ia' | 'foto' | 'wallpaper' | 'cancion';
+
+export interface Media {
+  id: string;
+  kind: MediaKind;
+  title: string;
+  description?: string | null;
+  category?: string | null;
+  /** Direct-hosted media URL (e.g. uploaded .mp3, .mp4). */
+  mediaUrl?: string | null;
+  /**
+   * External embed URL for `cancion` — Spotify track, YouTube video, or Apple
+   * Music song. When present, the frontend prefers the platform embed over
+   * the native player so plays count toward real streaming metrics.
+   */
+  embedUrl?: string | null;
+  thumbUrl?: string | null;
+  coverImage?: string | null;
+  duration?: string | null;
+  /**
+   * AI tool/model used to generate the piece (video_ia). Examples: "Sora",
+   * "Veo 3", "Runway Gen-3", "Kling", "Midjourney". Optional.
+   */
+  aiTool?: string | null;
+  /**
+   * The prompt used to generate the piece (video_ia). Shown on the
+   * laboratorio page for transparency. Optional.
+   */
+  aiPrompt?: string | null;
+  isLocked: boolean;
+  active: boolean;
+  featured: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+// ===== SOCIALS =====
+export interface Social {
+  id: string;
+  platform: string;
+  name: string;
+  handle: string;
+  url: string;
+  icon?: string | null;
+  colorFrom?: string | null;
+  colorTo?: string | null;
+  active: boolean;
+  sortOrder: number;
+  createdAt?: string;
+}
+
+// ===== NEWSLETTER =====
+export interface NewsletterSubscriber {
+  id: string;
+  email: string;
+  source?: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface UploadResult {
+  url: string;
+  filename: string;
+  mimetype: string;
+  size: number;
 }
