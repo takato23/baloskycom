@@ -7,6 +7,9 @@
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }  ],
   "functions": {
-    "api/index.ts": { "maxDuration": 30 }
+    "api/index.ts": {
+      "maxDuration": 30,
+      "excludeFiles": "public/uploads/videos/**|public/uploads/2026/**|public/agenda-publica/media/**|dist-*/**|design-mockups/**|data/**|.playwright-mcp/**|*.png|*.jpg|*.jpeg|*.mp4|*.m4a"
+    }
   }
 }

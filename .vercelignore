@@ -1,0 +1,34 @@
+# ─── archivos que NO se suben a Vercel ─────────────────────────────────────
+# Mantiene el bundle del Serverless Function por debajo del límite de 250 MB.
+# Los binarios pesados viven en blob storage / CDN, no en el repo.
+
+# videos grandes en public/ — mover a Vercel Blob / Cloudinary cuando haya tiempo
+public/uploads/videos/
+public/uploads/2026/04/harry-potter-argento.mp4
+public/agenda-publica/media/attention-machine-en.mp4
+public/agenda-publica/media/attention-machine-es.mp4
+public/agenda-publica/media/attention-machine-es.m4a
+public/agenda-publica/media/attention-machine-slides.pptx
+
+# builds locales de debug — no hace falta subirlos
+dist-migrate-check/
+dist-preview-check/
+dist-test/
+
+# notas internas / prototipos
+AGENTS.md
+CODEX_BRIEF.md
+__smoke.mjs
+design-mockups/
+
+# sqlite local (prod usa Supabase Postgres)
+data/
+
+# capturas y screenshots en raíz
+/*.png
+/*.jpg
+/*.jpeg
+
+# env local (Vercel tiene sus propias env vars)
+.env
+.env.local
