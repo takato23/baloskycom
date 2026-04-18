@@ -88,10 +88,11 @@ export default function HomePreview() {
 
       <AntiTheftGuard />
 
-      {/* FAB flotante — aparece después de scrollear pasado el hero.
+      {/* FAB flotante — siempre visible desde el primer paint (el sticker
+          es parte de la identidad, no un "aparece si scrolleás").
           Un toque → /api/checkout/quick?mode=cafecito → 302 a Mercado Pago.
           Cero fricción, cero pasos intermedios. */}
-      <CafecitoBadge floating showAfterScroll={400} />
+      <CafecitoBadge floating />
     </>
   );
 }

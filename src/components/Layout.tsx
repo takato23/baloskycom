@@ -192,18 +192,11 @@ export default function Layout() {
 
         <MusicPlayerDock hidden={isFullBleed} />
 
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className={cn(
-            'fixed right-4 sm:right-6 z-[9998] w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--black)] text-[var(--white)] transition-all duration-300 hover:bg-[var(--accent)] hover:text-white',
-            'bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:bottom-6',
-            scrolledPast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none',
-          )}
-          data-cursor="ARRIBA"
-          aria-label="Volver arriba"
-        >
-          ↑
-        </button>
+        {/* Botón "↑ volver arriba" removido en abril 2026 — el
+            `<CafecitoBadge />` ahora ocupa el slot bottom-right y no
+            queremos dos FABs peleándose por el mismo espacio. Si se
+            necesita re-agregar, usar `bottom-left` o esconderlo en
+            mobile para no pisar el sticker. */}
 
         <KonamiEasterEgg />
         <ModoHomerEasterEgg />

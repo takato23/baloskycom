@@ -24,11 +24,12 @@ interface CafecitoBadgeProps {
   floating?: boolean;
   /**
    * Oculta el badge hasta que el user haya scrolleado más de N pixels.
-   * Útil para que no pise el hero. Default 300px.
+   * Default 0 = siempre visible apenas entra el viewport.
    */
   showAfterScroll?: number;
   /**
-   * Path a la imagen IA. Si falla carga, muestra emoji fallback.
+   * Path a la imagen IA. Si falla carga, muestra un SVG fallback
+   * (ver `.cb-img-fallback::before` en index.css).
    * @default '/images/cafecito-badge.png'
    */
   imageSrc?: string;
@@ -36,15 +37,23 @@ interface CafecitoBadgeProps {
 
 export default function CafecitoBadge({
   floating = true,
-  showAfterScroll = 300,
+  showAfterScroll = 0,
   imageSrc = '/images/cafecito-badge.png',
 }: CafecitoBadgeProps) {
-  const [visible, setVisible] = useState(!floating);
+  // `showAfterScroll <= 0` significa "siempre visible" desde el primer
+  // render. Si el usuario pasó un umbral positivo arrancamos oculto y
+  // sólo aparecemos cuando el scroll lo supera.
+  const alwaysVisible = !floating || showAfterScroll <= 0;
+  const [visible, setVisible] = useState(alwaysVisible);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
     if (!floating) return;
+    if (showAfterScroll <= 0) {
+      setVisible(true);
+      return;
+    }
     const onScroll = () => setVisible(window.scrollY > showAfterScroll);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -81,7 +90,7 @@ export default function CafecitoBadge({
               style={{ opacity: imgLoaded ? 1 : 0 }}
             />
           )}
-          {(imgFailed || !imgLoaded) && <span className="cb-img-fallback">☕</span>}
+          {(imgFailed || !imgLoaded) && <span className="cb-img-fallback" aria-hidden="true" />}
         </span>
 
         {/* labels */}
