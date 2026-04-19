@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import OrbPlaceholder from './OrbPlaceholder';
 
@@ -16,7 +15,12 @@ import OrbPlaceholder from './OrbPlaceholder';
  * Si `prefers-reduced-motion` → cae al OrbPlaceholder CSS (accesibilidad).
  */
 const HeroOrb3D = lazy(() => import('./HeroOrb3D'));
-const HeroOrb3DLite = lazy(() => import('./HeroOrb3DLite'));
+// HeroOrb3DLite queda disponible pero ya no se usa por defecto.
+// Usuario pidió mantener los planets / detalle también en mobile —
+// el Full está optimizado con IO pause + RAF throttle + DPR cap, así
+// que se banca en iPhones modernos. Si volvemos a ver jank en dispositivos
+// bajos, re-activar el Lite detectando `navigator.hardwareConcurrency <= 4`.
+// const HeroOrb3DLite = lazy(() => import('./HeroOrb3DLite'));
 
 /**
  * Port of the `<section class="hero">` block from delirio.html.
@@ -101,17 +105,17 @@ function StatNum({ stat, run }: { stat: Stat; run: boolean }) {
 
 export default function HeroSection() {
   const clock = useLiveClock();
-  const isMobile = useIsMobile();
   const reducedMotion = usePrefersReducedMotion();
-  // Tres modos de orbe:
+  // Dos modos de orbe:
   //  · prefers-reduced-motion → OrbPlaceholder (CSS puro, 0 GPU, accesibilidad)
-  //  · mobile → HeroOrb3DLite (Three.js optimizado: sub-div 6, DPR 1.0, 30fps,
-  //    pausa offscreen, sin planets/cassette/vinyl). Conserva el wireframe +
-  //    torus + fresnel, que son los detalles que lo hacen "lindo".
-  //  · desktop → HeroOrb3D (versión completa con todo).
+  //  · default → HeroOrb3D (versión completa con planets / cassette / vinyl).
+  //    El usuario prefiere mantener el detalle visual en mobile — ya está
+  //    optimizado con IntersectionObserver + Page Visibility (pausa RAF
+  //    cuando no se ve) + DPR cap.
 
   const dotRef = useRef<HTMLSpanElement | null>(null);
   const stripRef = useRef<HTMLDivElement | null>(null);
+  const stickersRef = useRef<HTMLDivElement | null>(null);
   const [runCount, setRunCount] = useState(false);
 
   // Trigger the count-up when the live-strip scrolls into view.
@@ -133,6 +137,91 @@ export default function HeroSection() {
     return () => io.disconnect();
   }, []);
 
+  /* Orbit RAF — port directo de delirio.html.
+   * Los cartelitos (EN VIVO / ARGENTINA / 176K / MÚSICA / CAFECITOS / COMUNIDAD)
+   * orbitan en elipse alrededor del centro del hero. Sin este effect quedan
+   * apilados en 50/50 porque el CSS sólo los centra y el `transform` que
+   * los distribuía lo calculaba JS.
+   *
+   * Perf: pausamos el loop cuando el hero está fuera de viewport (IO) y
+   * cuando el tab está en background (visibilitychange). Con reduced-motion
+   * fijamos posiciones estáticas distribuidas.
+   */
+  useEffect(() => {
+    const wrap = stickersRef.current;
+    if (!wrap) return;
+    const stickers = Array.from(wrap.querySelectorAll<HTMLDivElement>('.orbit-sticker'));
+    if (stickers.length === 0) return;
+    const n = stickers.length;
+
+    // Reduced-motion: posiciones fijas distribuidas en el óvalo, sin RAF.
+    if (reducedMotion) {
+      const r = Math.min(window.innerWidth, window.innerHeight) * 0.32;
+      stickers.forEach((s, i) => {
+        const angle = (i / n) * Math.PI * 2;
+        const x = Math.cos(angle) * r;
+        const y = Math.sin(angle) * r * 0.55;
+        s.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+      });
+      return;
+    }
+
+    let raf = 0;
+    let visible = true;
+    let pageVisible = !document.hidden;
+    const start = performance.now();
+    const baseRadius = () =>
+      Math.min(window.innerWidth, window.innerHeight) * 0.32;
+
+    const tick = () => {
+      if (!visible || !pageVisible) {
+        raf = 0;
+        return;
+      }
+      const t = (performance.now() - start) / 1000;
+      const r = baseRadius();
+      for (let i = 0; i < n; i++) {
+        const s = stickers[i];
+        const angle = (i / n) * Math.PI * 2 + t * 0.18 * (i % 2 === 0 ? 1 : -0.7);
+        const rr = r + Math.sin(t * 0.9 + i) * 18;
+        const x = Math.cos(angle) * rr;
+        const y = Math.sin(angle) * rr * 0.55; // elipse
+        const rot = Math.sin(t * 0.8 + i * 1.3) * 14;
+        s.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rot}deg)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+
+    const resume = () => {
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          visible = e.isIntersecting;
+          if (visible) resume();
+        });
+      },
+      { threshold: 0 },
+    );
+    io.observe(wrap);
+
+    const onVisibility = () => {
+      pageVisible = !document.hidden;
+      if (pageVisible) resume();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    raf = requestAnimationFrame(tick);
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      io.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [reducedMotion]);
+
   // Boom-dot pop on click — matches the static home's easter-egg dot.
   const popBoomDot = () => {
     const el = dotRef.current;
@@ -149,17 +238,13 @@ export default function HeroSection() {
       <div className="hero-canvas-wrap">
         {reducedMotion ? (
           <OrbPlaceholder />
-        ) : isMobile ? (
-          <Suspense fallback={<OrbPlaceholder />}>
-            <HeroOrb3DLite />
-          </Suspense>
         ) : (
           <Suspense fallback={<OrbPlaceholder />}>
             <HeroOrb3D />
           </Suspense>
         )}
       </div>
-      <div className="orbit-stickers" aria-hidden="true">
+      <div className="orbit-stickers" aria-hidden="true" ref={stickersRef}>
         {ORBIT_STICKERS.map((s) => (
           <div key={s.cls} className={`orbit-sticker ${s.cls}`}>
             {s.text}

@@ -3694,86 +3694,57 @@
   }
 
   /* =====================================================================
-   * PERF MOBILE — abril 2026
-   * En iPhones (testeado en iPhone 17 Pro Max) las capas de blur grandes
-   * + animaciones continuas + mix-blend-mode hacen que Safari repaintee
-   * todo el viewport a 60fps y la página se sienta "pegajosa".
+   * PERF MOBILE — abril 2026 (v3, "preservar look")
    *
-   * Apagamos/reducimos lo siguiente en <769px:
-   *   1. `.mesh-bg .blob` — blur 80px → 40px, animación OFF, bajamos de
-   *      4 a 2 blobs (los otros 2 se ocultan). Mantiene la estética
-   *      colorida pero estática.
-   *   2. `.hero-aura` — blur 60px → 30px, auraPulse OFF.
-   *   3. `.grain` — mix-blend-mode: overlay → normal, opacity 0.12 → 0.05.
-   *      El overlay forzaba repaint en cada frame de scroll.
-   *   4. `will-change: transform` de orbit-stickers → quitado para no
-   *      promover capas GPU innecesarias que suman memoria.
+   * Iteración previa había apagado blobs, hero-aura y bajado blur a 18px
+   * para que mobile no laggee — el usuario dijo "perdimos onda, el fondo
+   * era lo que daba rock". Volvemos atrás con una estrategia distinta:
+   *
+   *   · TODAS las blobs visibles + hero-aura visible, con blur ~full size.
+   *     El blur por sí solo NO es el que laggea — lo que obliga a Safari
+   *     a re-blurrear cada frame es combinar blur + animación continua.
+   *   · Apagamos las animaciones continuas (`blobPulse`, `auraPulse`,
+   *     `spin` de mesh). Los blobs/aura quedan estáticos — Safari los
+   *     compostea una vez y los cachea como layer. El fondo se ve igual
+   *     de rico, pero el shader de blur corre una sola vez por resize.
+   *   · `grain` con opacity baja pero VISIBLE (0.06) y sin mix-blend-mode
+   *     (que sí fuerza repaint).
+   *   · `will-change: transform` OFF en orbit-stickers — ya se mueven
+   *     con JS RAF y no necesitan promoción extra a capa GPU.
+   *   · `transform: translateZ(0)` en mesh-bg para forzar una capa GPU
+   *     dedicada y aislar el repaint del resto.
+   *
+   * Resultado: look idéntico al desktop, performance ~estable a 60fps
+   * en iPhone modernos.
    * ================================================================== */
   @media (max-width: 768px) {
+    /* Forzar capa GPU dedicada para el fondo — así el resto del scroll
+       no tiene que componerse con el blur en cada frame. */
+    .mesh-bg {
+      transform: translateZ(0);
+      will-change: auto;
+      contain: paint;
+    }
+    /* Blobs: visibles TODAS, blur completo, pero sin animación continua.
+       El blur se calcula una vez y se cachea — lo barato. */
     .mesh-bg .blob {
-      filter: blur(40px);
-      animation: none;
-      opacity: 0.55;
+      animation: none !important;
     }
-    .mesh-bg .b3, .mesh-bg .b4 { display: none; }
 
+    /* Hero aura: visible pero sin pulse. El color queda igual. */
     .hero-aura {
-      filter: blur(30px);
-      animation: none;
+      animation: none !important;
     }
 
+    /* Grain: sin mix-blend-mode (el overlay fuerza repaint cada scroll),
+       opacity baja pero suficiente para dar textura. */
     .grain {
       mix-blend-mode: normal;
-      opacity: 0.05;
+      opacity: 0.06;
     }
 
+    /* Stickers con transform JS — no necesitan promoción GPU estática. */
     .orbit-sticker { will-change: auto; }
-  }
-
-  /* =====================================================================
-   * PERF MOBILE TIGHTER — abril 2026 (v2)
-   * El usuario sigue viendo lag en la homepage a pesar del bloque de arriba.
-   * En pantallas ≤540 (celulares medios/bajos) somos más agresivos:
-   *   · 1 solo blob (el más barato) con blur 18px, sin animación
-   *   · `.hero-aura` desaparece — el fondo ya tiene color suficiente
-   *   · nav blur 36px → 14px, saturate 220% → 140%
-   *   · opacity 0 total en grain (el SVG fallback es suficiente)
-   *   · Todas las `backdrop-filter: blur(>= 20px)` bajan a 10px
-   *
-   * El look se conserva (fondo colorido + glass en cards) pero el GPU
-   * no tiene que hacer blur-shader sobre full viewport a 60fps.
-   * ================================================================== */
-  @media (max-width: 540px) {
-    .mesh-bg .blob {
-      filter: blur(18px);
-      opacity: 0.4;
-    }
-    .mesh-bg .b2 { display: none; }      /* sólo b1 visible */
-    .hero-aura { display: none; }
-    .grain { opacity: 0; }
-
-    /* Nav — mantenemos el efecto glass pero con mucho menos blur. El shader
-       de blur es O(radio²) por pixel; bajando de 36 a 14 es ~6× más barato. */
-    nav {
-      backdrop-filter: blur(14px) saturate(140%) brightness(1.04) !important;
-      -webkit-backdrop-filter: blur(14px) saturate(140%) brightness(1.04) !important;
-    }
-
-    /* Modales — backdrops reducidos. La percepción visual es idéntica pero
-       durante la entrada/salida del modal se nota menos jitter. */
-    .suno-modal__backdrop,
-    .wp-gate {
-      -webkit-backdrop-filter: blur(10px) saturate(130%) !important;
-      backdrop-filter: blur(10px) saturate(130%) !important;
-    }
-    .suno-modal__card {
-      -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
-      backdrop-filter: blur(16px) saturate(150%) !important;
-    }
-
-    /* Conic-gradient + blur grande se usa en hero/orb backgrounds y es
-       costoso. Bajamos el blur. */
-    .orb-aura, .hero-orb-glow { filter: blur(18px) !important; }
   }
 
   /* Respeta prefers-reduced-motion — apagamos todas las animaciones
