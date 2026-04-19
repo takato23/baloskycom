@@ -65,6 +65,7 @@ export default function ThemeFab() {
         className="theme-fab"
         type="button"
         data-cursor="TEMA"
+        data-mascot-ignore
         aria-label="Cambiar tema"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
@@ -75,6 +76,7 @@ export default function ThemeFab() {
         ref={popRef}
         className={`theme-pop${open ? ' open' : ''}`}
         role="menu"
+        data-mascot-ignore
         aria-label="Temas"
       >
         {OPTIONS.map((o) => (

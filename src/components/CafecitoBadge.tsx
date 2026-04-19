@@ -105,6 +105,7 @@ export default function CafecitoBadge({
     <a
       href="/api/checkout/quick?mode=cafecito"
       data-cursor="CAFECITO"
+      data-mascot-ignore
       aria-label="Invitame un cafecito — pagar $2.000 con Mercado Pago"
       className={[
         'cafecito-badge',

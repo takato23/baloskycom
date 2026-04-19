@@ -328,9 +328,22 @@ export default function MascotCompanion() {
     };
   }, [hidden]);
 
-  // Scan page for obstacles (buttons, links, data-hover elements)
+  // Scan page for obstacles (buttons, links, data-hover elements).
+  //
+  // IMPORTANTE: hay dos clases de elementos que nunca deben ser obstáculos
+  // para la mascota, porque son FABs flotantes (fixed/sticky) que ocupan
+  // exactamente la zona por donde ella camina:
+  //   · [data-mascot-ignore]  — opt-in explícito en JSX
+  //   · .cafecito-badge, .theme-fab, .share-fab, .delirio-btn, .mobile-nav,
+  //     .music-player-dock  — selectores conocidos del chrome flotante
+  // Antes, al detectar al cafecito como pared, la mascota hacía ping-pong
+  // contra él y el borde del viewport → parecía "trabada bailando sola".
   useEffect(() => {
     if (hidden) return;
+    const IGNORE_SELECTOR =
+      '[data-mascot-ignore], .cafecito-badge, .theme-fab, .theme-pop, ' +
+      '.share-fab, .delirio-btn, .mobile-nav, .music-player-dock, ' +
+      '.cb-ring, .cb-disc, nav.nav';
     const updateObstacles = () => {
       const els = document.querySelectorAll<HTMLElement>(
         'button, a, [data-hover], input[type="submit"], input[type="button"]'
@@ -338,6 +351,14 @@ export default function MascotCompanion() {
       const rects: DOMRect[] = [];
       els.forEach((el) => {
         if (el.closest('[data-mascot-root]')) return;
+        if (el.closest(IGNORE_SELECTOR)) return;
+        // Extra safeguard: cualquier elemento cuyo parent CSS sea position:fixed
+        // y esté pegado al borde inferior probablemente es un FAB — lo saltamos.
+        const cs = window.getComputedStyle(el);
+        if (cs.position === 'fixed') {
+          const r = el.getBoundingClientRect();
+          if (r.bottom > window.innerHeight - 140) return;
+        }
         const r = el.getBoundingClientRect();
         if (r.width > 4 && r.height > 4 && r.bottom > 0 && r.top < window.innerHeight) {
           rects.push(r);
