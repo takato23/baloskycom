@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Media } from '@/types';
+import { getMediaPlaceholder } from '@/lib/mediaPlaceholder';
 
 /**
  * Shared fullscreen lightbox used by Visión (video) and Ojo (photo).
@@ -153,19 +154,39 @@ export default function MediaLightbox({ items, index, onClose, onNavigate, mode 
           {mode === 'photo' && (
             <img
               key={item.id}
-              src={item.coverImage || item.mediaUrl || ''}
+              src={item.coverImage || item.mediaUrl || getMediaPlaceholder(item.title, {
+                category: item.category,
+                width: 1200,
+                height: 800,
+              })}
               alt={item.title}
               onLoad={() => setStageState('loaded')}
-              onError={() => setStageState('error')}
+              onError={(e) => {
+                // En vez de pasar a error y mostrar "no disponible" (feo y
+                // sin contenido), swapeamos por un placeholder SVG con
+                // gradiente Delirio + título. El usuario ALWAYS ve algo.
+                // El flag dataset.fallback evita un loop infinito si por
+                // alguna razón el placeholder también falla (no debería:
+                // es un data-URI de SVG inline).
+                const img = e.currentTarget;
+                if (img.dataset.fallback === '1') {
+                  setStageState('error');
+                  return;
+                }
+                img.dataset.fallback = '1';
+                img.src = getMediaPlaceholder(item.title, {
+                  category: item.category,
+                  width: 1200,
+                  height: 800,
+                });
+                // El nuevo onLoad disparará setStageState('loaded') normal.
+              }}
             />
           )}
 
-          {/* Fallback visible solo en estado de error. NO linkeamos al
-           * `item.mediaUrl` porque si el archivo original no existe el
-           * target termina en un 404 (o peor, en el NotFound de React
-           * pidiendo "volver al inicio"). Mejor mostrar un mensaje
-           * estático — el usuario ya puede cerrar el modal con ESC o el
-           * botón ✕. */}
+          {/* Fallback de último recurso — sólo visible si TODO falla
+           * (incluyendo el placeholder SVG, que es básicamente imposible
+           * porque es un data-URI inline). Lo dejamos como red de seguridad. */}
           <div className="mm-fallback">
             · este archivo todavía no está disponible ·
             <br />

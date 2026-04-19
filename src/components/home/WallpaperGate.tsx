@@ -23,6 +23,20 @@ type Props = {
 type Status = 'idle' | 'loading' | 'ok' | 'dup' | 'err';
 
 function download(url: string, filename: string) {
+  // En mobile (iOS Safari sobre todo) el atributo `download` se ignora
+  // para URLs cross-origin → bajaba HTML como `.html.jpg`. En vez de eso
+  // abrimos la imagen en una tab nueva y el usuario hace long-press →
+  // "Guardar imagen", que es el flow nativo. En desktop sí honramos el
+  // download attribute para conservar el filename customizado.
+  const isMobile =
+    typeof navigator !== 'undefined' &&
+    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+  if (isMobile) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;

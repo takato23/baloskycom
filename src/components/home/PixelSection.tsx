@@ -179,6 +179,32 @@ export default function PixelSection() {
                     }
                     const download = m.mediaUrl;
                     if (!download) return;
+
+                    // Detectar mobile (iOS + Android). En mobile NO sirve
+                    // el truco del `<a download>`: iOS Safari ignora el
+                    // atributo `download` para URLs cross-origin por
+                    // seguridad, y termina descargando 2KB de HTML con
+                    // extensión .jpg (bug reportado por el usuario).
+                    //
+                    // Fix: en mobile, abrimos la imagen en una nueva tab y
+                    // el usuario hace long-press → "Guardar imagen". Es el
+                    // flow nativo de iOS/Android para fotos y funciona en
+                    // el 100% de los casos, sin plugins ni hacks.
+                    //
+                    // En desktop seguimos usando el `<a download>` porque
+                    // ahí sí se respeta para cross-origin y la UX es mejor
+                    // (1 click → archivo guardado con nombre customizado).
+                    const isMobile =
+                      typeof navigator !== 'undefined' &&
+                      /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+                    if (isMobile) {
+                      // Navegación directa → Safari/Chrome muestran la
+                      // imagen, long-press = save.
+                      window.open(download, '_blank', 'noopener,noreferrer');
+                      return;
+                    }
+
                     const a = document.createElement('a');
                     a.href = download;
                     a.download = `balosky-wallpaper-${Date.now()}.jpg`;
