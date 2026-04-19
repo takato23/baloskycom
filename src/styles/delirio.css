@@ -193,29 +193,67 @@
   .t-mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; }
   .t-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); }
 
-  /* ===== BG GRADIENT MESH (animated blobs) ===== */
+  /* ===== BG GRADIENT MESH (animated blobs) =====
+   * Perf v4 (abril 2026): de `filter: blur(80px)` a `radial-gradient`.
+   *
+   * Antes: cada blob era un círculo sólido (width x height, border-radius 50%)
+   * con `filter: blur(80px)`. Safari iOS tenía que correr el shader de blur
+   * sobre cada capa en cada frame donde HUBIERA cambios alrededor (scroll,
+   * hover, animaciones vecinas, transforms de framer-motion, etc.) — O(r²)
+   * por pixel → stuttering en iPhone.
+   *
+   * Ahora: el mismo "blob suave" se genera vía `background: radial-gradient
+   * (closest-side, color 0%, transparent 75%)`. El browser rasteriza el
+   * gradiente UNA VEZ y lo cachea como tile GPU. Cost per-frame = 0. Los
+   * transforms de la animación `float` ahora son baratos porque no hay
+   * blur detrás — es sólo mover una textura ya compuesta.
+   *
+   * Tradeoff: el falloff de un radial-gradient es lineal (o easing simple);
+   * un gaussian blur tiene falloff exponencial. Visualmente son distinguibles
+   * si los mirás al lado en un pixel-peep, pero para decoración de fondo
+   * quedan equivalentes. El `mix-blend-mode: screen` sigue haciendo lo
+   * suyo y como los blobs ya NO son capas blurreadas, el mix-blend deja
+   * de ser un trigger de repaint de full-viewport en WebKit. */
   .mesh-bg {
     position: fixed; inset: 0; z-index: -2;
     background: var(--white);
     overflow: hidden;
   }
   .mesh-bg .blob {
-    position: absolute; border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.8;
+    position: absolute;
+    /* Sin border-radius ni filter: el gradient define la forma + la suavidad. */
+    opacity: 0.85;
     mix-blend-mode: screen;
     animation: float 22s ease-in-out infinite;
+    background-repeat: no-repeat;
+    will-change: transform;
   }
-  [data-mode="light"] .mesh-bg .blob { mix-blend-mode: multiply; opacity: 0.5; }
-  .mesh-bg .b1 { width: 60vw; height: 60vw; background: var(--accent);  top: -10%; left: -10%;  animation-delay: 0s; }
-  .mesh-bg .b2 { width: 50vw; height: 50vw; background: var(--magenta); top: 10%; right: -10%;  animation-delay: -6s; }
-  .mesh-bg .b3 { width: 55vw; height: 55vw; background: var(--violet);  bottom: -15%; left: 10%; animation-delay: -12s; }
-  .mesh-bg .b4 { width: 40vw; height: 40vw; background: var(--teal);    bottom: 0%;  right: 20%; animation-delay: -18s; }
+  [data-mode="light"] .mesh-bg .blob { mix-blend-mode: multiply; opacity: 0.55; }
+  .mesh-bg .b1 {
+    width: 75vw; height: 75vw; top: -18%; left: -18%;
+    background-image: radial-gradient(closest-side, var(--accent) 0%, var(--accent) 15%, transparent 72%);
+    animation-delay: 0s;
+  }
+  .mesh-bg .b2 {
+    width: 65vw; height: 65vw; top: 4%; right: -18%;
+    background-image: radial-gradient(closest-side, var(--magenta) 0%, var(--magenta) 15%, transparent 72%);
+    animation-delay: -6s;
+  }
+  .mesh-bg .b3 {
+    width: 70vw; height: 70vw; bottom: -22%; left: 4%;
+    background-image: radial-gradient(closest-side, var(--violet) 0%, var(--violet) 15%, transparent 72%);
+    animation-delay: -12s;
+  }
+  .mesh-bg .b4 {
+    width: 55vw; height: 55vw; bottom: -8%; right: 14%;
+    background-image: radial-gradient(closest-side, var(--teal) 0%, var(--teal) 15%, transparent 72%);
+    animation-delay: -18s;
+  }
   @keyframes float {
-    0%,100% { transform: translate(0,0) scale(1); }
-    25%     { transform: translate(10vw,8vw) scale(1.2); }
-    50%     { transform: translate(-5vw,12vw) scale(0.9); }
-    75%     { transform: translate(8vw,-5vw) scale(1.1); }
+    0%,100% { transform: translate3d(0,0,0) scale(1); }
+    25%     { transform: translate3d(10vw,8vw,0) scale(1.2); }
+    50%     { transform: translate3d(-5vw,12vw,0) scale(0.9); }
+    75%     { transform: translate3d(8vw,-5vw,0) scale(1.1); }
   }
 
   /* ===== GRAIN ===== */
@@ -402,14 +440,26 @@
     display: grid; place-items: center;
     pointer-events: none;
   }
+  /* Hero aura — misma estrategia que los blobs: antes `filter: blur(60px)` +
+   * un radial-gradient encima. Safari re-corría el shader de blur cada vez
+   * que escalaba la aura (auraPulse hace scale 1 → 1.1 cada 3.5s) y cada
+   * vez que algo alrededor re-componía. Ahora: UN SOLO radial-gradient con
+   * stops suaves + tamaño agrandado para compensar la pérdida del halo del
+   * blur. El browser lo rasteriza una vez y lo anima barato vía transform. */
   .hero-aura {
     position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    width: 85vmin; height: 85vmin; border-radius: 50%;
-    background: radial-gradient(circle, rgba(250,93,41,0.45) 0%, rgba(240,46,101,0.35) 30%, rgba(124,63,255,0.25) 55%, transparent 72%);
-    filter: blur(60px);
+    width: 110vmin; height: 110vmin; border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(250,93,41,0.42) 0%,
+      rgba(250,93,41,0.32) 12%,
+      rgba(240,46,101,0.24) 28%,
+      rgba(124,63,255,0.16) 46%,
+      rgba(124,63,255,0.06) 62%,
+      transparent 78%);
     pointer-events: none;
     animation: auraPulse 7s ease-in-out infinite;
     z-index: 0;
+    will-change: transform;
   }
   @keyframes auraPulse {
     0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
@@ -3710,56 +3760,40 @@
   }
 
   /* =====================================================================
-   * PERF MOBILE — abril 2026 (v3, "preservar look")
+   * PERF MOBILE — abril 2026 (v4, "post pre-bake")
    *
-   * Iteración previa había apagado blobs, hero-aura y bajado blur a 18px
-   * para que mobile no laggee — el usuario dijo "perdimos onda, el fondo
-   * era lo que daba rock". Volvemos atrás con una estrategia distinta:
+   * Historia corta:
+   *   v1: apagamos blobs/aura/grain → usuario dice "perdimos onda".
+   *   v2: los dejamos visibles pero con `animation: none` para que el
+   *       blur shader de Safari no corra por frame.
+   *   v3 (esta): sacamos el `filter: blur()` de blobs y aura (ver
+   *       `.mesh-bg` y `.hero-aura` arriba). Ahora la forma + softness
+   *       viene de `radial-gradient(closest-side, color, transparent)`,
+   *       que el browser rasteriza UNA vez y cachea. Cost per-frame ≈ 0.
    *
-   *   · TODAS las blobs visibles + hero-aura visible, con blur ~full size.
-   *     El blur por sí solo NO es el que laggea — lo que obliga a Safari
-   *     a re-blurrear cada frame es combinar blur + animación continua.
-   *   · Apagamos las animaciones continuas (`blobPulse`, `auraPulse`,
-   *     `spin` de mesh). Los blobs/aura quedan estáticos — Safari los
-   *     compostea una vez y los cachea como layer. El fondo se ve igual
-   *     de rico, pero el shader de blur corre una sola vez por resize.
-   *   · `grain` con opacity baja pero VISIBLE (0.06) y sin mix-blend-mode
-   *     (que sí fuerza repaint).
-   *   · `will-change: transform` OFF en orbit-stickers — ya se mueven
-   *     con JS RAF y no necesitan promoción extra a capa GPU.
-   *   · `transform: translateZ(0)` en mesh-bg para forzar una capa GPU
-   *     dedicada y aislar el repaint del resto.
-   *
-   * Resultado: look idéntico al desktop, performance ~estable a 60fps
-   * en iPhone modernos.
+   * Con v3, las animaciones continuas YA no son caras (no hay blur que
+   * re-shadear). Las dejamos ENCENDIDAS incluso en mobile porque el
+   * "float" + "auraPulse" es parte de la onda. Sólo aplicamos hardening
+   * de composite layer + grain sin mix-blend-mode para cubrir el caso
+   * de iPhones viejos (SE 2020 / 11) donde repaint sigue doliendo.
    * ================================================================== */
   @media (max-width: 768px) {
-    /* Forzar capa GPU dedicada para el fondo — así el resto del scroll
-       no tiene que componerse con el blur en cada frame. */
+    /* Forzar capa GPU dedicada para el fondo — aísla el composite del
+       resto del scroll. Mantiene `contain: paint` para clipear pinta
+       fuera del viewport. */
     .mesh-bg {
       transform: translateZ(0);
-      will-change: auto;
       contain: paint;
     }
-    /* Blobs: visibles TODAS, blur completo, pero sin animación continua.
-       El blur se calcula una vez y se cachea — lo barato. */
-    .mesh-bg .blob {
-      animation: none !important;
-    }
 
-    /* Hero aura: visible pero sin pulse. El color queda igual. */
-    .hero-aura {
-      animation: none !important;
-    }
-
-    /* Grain: sin mix-blend-mode (el overlay fuerza repaint cada scroll),
-       opacity baja pero suficiente para dar textura. */
+    /* Grain sin mix-blend-mode en mobile — `overlay` sobre viewport
+       completo fuerza repaint en cada frame de scroll en WebKit. */
     .grain {
       mix-blend-mode: normal;
       opacity: 0.06;
     }
 
-    /* Stickers con transform JS — no necesitan promoción GPU estática. */
+    /* Stickers se posicionan por RAF JS — transform directo, sin capa. */
     .orbit-sticker { will-change: auto; }
   }
 
