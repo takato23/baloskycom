@@ -43,6 +43,7 @@ export default function PixelSection() {
   const [items, setItems] = useState<Media[]>([]);
   const [gateItem, setGateItem] = useState<Media | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   /**
    * Real orientation detected from each image's natural dimensions. Mapa
    * `id → 'v' | 'h' | 's'`. CSS usa `data-orient` para decidir span de
@@ -171,7 +172,7 @@ export default function PixelSection() {
                 <button
                   key={m.id}
                   type="button"
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     if (locked) {
                       e.preventDefault();
                       setGateItem(m);
@@ -180,27 +181,45 @@ export default function PixelSection() {
                     const download = m.mediaUrl;
                     if (!download) return;
 
+                    // Preflight HEAD — si el archivo no existe en el server
+                    // (caso reportado: la DB apunta a /uploads/wallpapers/
+                    // foo.webp pero el archivo nunca se subió a producción),
+                    // mostramos un toast amable en lugar de navegar a una
+                    // tab que terminaba en NotFound de React. WallpaperGate
+                    // ya hace este check; lo replicamos acá para los free.
+                    //
+                    // Solo HEAD-checkeamos URLs same-origin (las que pueden
+                    // 404). Las externas (Unsplash, etc.) las dejamos pasar
+                    // — si fallan, fallan, pero no hace falta gastar un RT.
+                    const isLocalPath = download.startsWith('/') && !download.startsWith('//');
+                    if (isLocalPath) {
+                      try {
+                        const head = await fetch(download, { method: 'HEAD' });
+                        if (!head.ok) {
+                          setToast(`Este wallpaper aún no está subido — pronto lo arreglamos.`);
+                          window.setTimeout(() => setToast(null), 3500);
+                          return;
+                        }
+                      } catch {
+                        /* network error — let it fall through and try anyway. */
+                      }
+                    }
+
                     // Detectar mobile (iOS + Android). En mobile NO sirve
                     // el truco del `<a download>`: iOS Safari ignora el
                     // atributo `download` para URLs cross-origin por
                     // seguridad, y termina descargando 2KB de HTML con
-                    // extensión .jpg (bug reportado por el usuario).
+                    // extensión .jpg.
                     //
                     // Fix: en mobile, abrimos la imagen en una nueva tab y
-                    // el usuario hace long-press → "Guardar imagen". Es el
-                    // flow nativo de iOS/Android para fotos y funciona en
-                    // el 100% de los casos, sin plugins ni hacks.
-                    //
-                    // En desktop seguimos usando el `<a download>` porque
-                    // ahí sí se respeta para cross-origin y la UX es mejor
-                    // (1 click → archivo guardado con nombre customizado).
+                    // el usuario hace long-press → "Guardar imagen". En
+                    // desktop seguimos usando el `<a download>` (UX mejor:
+                    // 1 click → archivo guardado con nombre custom).
                     const isMobile =
                       typeof navigator !== 'undefined' &&
                       /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
                     if (isMobile) {
-                      // Navegación directa → Safari/Chrome muestran la
-                      // imagen, long-press = save.
                       window.open(download, '_blank', 'noopener,noreferrer');
                       return;
                     }
@@ -317,6 +336,37 @@ export default function PixelSection() {
       </div>
 
       <WallpaperGate wallpaper={gateItem} onClose={() => setGateItem(null)} />
+
+      {/* Toast inline para errores de archivo no encontrado. Vive en el
+       * fondo a la derecha del viewport, fade in/out, sin requerir librería
+       * de notifs. Lo levantamos cuando el preflight HEAD del wallpaper
+       * gratuito devuelve 404. */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(10,9,8,0.92)',
+            color: 'var(--white)',
+            padding: '12px 20px',
+            borderRadius: 999,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 12,
+            letterSpacing: '0.08em',
+            zIndex: 9999,
+            border: '1px solid rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(8px)',
+            maxWidth: 'calc(100vw - 32px)',
+            textAlign: 'center',
+          }}
+        >
+          {toast}
+        </div>
+      )}
     </section>
   );
 }
