@@ -2,33 +2,33 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
 /**
- * Mobile-optimised variant of HeroOrb3D — tuned to look *lindo* at ~4x
- * cheaper GPU cost.
+ * Mobile-optimised variant of HeroOrb3D — v2, aggressive.
  *
- * What we keep (the "lindo"):
- *   · Real displaced icosahedron with simplex noise
- *   · Wireframe overlay (at sub-div 6 — almost free, huge aesthetic win)
- *   · Thin torus ring in the back — one draw call, anchors the composition
- *   · Fresnel + subtle iridescence in the fragment shader
- *   · Tap to cycle the same 6 Delirio palettes
- *   · Pulse hook exposed to other modules (easter eggs, scroll triggers)
+ * Anterior iteración (simplex noise + wireframe + torus + DPR 1.0 + 30fps)
+ * todavía laggueaba en teléfonos medios. Esta versión baja el costo a la
+ * mitad otra vez, manteniendo el look 3D.
  *
- * What we drop / cap:
- *   · Pixel ratio capped at 1.0 (vs devicePixelRatio on desktop) →
- *     2–3x fewer fragments per frame on retina screens, near-invisible at
- *     62vmin orb size
- *   · 30 FPS target via RAF delta-skip → half the shader invocations, the
- *     orb motion is slow enough that 30fps reads identical
- *   · Icosahedron sub-div 6 (≈272 verts, vs 42 on desktop ≈3600)
- *   · Removed: 180 background particles, 4 orbital planet spheres, cassette
- *     mesh, vinyl disk, drag physics (touch-drag on mobile fights scroll)
- *   · powerPreference: 'low-power' → iOS picks the integrated GPU tier
- *   · antialias off (the displacement + gradient mask jaggies naturally)
+ * Qué se mantuvo (lo lindo):
+ *   · Esfera 3D con displacement real
+ *   · Torus ring detrás (ancla la composición, ~1 draw call)
+ *   · Fresnel (borde brillante — lo que lo hace parecer vidrio)
+ *   · 6 paletas Delirio + tap para ciclar
+ *   · Pulse hook para easter eggs
  *
- * Lifecycle:
- *   · IntersectionObserver pauses the RAF loop when the hero scrolls out
- *   · Page Visibility API pauses when the tab is hidden
- *   · Both together: after 1.5s of scrolling, the orb is 0 GPU cost
+ * Qué se cortó / bajó:
+ *   · Simplex noise (3D, ~40 ALU ops/vertex) → displacement analítico con
+ *     3 senos (3–5 ALU ops/vertex). Invisible a simple vista, gigante en perf.
+ *   · Wireframe overlay → fuera. Era la 2da pasada de draw del mesh; ahora
+ *     una sola draw call por frame para el orb. El look es "esfera de vidrio
+ *     líquido" en vez de "esfera facetada", pero sigue siendo 3D.
+ *   · Iridiscencia sin → fuera (1 sin/fragment ahorrado)
+ *   · Sub-div 6 → 4 (162 verts, básicamente indistinguible al tamaño del orb)
+ *   · FPS cap 30 → 24. La rotación es lenta, 24fps es suficiente y baja el
+ *     trabajo del GPU 20%.
+ *   · DPR cap 1.0 → 0.85. Sobre una retina 3x esto ya era 9x menos
+ *     fragments; ahora son ~12x menos.
+ *   · Pausa RAF completa (no solo el render) cuando está off-screen o
+ *     pestaña oculta — libera el hilo para el resto del scroll.
  */
 
 const PALETTES: Array<[string, string, string, string]> = [
@@ -40,74 +40,33 @@ const PALETTES: Array<[string, string, string, string]> = [
   ['#0a0908', '#FA5D29', '#F02E65', '#FFB83D'],
 ];
 
+// Displacement analítico con 3 senos — muchísimo más barato que simplex 3D.
+// La fase cruzada (x, y, z) rompe la simetría así no se ve "anillos".
 const VERT_SHADER = /* glsl */ `
   varying vec3 vPos;
   varying vec3 vNormal;
   uniform float uTime;
   uniform float uStrength;
 
-  vec3 mod289(vec3 x){ return x - floor(x * (1.0/289.0)) * 289.0; }
-  vec4 mod289(vec4 x){ return x - floor(x * (1.0/289.0)) * 289.0; }
-  vec4 permute(vec4 x){ return mod289(((x*34.0)+1.0)*x); }
-  vec4 taylorInvSqrt(vec4 r){ return 1.79284291400159 - 0.85373472095314 * r; }
-  float snoise(vec3 v){
-    const vec2  C = vec2(1.0/6.0, 1.0/3.0);
-    const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
-    vec3 i  = floor(v + dot(v, C.yyy));
-    vec3 x0 = v - i + dot(i, C.xxx);
-    vec3 g = step(x0.yzx, x0.xyz);
-    vec3 l = 1.0 - g;
-    vec3 i1 = min(g.xyz, l.zxy);
-    vec3 i2 = max(g.xyz, l.zxy);
-    vec3 x1 = x0 - i1 + C.xxx;
-    vec3 x2 = x0 - i2 + C.yyy;
-    vec3 x3 = x0 - D.yyy;
-    i = mod289(i);
-    vec4 p = permute(permute(permute(i.z + vec4(0.0,i1.z,i2.z,1.0)) + i.y + vec4(0.0,i1.y,i2.y,1.0)) + i.x + vec4(0.0,i1.x,i2.x,1.0));
-    float n_ = 0.142857142857;
-    vec3 ns = n_ * D.wyz - D.xzx;
-    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-    vec4 x_ = floor(j * ns.z);
-    vec4 y_ = floor(j - 7.0 * x_);
-    vec4 x = x_ *ns.x + ns.yyyy;
-    vec4 y = y_ *ns.x + ns.yyyy;
-    vec4 h = 1.0 - abs(x) - abs(y);
-    vec4 b0 = vec4(x.xy, y.xy);
-    vec4 b1 = vec4(x.zw, y.zw);
-    vec4 s0 = floor(b0)*2.0 + 1.0;
-    vec4 s1 = floor(b1)*2.0 + 1.0;
-    vec4 sh = -step(h, vec4(0.0));
-    vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
-    vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-    vec3 p0 = vec3(a0.xy, h.x);
-    vec3 p1 = vec3(a0.zw, h.y);
-    vec3 p2 = vec3(a1.xy, h.z);
-    vec3 p3 = vec3(a1.zw, h.w);
-    vec4 norm = taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
-    p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-    vec4 m = max(0.6 - vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)), 0.0);
-    m = m * m;
-    return 42.0 * dot(m*m, vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
-  }
-
   void main() {
     vNormal = normal;
-    // Single noise octave — the displacement is big enough (0.9) to read.
-    float n1 = snoise(position * 1.15 + vec3(uTime * 0.2));
-    float displ = n1 * 0.85;
-    vec3 pos = position + normal * displ * uStrength;
+    // 3 senos en ejes distintos con fases distintas → "ruido" barato
+    float d =
+        sin(position.x * 3.1 + uTime * 0.7) * 0.33
+      + sin(position.y * 2.4 + uTime * 0.9 + 1.3) * 0.33
+      + sin(position.z * 2.8 + uTime * 0.5 + 2.1) * 0.33;
+    vec3 pos = position + normal * d * uStrength;
     vPos = pos;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
   }
 `;
 
-// Keeps the fresnel edge + subtle iridescence (the two details that sell
-// the "3D glass marble" look). No saturation remix — shaves a couple of
-// ALU ops per fragment which adds up at 62vmin * 1.0 DPR.
+// Fragment shader mínimo: gradiente 4-color + fresnel. Nada más.
+// El fresnel es lo que lo hace parecer vidrio — si lo sacás, el orb se ve
+// plano. Lo demás se puede simplificar.
 const FRAG_SHADER = /* glsl */ `
   varying vec3 vPos;
   varying vec3 vNormal;
-  uniform float uTime;
   uniform vec3 uC1;
   uniform vec3 uC2;
   uniform vec3 uC3;
@@ -118,17 +77,11 @@ const FRAG_SHADER = /* glsl */ `
     vec3 a = mix(uC1, uC2, t);
     vec3 b = mix(uC3, uC4, t);
     vec3 col = mix(a, b, s);
-    float fres = pow(1.0 - abs(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0))), 1.8);
-    col += fres * 0.75;
-    // Cheap iridescence: one sin per fragment, negligible cost.
-    float iri = 0.08 * sin(uTime * 0.7 + vPos.x * 2.2 + vPos.y * 1.6);
-    col += vec3(iri * 0.6, iri * 0.2, -iri);
+    // Fresnel rápido: dot con eje Z, sin pow (usamos *).
+    float ndotv = 1.0 - abs(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)));
+    col += ndotv * ndotv * 0.7;
     gl_FragColor = vec4(col, 1.0);
   }
-`;
-
-const WIRE_FRAG_SHADER = /* glsl */ `
-  void main() { gl_FragColor = vec4(1.0, 1.0, 1.0, 0.10); }
 `;
 
 export default function HeroOrb3DLite() {
@@ -140,8 +93,6 @@ export default function HeroOrb3DLite() {
     const wrap = canvas.parentElement;
     if (!wrap) return;
 
-    // Match the desktop orb's global so palette cyclers / easter eggs work
-    // identically whether you're on mobile or not.
     window.__orb = window.__orb ?? {
       boost: 0,
       on: true,
@@ -159,10 +110,10 @@ export default function HeroOrb3DLite() {
       antialias: false,
       powerPreference: 'low-power',
     });
-    // DPR 1.0: on a 3x-retina iPhone, this is a 9x reduction in fragments
-    // vs an un-capped DPR. Visually the orb is ~62vmin (small-ish) so the
-    // downscale is imperceptible; it's what buys us the headroom.
-    renderer.setPixelRatio(1);
+    // DPR 0.85 — imperceptible sobre un orb de 62vmin en retina, pero ~30%
+    // menos fragments vs DPR 1.0. Si en algún dispositivo se ve pixelado
+    // después, subí a 1.0.
+    renderer.setPixelRatio(Math.min(0.85, window.devicePixelRatio || 1));
     renderer.setSize(w(), h(), false);
 
     const scene = new THREE.Scene();
@@ -171,17 +122,15 @@ export default function HeroOrb3DLite() {
 
     const uniforms = {
       uTime: { value: 0 },
-      uStrength: { value: 0.4 },
+      uStrength: { value: 0.3 },
       uC1: { value: new THREE.Color(PALETTES[0][0]) },
       uC2: { value: new THREE.Color(PALETTES[0][1]) },
       uC3: { value: new THREE.Color(PALETTES[0][2]) },
       uC4: { value: new THREE.Color(PALETTES[0][3]) },
     };
 
-    // Subdivision 6 = 252 vertices. Sweet spot for mobile: still reads as
-    // "smooth sphere" because the displacement jitter hides the facets,
-    // but ~14x fewer vertices than desktop (sub-div 42).
-    const geo = new THREE.IcosahedronGeometry(1, 6);
+    // Sub-div 4 = 162 vértices. A este tamaño, indistinguible de 6.
+    const geo = new THREE.IcosahedronGeometry(1, 4);
     const mat = new THREE.ShaderMaterial({
       uniforms,
       vertexShader: VERT_SHADER,
@@ -190,26 +139,13 @@ export default function HeroOrb3DLite() {
     const mesh = new THREE.Mesh(geo, mat);
     scene.add(mesh);
 
-    // Wireframe is beautiful AND cheap at sub-div 6 — only 252 verts × line
-    // rasterisation. This is the detail that separates "3D sphere" from
-    // "gradient blob". Keeping.
-    const wireMat = new THREE.ShaderMaterial({
-      uniforms,
-      vertexShader: VERT_SHADER,
-      fragmentShader: WIRE_FRAG_SHADER,
-      wireframe: true,
-      transparent: true,
-    });
-    const wireMesh = new THREE.Mesh(geo, wireMat);
-    mesh.add(wireMesh);
-
-    // One thin torus behind the orb — anchors the composition, ~128 verts,
-    // single draw call. Kept because the bare orb on its own looks floaty.
-    const torusGeo = new THREE.TorusGeometry(2.1, 0.035, 6, 64);
+    // Un solo torus detrás. ~128 verts, MeshBasicMaterial (sin luz/shader
+    // custom), básicamente gratis.
+    const torusGeo = new THREE.TorusGeometry(2.1, 0.03, 6, 48);
     const torusMat = new THREE.MeshBasicMaterial({
       color: 0x18d2c4,
       transparent: true,
-      opacity: 0.45,
+      opacity: 0.4,
     });
     const torus = new THREE.Mesh(torusGeo, torusMat);
     torus.rotation.x = Math.PI * 0.4;
@@ -263,69 +199,79 @@ export default function HeroOrb3DLite() {
     const ro = new ResizeObserver(onResize);
     ro.observe(wrap);
 
-    // Pause conditions: off-screen OR tab hidden. Both flags checked at
-    // the top of tick() so the RAF loop keeps going (cheap) but skips
-    // GPU work (expensive).
+    // Pausa COMPLETA cuando no se ve o la pestaña está oculta — no seguimos
+    // haciendo RAF ticks. Cancelamos el frame y lo reiniciamos cuando vuelve
+    // a ser visible. El ahorro de CPU es mayor que solo saltar el render.
     let visible = true;
+    let pageVisible = !document.hidden;
+    let raf = 0;
+    const start = performance.now();
+    const FRAME_INTERVAL_MS = 1000 / 24; // 24 FPS cap
+    let lastRender = 0;
+
+    const tick = () => {
+      const now = performance.now();
+      if (!visible || !pageVisible) {
+        raf = 0;
+        return;
+      }
+
+      if (now - lastRender >= FRAME_INTERVAL_MS) {
+        lastRender = now;
+        const t = (now - start) / 1000;
+        uniforms.uTime.value = t;
+
+        cMouseX += (tMouseX - cMouseX) * 0.08;
+        cMouseY += (tMouseY - cMouseY) * 0.08;
+        cam.position.x = cMouseX * 0.25;
+        cam.position.y = cMouseY * 0.2;
+        cam.lookAt(0, 0, 0);
+
+        pulse *= 0.94;
+        const boost = window.__orb?.boost ?? 0;
+        const onMul = window.__orb?.on === false ? 0.15 : 1;
+        uniforms.uStrength.value =
+          (0.3 + Math.sin(t * 1.1) * 0.06 + pulse * 0.6 + boost * 0.4) * onMul;
+
+        mesh.rotation.y = t * 0.18 + cMouseX * 0.4;
+        mesh.rotation.x = cMouseY * 0.35;
+
+        torus.rotation.z = t * 0.3;
+        torus.scale.setScalar(1 + Math.sin(t * 1.1) * 0.03);
+
+        renderer.render(scene, cam);
+      }
+
+      raf = requestAnimationFrame(tick);
+    };
+
+    const resume = () => {
+      if (raf === 0 && visible && pageVisible) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           visible = entry.isIntersecting;
         });
+        if (visible) resume();
       },
       { threshold: 0.01 },
     );
     io.observe(wrap);
 
-    let pageVisible = !document.hidden;
     const onVisibility = () => {
       pageVisible = !document.hidden;
+      if (pageVisible) resume();
     };
     document.addEventListener('visibilitychange', onVisibility);
 
-    // 30 FPS cap. We accept a RAF tick, then only actually RENDER if at
-    // least ~33ms have passed since the last render. Cheap math, no
-    // setTimeout weirdness, still respects monitor vsync.
-    const FRAME_INTERVAL_MS = 1000 / 30;
-    let lastRender = 0;
-    const start = performance.now();
-    let raf = 0;
-
-    const tick = () => {
-      raf = requestAnimationFrame(tick);
-      const now = performance.now();
-      if (!visible || !pageVisible) return;
-      if (now - lastRender < FRAME_INTERVAL_MS) return;
-      lastRender = now;
-
-      const t = (now - start) / 1000;
-      uniforms.uTime.value = t;
-
-      cMouseX += (tMouseX - cMouseX) * 0.08;
-      cMouseY += (tMouseY - cMouseY) * 0.08;
-
-      cam.position.x = cMouseX * 0.25;
-      cam.position.y = cMouseY * 0.2;
-      cam.lookAt(0, 0, 0);
-
-      pulse *= 0.94;
-      const boost = window.__orb?.boost ?? 0;
-      const onMul = window.__orb?.on === false ? 0.15 : 1;
-      uniforms.uStrength.value =
-        (0.4 + Math.sin(t * 1.1) * 0.08 + pulse * 0.7 + boost * 0.5) * onMul;
-
-      mesh.rotation.y = t * 0.18 + cMouseX * 0.4;
-      mesh.rotation.x = cMouseY * 0.35;
-
-      torus.rotation.z = t * 0.3;
-      torus.scale.setScalar(1 + Math.sin(t * 1.1) * 0.035);
-
-      renderer.render(scene, cam);
-    };
     tick();
 
     return () => {
-      cancelAnimationFrame(raf);
+      if (raf) cancelAnimationFrame(raf);
       canvas.removeEventListener('click', onTap);
       canvas.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('resize', onResize);
@@ -334,7 +280,6 @@ export default function HeroOrb3DLite() {
       io.disconnect();
       geo.dispose();
       mat.dispose();
-      wireMat.dispose();
       torusGeo.dispose();
       torusMat.dispose();
       renderer.dispose();

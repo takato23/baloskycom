@@ -46,10 +46,27 @@ export default function OjoSection() {
     return Array.from(set).sort();
   }, [items]);
 
+  // Track which image URLs 404'd so we can hide those tiles entirely.
+  // Showing a broken image icon is worse than silently dropping the item —
+  // the user told us ("tampoco las fotos o wallpapers") that missing
+  // images are the #1 visible bug right now.
+  const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
+  const markBroken = (url: string) => {
+    setBrokenUrls((prev) => {
+      if (prev.has(url)) return prev;
+      const next = new Set(prev);
+      next.add(url);
+      return next;
+    });
+  };
+
   const visible = useMemo(() => {
-    if (filter === '*') return items;
-    return items.filter((i) => i.category === filter);
-  }, [items, filter]);
+    const all = filter === '*' ? items : items.filter((i) => i.category === filter);
+    return all.filter((m) => {
+      const url = m.thumbUrl || m.coverImage || m.mediaUrl || '';
+      return !url || !brokenUrls.has(url);
+    });
+  }, [items, filter, brokenUrls]);
 
   /* Reset el "ver todas" cada vez que cambia el filtro — no tiene sentido
    * arrastrar el estado expandido entre categorías. */
@@ -136,6 +153,10 @@ export default function OjoSection() {
                       src={m.thumbUrl || m.coverImage || m.mediaUrl || ''}
                       alt={m.title}
                       loading="lazy"
+                      onError={() => {
+                        const url = m.thumbUrl || m.coverImage || m.mediaUrl || '';
+                        if (url) markBroken(url);
+                      }}
                     />
                   </div>
                   <div className="ft-caption">

@@ -64,10 +64,29 @@ function toEmbed(url: string, platform: Platform): string {
   return url;
 }
 
+/**
+ * True if the URL is "openable" in a new tab — i.e. points to an external
+ * resource (Spotify, YouTube, Apple Music, etc). Internal /uploads/ paths
+ * are NOT openable because if the file is missing they fall through to the
+ * SPA and render the NotFound page ("tal vez moví la página..."), which is
+ * worse than hiding the button.
+ */
+function isOpenableExternal(url: string | null | undefined): boolean {
+  if (!url) return false;
+  if (/^https?:\/\//i.test(url)) return true;
+  return false;
+}
+
 export default function SunoModal({ items, index, onClose, onNavigate }: Props) {
   const open = index !== null && index >= 0 && index < items.length;
   const item = open ? items[index] : null;
   const [isMounted, setIsMounted] = useState(false);
+  const [audioError, setAudioError] = useState(false);
+
+  // Reset audio error state whenever we switch tracks.
+  useEffect(() => {
+    setAudioError(false);
+  }, [item?.id]);
 
   // Small delay so the open-transition lands after mount (matches static home).
   useEffect(() => {
@@ -142,7 +161,7 @@ export default function SunoModal({ items, index, onClose, onNavigate }: Props) 
           >
             ›
           </button>
-          {externalUrl && (
+          {isOpenableExternal(externalUrl) && (
             <a
               className="suno-modal__share"
               href={externalUrl}
@@ -214,17 +233,28 @@ export default function SunoModal({ items, index, onClose, onNavigate }: Props) 
               loading="lazy"
             />
           )}
-          {platform === 'mp3' && item.mediaUrl && (
-            <audio key={item.id} controls src={item.mediaUrl}>
+          {platform === 'mp3' && item.mediaUrl && !audioError && (
+            <audio
+              key={item.id}
+              controls
+              src={item.mediaUrl}
+              onError={() => setAudioError(true)}
+            >
               Tu navegador no puede reproducir audio.
             </audio>
+          )}
+          {platform === 'mp3' && audioError && (
+            <p className="suno-modal__empty">
+              El archivo de audio no está disponible. Probablemente se movió o
+              todavía no se subió.
+            </p>
           )}
           {platform === 'none' && (
             <p className="suno-modal__empty">Sin fuente reproducible todavía.</p>
           )}
         </div>
 
-        {externalUrl && (
+        {isOpenableExternal(externalUrl) && (
           <a
             className="suno-modal__external"
             href={externalUrl}

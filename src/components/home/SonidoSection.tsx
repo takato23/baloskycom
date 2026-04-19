@@ -146,12 +146,28 @@ export default function SonidoSection() {
                     {m.featured && <span className="suno-card__ribbon">Nuevo</span>}
                     <div className="suno-card__art">
                       {m.coverImage ? (
-                        <img src={m.coverImage} alt={m.title} className="suno-card__cover" loading="lazy" />
-                      ) : (
-                        <div className="suno-card__cover suno-card__cover--fallback">
-                          <span>{m.title.slice(0, 1).toUpperCase()}</span>
-                        </div>
-                      )}
+                        <img
+                          src={m.coverImage}
+                          alt={m.title}
+                          className="suno-card__cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            // If the cover 404s, swap it for the letter
+                            // fallback so the card doesn't show a broken image
+                            // icon.
+                            const img = e.currentTarget;
+                            img.style.display = 'none';
+                            const fallback = img.nextElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="suno-card__cover suno-card__cover--fallback"
+                        style={{ display: m.coverImage ? 'none' : 'flex' }}
+                      >
+                        <span>{m.title.slice(0, 1).toUpperCase()}</span>
+                      </div>
                       {badge && (
                         <div className="suno-card__badges">
                           <span className={badge.cls}>{badge.label}</span>

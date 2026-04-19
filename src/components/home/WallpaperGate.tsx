@@ -83,6 +83,20 @@ export default function WallpaperGate({ wallpaper, onClose }: Props) {
       }
       const url = wallpaper.mediaUrl || wallpaper.coverImage;
       if (url) {
+        // Preflight — if the file is missing the server now returns 404
+        // (vs. the SPA fallback that used to render NotFound in a new tab).
+        // Swallow the preflight error and show a friendly message instead
+        // of triggering the download.
+        try {
+          const head = await fetch(url, { method: 'HEAD' });
+          if (!head.ok) {
+            setStatus('err');
+            setMsg('El wallpaper todavía no está subido. Te avisamos cuando esté listo.');
+            return;
+          }
+        } catch {
+          /* Network error — still try the download; worst case the new tab opens blank. */
+        }
         download(url, `balosky-wallpaper-${wallpaper.id}.jpg`);
       }
     } catch (err) {
@@ -118,7 +132,16 @@ export default function WallpaperGate({ wallpaper, onClose }: Props) {
         </div>
         {(wallpaper.thumbUrl || wallpaper.coverImage || wallpaper.mediaUrl) && (
           <div className="wp-thumb">
-            <img src={wallpaper.thumbUrl || wallpaper.coverImage || wallpaper.mediaUrl || ''} alt={wallpaper.title} />
+            <img
+              src={wallpaper.thumbUrl || wallpaper.coverImage || wallpaper.mediaUrl || ''}
+              alt={wallpaper.title}
+              onError={(e) => {
+                // Hide the thumb container if the image fails — the gate
+                // still works without a preview.
+                const wrap = e.currentTarget.parentElement as HTMLElement | null;
+                if (wrap) wrap.style.display = 'none';
+              }}
+            />
           </div>
         )}
         <form onSubmit={submit} autoComplete="off" noValidate>

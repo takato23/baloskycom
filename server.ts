@@ -109,6 +109,26 @@ async function setupVite() {
   app.use(vite.middlewares);
 }
 
+// Any path under /uploads/, /audio/, /videos/ or that ends in a media-ish
+// extension must NOT fall through to the SPA. If it didn't match the static
+// handler above (file missing, wrong case, whatever), return a proper 404
+// instead of serving index.html — otherwise the React router renders
+// NotFound on routes that were supposed to be direct file fetches, and the
+// user sees "Tal vez moví la página..." when clicking a broken MP3.
+const DIRECT_FILE_RX = /\.(mp3|wav|m4a|ogg|flac|mp4|mov|webm|jpg|jpeg|png|gif|webp|svg|avif|pdf|zip)$/i;
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  if (
+    req.path.startsWith('/uploads/') ||
+    req.path.startsWith('/audio/') ||
+    req.path.startsWith('/videos/') ||
+    DIRECT_FILE_RX.test(req.path)
+  ) {
+    return res.status(404).json({ error: 'file_not_found', path: req.path });
+  }
+  return next();
+});
+
 // For production, serve static files
 if (process.env.NODE_ENV === 'production') {
   const distPath = path.join(process.cwd(), 'dist');
