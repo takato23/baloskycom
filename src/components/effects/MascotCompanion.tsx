@@ -197,6 +197,14 @@ export default function MascotCompanion() {
   const targetXRef = useRef<number | null>(null);
   const lastBumpRef = useRef<number>(0);
   const cursorXRef = useRef<number>(0);
+  /* Anti-trabado: guardamos timestamps de cada flip de dirección. Si se
+   * registran demasiados flips en poco tiempo quiere decir que la mascota
+   * está haciendo ping-pong entre dos paredes que no puede saltear (ej:
+   * un FAB flotante que el filtro no atrapó, un botón grande pegado al
+   * borde, etc.). En ese caso forzamos un pause largo con una frase de
+   * "perdido" en vez de seguir vibrando en el lugar. */
+  const dirFlipTimesRef = useRef<number[]>([]);
+  const lastUnstuckRef = useRef<number>(0);
 
   // Sizes
   const MASCOT_W = isMobile ? 72 : 100;
@@ -396,6 +404,33 @@ export default function MascotCompanion() {
       return;
     }
     let lastT = performance.now();
+
+    /* Helper que cambia dirección y registra el timestamp. Si detecta que
+     * hubo > 4 flips en los últimos 5s → "trabada" → pausa larga + frase.
+     * Se auto-cooldown 8s después de cada rescate para no spamear. */
+    const flipDir = (to: 1 | -1) => {
+      if (to === dirRef.current) return false;
+      const now = performance.now();
+      setDir(to);
+      const times = dirFlipTimesRef.current;
+      times.push(now);
+      // Sólo guardamos los últimos 5s
+      while (times.length && now - times[0] > 5000) times.shift();
+      if (times.length >= 5 && now - lastUnstuckRef.current > 8000) {
+        lastUnstuckRef.current = now;
+        dirFlipTimesRef.current = [];
+        // Teletransporte suave al centro del viewport + pausa larga, para
+        // que no siga atascada donde estaba. La frase es "perdida" más que
+        // "golpeada" así se nota distinto al bump casual.
+        setIsPaused(true);
+        flashMood('surprised', 900);
+        say('uh. estaba trabada. perdón.', 1600);
+        window.setTimeout(() => setIsPaused(false), 2200);
+        return true;
+      }
+      return false;
+    };
+
     const step = (t: number) => {
       const dt = Math.min(t - lastT, 64);
       lastT = t;
@@ -420,11 +455,18 @@ export default function MascotCompanion() {
 
         let nx = x + dirRef.current * speed * dt;
 
-        // Edge bounds
+        /* Edge bounds — además del margen genérico, reservamos espacio en
+         * cada lado cuando hay FABs flotantes (cafecito derecha, lo que
+         * venga). Eso evita que la mascota se vaya a meter literalmente
+         * encima de un FAB y no pueda salir. Guard para viewports ultra-chicos
+         * donde leftBound podría quedar mayor que rightBound. */
+        const sideReserve = isMobile ? 100 : 150;
         const margin = isMobile ? 12 : 32;
-        const maxX = window.innerWidth - MASCOT_W - margin;
-        if (nx < margin) { nx = margin; setDir(1); }
-        else if (nx > maxX) { nx = maxX; setDir(-1); }
+        const leftBound = margin;
+        const rawRight = window.innerWidth - MASCOT_W - margin - sideReserve;
+        const rightBound = Math.max(leftBound + 40, rawRight);
+        if (nx < leftBound) { nx = leftBound; flipDir(1); }
+        else if (nx > rightBound) { nx = rightBound; flipDir(-1); }
 
         // Look-ahead obstacle check: scan a window in front of the mascot.
         // If something is there, turn around smoothly (no bump, no phrase).
@@ -443,7 +485,7 @@ export default function MascotCompanion() {
             rectBottom > obs.top
           ) {
             // Obstacle ahead — turn quietly, cancel chase target
-            setDir(dirRef.current === 1 ? -1 : 1);
+            flipDir(dirRef.current === 1 ? -1 : 1);
             targetXRef.current = null;
             nx = x; // hold position this frame
             avoided = true;
@@ -474,7 +516,7 @@ export default function MascotCompanion() {
                 say(pick(PHRASES_BUMP), 1200);
               }
               nx = x - dirRef.current * 8;
-              setDir(dirRef.current === 1 ? -1 : 1);
+              flipDir(dirRef.current === 1 ? -1 : 1);
               targetXRef.current = null;
               break;
             }

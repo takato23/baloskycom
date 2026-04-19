@@ -1276,13 +1276,12 @@
   body.has-ann .geo-greet { top: 52px; }
 
   /* ===== 11 + 19. THEME SWITCHER POPOVER =====
-   * Originalmente vivía bottom-right, junto con el CafecitoBadge — el
-   * ThemeFab (z:179) tapaba al cafecito (z:45) y además lo abrazaba
-   * visualmente con un look "descolgado". Lo mudamos a la izquierda.
-   * En mobile lo elevamos por encima de `.mobile-nav` para que no se
-   * esconda detrás de la barra inferior. */
+   * Iteración v3: el usuario no lo quiere en ninguna esquina de abajo —
+   * se estorbaban con cafecito + mobile-nav + mascota. Lo subimos al
+   * top-left, pegado por debajo del nav. Zona superior queda limpia,
+   * zona inferior queda para cafecito + mascota sin conflicto. */
   .theme-pop {
-    position: fixed; bottom: 30px; left: 30px; z-index: 180;
+    position: fixed; top: 84px; left: 16px; z-index: 180;
     background: var(--black); color: var(--white);
     border-radius: 18px; padding: 10px;
     box-shadow: 0 20px 40px -20px rgba(0,0,0,0.5);
@@ -1299,12 +1298,12 @@
   .theme-pop button:hover { background: rgba(255,255,255,0.08); }
   .theme-pop .swatch { width: 18px; height: 18px; border-radius: 6px; flex-shrink: 0; }
   .theme-fab {
-    position: fixed; bottom: 30px; left: 30px; z-index: 179;
-    width: 52px; height: 52px; border-radius: 50%;
+    position: fixed; top: 20px; left: 16px; z-index: 179;
+    width: 40px; height: 40px; border-radius: 50%;
     background: linear-gradient(135deg, var(--accent), var(--magenta), var(--violet));
     background-size: 200% 200%;
     animation: annShift 5s linear infinite;
-    color: #fff; font-size: 20px; cursor: none;
+    color: #fff; font-size: 16px; cursor: none;
     box-shadow: 0 10px 30px -10px rgba(240,46,101,0.6);
     display: flex; align-items: center; justify-content: center;
   }
@@ -1848,18 +1847,18 @@
   }
 
   @media (max-width: 760px) {
-    /* ThemeFab → bottom-left, arriba de la mobile-nav (que mide ~64px de alto
-       + safe-area). Cafecito sigue bottom-right. Se miran de lejos. */
+    /* ThemeFab → top-left, un poco más chico para no pisar el nav.
+       La zona de abajo queda 100% libre para cafecito + mobile-nav + mascota. */
     .theme-fab  {
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+      top: calc(env(safe-area-inset-top, 0px) + 14px);
       left: 12px;
-      right: auto;
-      width: 40px; height: 40px; font-size: 16px;
+      right: auto; bottom: auto;
+      width: 36px; height: 36px; font-size: 14px;
     }
     .theme-pop {
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+      top: calc(env(safe-area-inset-top, 0px) + 58px);
       left: 12px;
-      right: auto;
+      right: auto; bottom: auto;
     }
     /* Los otros FABs de la derecha mantienen stack vertical. */
     .share-fab  { bottom: 64px; right: 12px;  padding: 7px 11px; font-size: 10px; }
