@@ -37,6 +37,18 @@ interface CafecitoBadgeProps {
    */
   showAfterScroll?: number;
   /**
+   * Esconde el badge una vez que el user scrolleó MÁS de N pixels. Pensado
+   * para que el badge acompañe el hero/apoya y se retire cuando el usuario
+   * está leyendo fotos/wallpapers/etc. El usuario nos dijo:
+   *
+   *   "el cafesito no tiene que verse EN TOOOODA la pagina"
+   *
+   * Default `null` = sin tope; se queda visible hasta el final. Si pasás
+   * un número (ej 1.6 viewport heights) el badge hace fade-out después
+   * de pasarlo.
+   */
+  hideAfterScroll?: number | null;
+  /**
    * Path opcional a una imagen IA. Tiene que tener fondo TRANSPARENTE
    * (alpha limpio). Si no se pasa o falla la carga, usamos el SVG
    * fallback (`.cb-img-fallback::before` en index.css).
@@ -47,27 +59,47 @@ interface CafecitoBadgeProps {
 export default function CafecitoBadge({
   floating = true,
   showAfterScroll = 0,
+  hideAfterScroll = null,
   imageSrc = null,
 }: CafecitoBadgeProps) {
   // `showAfterScroll <= 0` significa "siempre visible" desde el primer
   // render. Si el usuario pasó un umbral positivo arrancamos oculto y
   // sólo aparecemos cuando el scroll lo supera.
-  const alwaysVisible = !floating || showAfterScroll <= 0;
+  const alwaysVisible = !floating || (showAfterScroll <= 0 && hideAfterScroll == null);
   const [visible, setVisible] = useState(alwaysVisible);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
     if (!floating) return;
-    if (showAfterScroll <= 0) {
+    if (showAfterScroll <= 0 && hideAfterScroll == null) {
       setVisible(true);
       return;
     }
-    const onScroll = () => setVisible(window.scrollY > showAfterScroll);
+    const onScroll = () => {
+      const y = window.scrollY;
+      const pastShowBand = y > showAfterScroll;
+      const beforeHideBand = hideAfterScroll == null || y < hideAfterScroll;
+      setVisible(pastShowBand && beforeHideBand);
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [floating, showAfterScroll]);
+  }, [floating, showAfterScroll, hideAfterScroll]);
+
+  // Esconde el badge cuando hay un modal/lightbox abierto — detectamos el
+  // estado usando `document.body.style.overflow === 'hidden'`, que es lo
+  // que setean WallpaperGate, MediaLightbox y SunoModal para bloquear el
+  // scroll detrás. Así el cafecito nunca flota encima de una foto abierta.
+  const [modalOpen, setModalOpen] = useState(false);
+  useEffect(() => {
+    if (!floating) return;
+    const check = () => setModalOpen(document.body.style.overflow === 'hidden');
+    check();
+    const obs = new MutationObserver(check);
+    obs.observe(document.body, { attributes: true, attributeFilter: ['style', 'class'] });
+    return () => obs.disconnect();
+  }, [floating]);
 
   return (
     <a
@@ -77,7 +109,7 @@ export default function CafecitoBadge({
       className={[
         'cafecito-badge',
         floating ? 'cafecito-badge--fab' : 'cafecito-badge--inline',
-        visible ? 'is-visible' : 'is-hidden',
+        visible && !modalOpen ? 'is-visible' : 'is-hidden',
       ].join(' ')}
     >
       {/* anillo punteado giratorio */}

@@ -195,9 +195,16 @@ export default function Layout() {
 
         {/* CafecitoBadge vive acá (fuera del <main>/<motion.div>) para que
             su `position: fixed` se ancle al viewport y no al containing
-            block creado por el `transform` de framer-motion. Lo ocultamos
-            en admin y en el propio checkout (ya estás pagando). */}
-        {!isAdmin && !isCheckout && <CafecitoBadge floating />}
+            block creado por el `transform` de framer-motion.
+            · Sólo aparece en home (no queremos que flote en /fotos, /wallpapers,
+              /checkout, /admin, etc.).
+            · Se oculta después de ~1.6 viewports para que no persiga al user
+              cuando está mirando las fotos o wallpapers en mobile.
+            · Se esconde automáticamente si hay un modal/lightbox abierto
+              (lo detecta el propio badge vía MutationObserver sobre body). */}
+        {isHome && !isAdmin && !isCheckout && (
+          <CafecitoBadge floating hideAfterScroll={typeof window !== 'undefined' ? window.innerHeight * 1.6 : 1200} />
+        )}
 
         <KonamiEasterEgg />
         <ModoHomerEasterEgg />

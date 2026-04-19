@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/services/api';
 import type { Media } from '@/types';
+import { getMediaPlaceholder } from '@/lib/mediaPlaceholder';
 
 /**
  * Wallpaper paywall — the email-gate modal.
@@ -130,20 +131,30 @@ export default function WallpaperGate({ wallpaper, onClose }: Props) {
           Dejá tu mail y te mando el link de descarga. Te sumo a la Carta del Delirio (podés bajarte
           cuando quieras).
         </div>
-        {(wallpaper.thumbUrl || wallpaper.coverImage || wallpaper.mediaUrl) && (
-          <div className="wp-thumb">
-            <img
-              src={wallpaper.thumbUrl || wallpaper.coverImage || wallpaper.mediaUrl || ''}
-              alt={wallpaper.title}
-              onError={(e) => {
-                // Hide the thumb container if the image fails — the gate
-                // still works without a preview.
-                const wrap = e.currentTarget.parentElement as HTMLElement | null;
-                if (wrap) wrap.style.display = 'none';
-              }}
-            />
-          </div>
-        )}
+        <div className="wp-thumb">
+          <img
+            src={
+              wallpaper.thumbUrl ||
+              wallpaper.coverImage ||
+              wallpaper.mediaUrl ||
+              getMediaPlaceholder(wallpaper.title, { category: wallpaper.category, width: 600, height: 900 })
+            }
+            alt={wallpaper.title}
+            onError={(e) => {
+              // En vez de esconder la preview, swapeamos por un placeholder
+              // con gradiente Delirio + título. Mantener SIEMPRE una preview
+              // es parte de la conversión — sin imagen, la tarjeta se ve rota.
+              const img = e.currentTarget;
+              if (img.dataset.fallback === '1') return;
+              img.dataset.fallback = '1';
+              img.src = getMediaPlaceholder(wallpaper.title, {
+                category: wallpaper.category,
+                width: 600,
+                height: 900,
+              });
+            }}
+          />
+        </div>
         <form onSubmit={submit} autoComplete="off" noValidate>
           <input
             type="email"

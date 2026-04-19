@@ -3,6 +3,7 @@ import { api } from '@/services/api';
 import type { Media } from '@/types';
 import MediaLightbox from './MediaLightbox';
 import EarlyDropBadge from './EarlyDropBadge';
+import { getMediaPlaceholder } from '@/lib/mediaPlaceholder';
 
 /**
  * Port of `<section id="ojo">` — photo portfolio (`@fotobalosky`).
@@ -46,27 +47,15 @@ export default function OjoSection() {
     return Array.from(set).sort();
   }, [items]);
 
-  // Track which image URLs 404'd so we can hide those tiles entirely.
-  // Showing a broken image icon is worse than silently dropping the item —
-  // the user told us ("tampoco las fotos o wallpapers") that missing
-  // images are the #1 visible bug right now.
-  const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
-  const markBroken = (url: string) => {
-    setBrokenUrls((prev) => {
-      if (prev.has(url)) return prev;
-      const next = new Set(prev);
-      next.add(url);
-      return next;
-    });
-  };
+  // Antes escondíamos las tiles cuyas imágenes 404'd, pero eso dejaba la grilla
+  // vacía si todavía no se subieron los assets. Ahora en vez de esconderlas,
+  // swapeamos el src por un placeholder SVG con gradiente Delirio + título.
+  // Así la grilla siempre está "poblada" y el usuario sabe que hay contenido
+  // en camino.
 
   const visible = useMemo(() => {
-    const all = filter === '*' ? items : items.filter((i) => i.category === filter);
-    return all.filter((m) => {
-      const url = m.thumbUrl || m.coverImage || m.mediaUrl || '';
-      return !url || !brokenUrls.has(url);
-    });
-  }, [items, filter, brokenUrls]);
+    return filter === '*' ? items : items.filter((i) => i.category === filter);
+  }, [items, filter]);
 
   /* Reset el "ver todas" cada vez que cambia el filtro — no tiene sentido
    * arrastrar el estado expandido entre categorías. */
@@ -150,12 +139,15 @@ export default function OjoSection() {
                   <EarlyDropBadge media={m} />
                   <div className="ft-img">
                     <img
-                      src={m.thumbUrl || m.coverImage || m.mediaUrl || ''}
+                      src={m.thumbUrl || m.coverImage || m.mediaUrl || getMediaPlaceholder(m.title, { category: m.category })}
                       alt={m.title}
                       loading="lazy"
-                      onError={() => {
-                        const url = m.thumbUrl || m.coverImage || m.mediaUrl || '';
-                        if (url) markBroken(url);
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        // Evitar loop si el placeholder (por algún motivo) también falla.
+                        if (img.dataset.fallback === '1') return;
+                        img.dataset.fallback = '1';
+                        img.src = getMediaPlaceholder(m.title, { category: m.category });
                       }}
                     />
                   </div>

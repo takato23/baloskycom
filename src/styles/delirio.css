@@ -3730,6 +3730,52 @@
     .orbit-sticker { will-change: auto; }
   }
 
+  /* =====================================================================
+   * PERF MOBILE TIGHTER — abril 2026 (v2)
+   * El usuario sigue viendo lag en la homepage a pesar del bloque de arriba.
+   * En pantallas ≤540 (celulares medios/bajos) somos más agresivos:
+   *   · 1 solo blob (el más barato) con blur 18px, sin animación
+   *   · `.hero-aura` desaparece — el fondo ya tiene color suficiente
+   *   · nav blur 36px → 14px, saturate 220% → 140%
+   *   · opacity 0 total en grain (el SVG fallback es suficiente)
+   *   · Todas las `backdrop-filter: blur(>= 20px)` bajan a 10px
+   *
+   * El look se conserva (fondo colorido + glass en cards) pero el GPU
+   * no tiene que hacer blur-shader sobre full viewport a 60fps.
+   * ================================================================== */
+  @media (max-width: 540px) {
+    .mesh-bg .blob {
+      filter: blur(18px);
+      opacity: 0.4;
+    }
+    .mesh-bg .b2 { display: none; }      /* sólo b1 visible */
+    .hero-aura { display: none; }
+    .grain { opacity: 0; }
+
+    /* Nav — mantenemos el efecto glass pero con mucho menos blur. El shader
+       de blur es O(radio²) por pixel; bajando de 36 a 14 es ~6× más barato. */
+    nav {
+      backdrop-filter: blur(14px) saturate(140%) brightness(1.04) !important;
+      -webkit-backdrop-filter: blur(14px) saturate(140%) brightness(1.04) !important;
+    }
+
+    /* Modales — backdrops reducidos. La percepción visual es idéntica pero
+       durante la entrada/salida del modal se nota menos jitter. */
+    .suno-modal__backdrop,
+    .wp-gate {
+      -webkit-backdrop-filter: blur(10px) saturate(130%) !important;
+      backdrop-filter: blur(10px) saturate(130%) !important;
+    }
+    .suno-modal__card {
+      -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
+      backdrop-filter: blur(16px) saturate(150%) !important;
+    }
+
+    /* Conic-gradient + blur grande se usa en hero/orb backgrounds y es
+       costoso. Bajamos el blur. */
+    .orb-aura, .hero-orb-glow { filter: blur(18px) !important; }
+  }
+
   /* Respeta prefers-reduced-motion — apagamos todas las animaciones
    * continuas del fondo independientemente del viewport. */
   @media (prefers-reduced-motion: reduce) {

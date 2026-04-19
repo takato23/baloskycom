@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>QA · iconos redes + placeholders fotos</title>
+<style>
+  :root{
+    --black:#0a0908;
+    --accent:#FA5D29;
+    --magenta:#F02E65;
+    --violet:#7C3FFF;
+    --teal:#18D2C4;
+    --gold:#FFB83D;
+    --text:rgba(243,239,230,0.92);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--black);color:var(--text);font-family:'Inter Tight','Inter',system-ui,sans-serif;}
+  body{padding:60px 40px;max-width:1180px;margin:0 auto;position:relative;overflow-x:hidden}
+  body::before{
+    content:'';position:fixed;inset:0;z-index:-1;
+    background:
+      radial-gradient(60vw 60vw at 10% 20%, rgba(250,93,41,0.25), transparent 60%),
+      radial-gradient(40vw 40vw at 80% 80%, rgba(124,63,255,0.25), transparent 60%),
+      radial-gradient(50vw 50vw at 90% 10%, rgba(240,46,101,0.2), transparent 60%),
+      #0a0908;
+    filter:blur(30px);
+  }
+  h1{font-weight:900;letter-spacing:-0.04em;font-size:48px;margin:0 0 6px}
+  h1 em{color:var(--accent);font-style:italic}
+  h2{font-weight:900;letter-spacing:-0.03em;font-size:28px;margin:56px 0 20px}
+  .t-eyebrow{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:rgba(243,239,230,0.55)}
+  .wrap{max-width:1100px;margin:0 auto}
+  .note{font-size:13px;color:rgba(243,239,230,0.55);margin-bottom:24px;max-width:640px;line-height:1.5}
+
+  /* ===================================================================
+   * BLOQUE 1 — iconos redes (copiado 1:1 de RedesSection.tsx)
+   * ================================================================ */
+  .rdx-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+    gap:14px;
+  }
+  .rdx-card{
+    position:relative;
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    align-items:center;
+    gap:14px;
+    padding:16px 18px;
+    border-radius:18px;
+    overflow:hidden;
+    color:rgba(243,239,230,0.92);
+    text-decoration:none;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 60%),
+      rgba(18,16,20,0.55);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border:1px solid rgba(255,255,255,0.12);
+    box-shadow:
+      0 8px 30px rgba(0,0,0,0.28),
+      inset 0 1px 0 rgba(255,255,255,0.14),
+      inset 0 -1px 0 rgba(0,0,0,0.25);
+    transition:
+      transform .3s cubic-bezier(.2,.8,.2,1),
+      border-color .3s ease,
+      box-shadow .3s ease,
+      color .25s ease;
+    will-change:transform;
+  }
+  .rdx-card:hover{
+    transform:translateY(-3px) scale(1.01);
+    border-color:color-mix(in oklab, var(--brand) 55%, rgba(255,255,255,0.2));
+    color:#fff;
+    box-shadow:
+      0 14px 48px rgba(0,0,0,0.35),
+      0 0 36px color-mix(in oklab, var(--brand) 30%, transparent),
+      inset 0 1px 0 rgba(255,255,255,0.18),
+      inset 0 -1px 0 rgba(0,0,0,0.28);
+  }
+  .rdx-glow{
+    position:absolute; inset:-1px;
+    border-radius:inherit;
+    background:radial-gradient(120% 80% at 0% 0%, color-mix(in oklab, var(--brand) 26%, transparent), transparent 60%);
+    opacity:.4;
+    pointer-events:none;
+    transition:opacity .3s ease;
+  }
+  .rdx-card:hover .rdx-glow{ opacity:.9; }
+  .rdx-icon{
+    position:relative;
+    width:46px; height:46px;
+    display:grid; place-items:center;
+    border-radius:13px;
+    color:#ffffff;
+    border:1px solid rgba(255,255,255,0.18);
+    box-shadow:
+      0 4px 12px rgba(0,0,0,0.28),
+      inset 0 1px 0 rgba(255,255,255,0.35);
+    overflow:hidden;
+    transition: transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s ease;
+    flex-shrink:0;
+  }
+  .rdx-icon > svg{ position:relative; z-index:1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
+  .rdx-icon-shine{
+    position:absolute; inset:0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 60%);
+    pointer-events:none;
+    opacity:.7;
+  }
+  .rdx-card:hover .rdx-icon{
+    transform: scale(1.08) rotate(-2deg);
+    box-shadow:
+      0 10px 24px rgba(0,0,0,0.35),
+      0 0 24px color-mix(in oklab, var(--brand) 45%, transparent),
+      inset 0 1px 0 rgba(255,255,255,0.45);
+  }
+  .rdx-text{ display:flex; flex-direction:column; min-width:0; }
+  .rdx-name{
+    font-weight:800; font-size:15px; letter-spacing:-0.01em; line-height:1.2;
+    white-space:nowrap; text-overflow:ellipsis; overflow:hidden;
+  }
+  .rdx-handle{
+    font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:11px; letter-spacing:0.12em; text-transform:uppercase;
+    color:rgba(243,239,230,0.55); margin-top:2px;
+    white-space:nowrap; text-overflow:ellipsis; overflow:hidden;
+  }
+  .rdx-arrow{
+    font-size:18px; color:rgba(243,239,230,0.45);
+    transition: transform .25s ease, color .25s ease;
+  }
+  .rdx-card:hover .rdx-arrow{
+    transform: translateX(3px);
+    color: color-mix(in oklab, var(--brand) 85%, #fff);
+  }
+
+  /* ===================================================================
+   * BLOQUE 2 — grilla de placeholders (fotos / wallpapers)
+   * ================================================================ */
+  .tile-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:14px;
+  }
+  .tile{
+    position:relative;
+    aspect-ratio:1/1;
+    border-radius:18px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.10);
+    box-shadow:0 10px 30px rgba(0,0,0,0.35);
+  }
+  .tile.wall{ aspect-ratio:9/16; }
+  .tile img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .tile .meta{
+    position:absolute; inset:auto 0 0 0;
+    padding:12px 14px;
+    background:linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 100%);
+    font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:10px; letter-spacing:0.2em; text-transform:uppercase;
+    color:rgba(255,255,255,0.8);
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="t-eyebrow">QA · cambios del último sprint</div>
+    <h1>preview <em>rápido</em></h1>
+    <p class="note">
+      Este archivo se abre con doble-click y no necesita servidor. Los estilos son idénticos a los de la app.
+      Abajo, el nuevo grid de redes (iOS app-icon style) y una muestra de cómo se ven las tiles de fotos/wallpapers
+      cuando la imagen original 404'a — ahora muestran placeholder SVG con gradiente Delirio + título.
+    </p>
+
+    <h2>10 · redes</h2>
+    <div class="rdx-grid" id="rdx-grid"></div>
+
+    <h2>05 · ojo · placeholders de fotos (1:1)</h2>
+    <div class="tile-grid" id="photo-grid"></div>
+
+    <h2>06 · pixel · placeholders de wallpapers (9:16)</h2>
+    <div class="tile-grid" id="wall-grid"></div>
+  </div>
+
+<script>
+/* ===================================================================
+ * Inline re-implementación del PlatformLogo (los mismos SVGs de
+ * RedesSection.tsx). Como esto es HTML puro, los pegamos acá.
+ * ================================================================ */
+const LOGOS = {
+  instagram: '<path d="M12 2.2c3.2 0 3.6 0 4.9.1 1.2 0 1.8.3 2.2.4.6.2 1 .4 1.4.9.5.5.7.9.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c0 1.2-.3 1.8-.4 2.2-.2.6-.4 1-.9 1.4-.5.5-.9.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2 0-1.8-.3-2.2-.4-.6-.2-1-.4-1.4-.9-.5-.5-.7-.9-.9-1.4-.2-.4-.4-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c0-1.2.3-1.8.4-2.2.2-.6.4-1 .9-1.4.5-.5.9-.7 1.4-.9.4-.2 1-.4 2.2-.4C8.4 2.2 8.8 2.2 12 2.2zm0 1.8c-3.1 0-3.5 0-4.8.1-1.1 0-1.7.3-2.1.4-.5.2-.9.4-1.3.8-.4.4-.6.8-.8 1.3-.1.4-.4 1-.4 2.1-.1 1.3-.1 1.7-.1 4.8s0 3.5.1 4.8c0 1.1.3 1.7.4 2.1.2.5.4.9.8 1.3.4.4.8.6 1.3.8.4.1 1 .4 2.1.4 1.3.1 1.7.1 4.8.1s3.5 0 4.8-.1c1.1 0 1.7-.3 2.1-.4.5-.2.9-.4 1.3-.8.4-.4.6-.8.8-1.3.1-.4.4-1 .4-2.1.1-1.3.1-1.7.1-4.8s0-3.5-.1-4.8c0-1.1-.3-1.7-.4-2.1-.2-.5-.4-.9-.8-1.3-.4-.4-.8-.6-1.3-.8-.4-.1-1-.4-2.1-.4-1.3-.1-1.7-.1-4.8-.1zm0 3c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5zm0 8.2c1.8 0 3.2-1.4 3.2-3.2S13.8 8.8 12 8.8 8.8 10.2 8.8 12s1.4 3.2 3.2 3.2zm6.4-8.4c0 .7-.5 1.2-1.2 1.2s-1.2-.5-1.2-1.2.5-1.2 1.2-1.2 1.2.5 1.2 1.2z"/>',
+  spotify: '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.6 14.4c-.2.3-.6.4-.9.2-2.4-1.5-5.5-1.8-9-1-.4.1-.7-.1-.8-.5-.1-.4.1-.7.5-.8 3.9-.9 7.3-.5 10 1.1.4.2.5.6.2 1zm1.2-2.7c-.3.4-.7.5-1.1.3-2.8-1.7-7-2.2-10.3-1.2-.4.1-.9-.1-1-.5-.1-.4.1-.9.5-1 3.7-1.1 8.4-.6 11.6 1.4.4.2.5.7.3 1zm.1-2.8c-3.3-2-8.8-2.2-12-1.2-.5.2-1-.1-1.2-.6s.1-1 .6-1.2c3.7-1.1 9.8-.9 13.6 1.4.5.3.6.9.3 1.3-.3.5-.9.6-1.3.3z"/>',
+  apple: '<path d="M16.8 3.5c-.3.1-3.2.8-5.1 1.3-.4.1-.7.4-.7.9v10.6c0 .8-.4 1.3-1.2 1.4-.3.1-.7.2-1.1.2-1.3.2-2.3 1.2-2.3 2.4 0 1.2 1 2.1 2.3 1.9 1.4-.2 2.6-1.3 2.6-2.7V9.2c0-.2.2-.4.4-.4 1-.2 3.4-.7 4.5-1 .2-.1.4 0 .4.3v6.8c0 .8-.4 1.3-1.2 1.4-.3.1-.7.2-1.1.2-1.3.2-2.3 1.2-2.3 2.4 0 1.2 1 2.1 2.3 1.9 1.4-.2 2.6-1.3 2.6-2.7V4.5c0-.8-.4-1.2-1.1-1z"/>',
+  youtube: '<path d="M23.5 6.2c-.3-1-1.1-1.8-2.1-2.1C19.6 3.5 12 3.5 12 3.5s-7.6 0-9.4.6c-1 .3-1.8 1.1-2.1 2.1C0 8 0 12 0 12s0 4 .5 5.8c.3 1 1.1 1.8 2.1 2.1 1.8.6 9.4.6 9.4.6s7.6 0 9.4-.6c1-.3 1.8-1.1 2.1-2.1.5-1.8.5-5.8.5-5.8s0-4-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/>',
+  tiktok: '<path d="M19.6 6.3c-1.4-.9-2.4-2.5-2.6-4.3H13.5v14.3c0 1.6-1.3 2.9-2.9 2.9s-2.9-1.3-2.9-2.9 1.3-2.9 2.9-2.9c.3 0 .6 0 .9.1V9.9c-.3 0-.6-.1-.9-.1-3.6 0-6.4 2.9-6.4 6.4s2.9 6.4 6.4 6.4 6.4-2.9 6.4-6.4V9.7c1.3.9 2.9 1.5 4.6 1.5V7.6c-1 0-1.9-.4-2.6-.9-.1 0-.3-.2-.4-.3z"/>',
+  twitch: '<path d="M2.1 4.3v14.1h4.8v3.3h2.7l3.3-3.3h3.9L22.5 13V4.3H2.1zm18.1 7.9l-3.3 3.3h-3.9l-3.3 3.3v-3.3H6.6V6.1h13.6v6.1zM17 7.7v5.4h-1.7V7.7H17zm-4.5 0v5.4h-1.7V7.7h1.7z"/>',
+  twitter: '<path d="M18.9 3H22l-7 8 8.3 10.8h-6.5l-5.1-6.6-5.8 6.6H3l7.5-8.6L2.4 3H9l4.6 6.1L18.9 3zm-1 17.1h1.7L7.3 4.7H5.5l13.4 15.4z"/>',
+  mail: '<path d="M3 5h18c.6 0 1 .4 1 1v12c0 .6-.4 1-1 1H3c-.6 0-1-.4-1-1V6c0-.6.4-1 1-1zm1 2.3V18h16V7.3l-8 5.2-8-5.2zm.6-.3L12 10.8 19.4 7H4.6z"/>',
+};
+const BRAND = {
+  instagram:'#E4405F', spotify:'#1DB954', apple:'#FA233B', youtube:'#FF0000',
+  tiktok:'#25F4EE', twitch:'#9146FF', twitter:'#1DA1F2', mail:'#FA5D29'
+};
+const ICON_BG = {
+  instagram:'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)',
+  spotify:'#1DB954',
+  apple:'linear-gradient(180deg, #FA233B 0%, #FB5C74 100%)',
+  youtube:'#FF0000',
+  tiktok:'#010101',
+  twitch:'#9146FF',
+  twitter:'#000000',
+  mail:'linear-gradient(180deg, #FA5D29 0%, #F02E65 100%)',
+};
+
+const SOCIALS = [
+  {k:'instagram', name:'Instagram',     handle:'@santiagobalosky'},
+  {k:'instagram', name:'@fotobalosky',  handle:'fotografía'},
+  {k:'spotify',   name:'Spotify',       handle:'Balosky'},
+  {k:'apple',     name:'Apple Music',   handle:'Balosky'},
+  {k:'youtube',   name:'YouTube',       handle:'@santiagobalosky'},
+  {k:'tiktok',    name:'TikTok',        handle:'@santiagobalosky'},
+  {k:'twitch',    name:'Twitch',        handle:'balosky'},
+  {k:'twitter',   name:'X',             handle:'@balosky'},
+  {k:'mail',      name:'Mail directo',  handle:'hola@balosky.com'},
+];
+const rdx = document.getElementById('rdx-grid');
+SOCIALS.forEach(s=>{
+  const a = document.createElement('a');
+  a.href = '#';
+  a.className = 'rdx-card';
+  a.style.setProperty('--brand', BRAND[s.k]);
+  a.innerHTML = `
+    <span class="rdx-glow"></span>
+    <span class="rdx-icon" style="background:${ICON_BG[s.k]}">
+      <span class="rdx-icon-shine"></span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${LOGOS[s.k]}</svg>
+    </span>
+    <span class="rdx-text">
+      <span class="rdx-name">${s.name}</span>
+      <span class="rdx-handle">${s.handle}</span>
+    </span>
+    <span class="rdx-arrow">→</span>`;
+  rdx.appendChild(a);
+});
+
+/* ===================================================================
+ * placeholder SVG factory — 1:1 con src/lib/mediaPlaceholder.ts
+ * ================================================================ */
+const DELIRIO_GRADIENTS = [
+  ['#FA5D29','#F02E65'],['#18D2C4','#7C3FFF'],['#7C3FFF','#F02E65'],['#FFB83D','#FA5D29'],
+  ['#F02E65','#7C3FFF'],['#18D2C4','#FA5D29'],['#FFB83D','#F02E65'],['#7C3FFF','#18D2C4'],
+];
+function hashString(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return Math.abs(h)}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function getMediaPlaceholder(title,{category=null,width=800,height=800}={}){
+  const safeTitle=(title||'Próximamente').slice(0,40);
+  const cat=category?category.slice(0,20).toUpperCase():'';
+  const [c1,c2]=DELIRIO_GRADIENTS[hashString(title||'')%DELIRIO_GRADIENTS.length];
+  const id='g'+(hashString(title||'')%10000);
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="${id}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${c1}"/>
+        <stop offset="100%" stop-color="${c2}"/>
+      </linearGradient>
+      <radialGradient id="${id}g" cx="30%" cy="25%" r="70%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.35)"/>
+        <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+      </radialGradient>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#${id})"/>
+    <rect width="100%" height="100%" fill="url(#${id}g)"/>
+    ${cat?`<text x="50%" y="44%" font-family="monospace,Inter,sans-serif" font-size="${Math.round(width*0.03)}" font-weight="600" fill="rgba(255,255,255,0.75)" text-anchor="middle" letter-spacing="4">${esc(cat)}</text>`:''}
+    <text x="50%" y="${cat?54:50}%" font-family="Inter Tight,Inter,sans-serif" font-size="${Math.round(width*0.07)}" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-1">${esc(safeTitle)}</text>
+    <text x="50%" y="94%" font-family="monospace,Inter,sans-serif" font-size="${Math.round(width*0.02)}" font-weight="500" fill="rgba(255,255,255,0.55)" text-anchor="middle" letter-spacing="3">· PRÓXIMAMENTE ·</text>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+
+const PHOTOS = [
+  {title:'Puerto Madero al alba', category:'Buenos Aires'},
+  {title:'Cerro Fitz Roy',        category:'Sur'},
+  {title:'35mm · retrato JN',     category:'Retratos'},
+  {title:'Plaza Francia',         category:'Calle'},
+  {title:'Noche, Constitución',   category:'Nocturnas'},
+  {title:'Ushuaia · faro',        category:'Sur'},
+  {title:'analógico · recoleta',  category:'Analógico'},
+  {title:'sombras Palermo',       category:'Calle'},
+];
+const pg = document.getElementById('photo-grid');
+PHOTOS.forEach(p=>{
+  const d=document.createElement('div'); d.className='tile';
+  d.innerHTML=`<img src="${getMediaPlaceholder(p.title,{category:p.category,width:800,height:800})}" alt="${p.title}" />
+    <div class="meta">${p.title}</div>`;
+  pg.appendChild(d);
+});
+
+const WALLS = [
+  {title:'Nadie escucha',      category:'Wallpaper · 4K'},
+  {title:'Delirio naranja',    category:'iPhone · 4K'},
+  {title:'Órbita',             category:'Pack · Baloskiers'},
+  {title:'Cafecito',           category:'Wallpaper · free'},
+  {title:'Balosky · portada',  category:'iPhone · 4K'},
+  {title:'Tipografía rota',    category:'Wallpaper · 4K'},
+];
+const wg = document.getElementById('wall-grid');
+WALLS.forEach(w=>{
+  const d=document.createElement('div'); d.className='tile wall';
+  d.innerHTML=`<img src="${getMediaPlaceholder(w.title,{category:w.category,width:600,height:1066})}" alt="${w.title}" />
+    <div class="meta">${w.title}</div>`;
+  wg.appendChild(d);
+});
+</script>
+</body>
+</html>

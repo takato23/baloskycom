@@ -3,6 +3,7 @@ import { api } from '@/services/api';
 import type { Media } from '@/types';
 import WallpaperGate from './WallpaperGate';
 import EarlyDropBadge from './EarlyDropBadge';
+import { getMediaPlaceholder } from '@/lib/mediaPlaceholder';
 
 /**
  * Port of `<section id="pixel">` — wallpapers.
@@ -193,19 +194,37 @@ export default function PixelSection() {
                   data-orient={orients[m.id] ?? undefined}
                   style={{ border: 0, padding: 0, textAlign: 'left' }}
                 >
-                  {(m.thumbUrl || m.coverImage || m.mediaUrl) && (
-                    /* loading=eager para los primeros 3 (free, above-fold)
-                     * y porque el aspect-ratio 9/16 hace tiles muy altas
-                     * en mobile — el lazy-loader nativo no termina de
-                     * disparar y quedan rectángulos negros. */
-                    <img
-                      src={m.thumbUrl || m.coverImage || m.mediaUrl || ''}
-                      alt={m.title}
-                      loading={i < 6 ? 'eager' : 'lazy'}
-                      decoding="async"
-                      onLoad={handleImgLoad(m.id)}
-                    />
-                  )}
+                  {/* loading=eager para los primeros 3 (free, above-fold)
+                    * y porque el aspect-ratio 9/16 hace tiles muy altas
+                    * en mobile — el lazy-loader nativo no termina de
+                    * disparar y quedan rectángulos negros.
+                    *
+                    * Si la URL real falla (archivo no subido todavía)
+                    * swapeamos por un placeholder SVG con gradiente Delirio
+                    * + título. Así la grilla nunca se ve "rota" y el usuario
+                    * puede ver el layout completo del pack. */}
+                  <img
+                    src={
+                      m.thumbUrl ||
+                      m.coverImage ||
+                      m.mediaUrl ||
+                      getMediaPlaceholder(m.title, { category: m.category, width: 600, height: 1066 })
+                    }
+                    alt={m.title}
+                    loading={i < 6 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    onLoad={handleImgLoad(m.id)}
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (img.dataset.fallback === '1') return;
+                      img.dataset.fallback = '1';
+                      img.src = getMediaPlaceholder(m.title, {
+                        category: m.category,
+                        width: 600,
+                        height: 1066,
+                      });
+                    }}
+                  />
                   <div className="w-overlay" />
                   <EarlyDropBadge media={m} />
                   <div className="w-btn">{locked ? 'Baloskiers' : 'Bajar'}</div>

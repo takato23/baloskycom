@@ -56,6 +56,28 @@ const BRAND: Record<Platform, string> = {
 };
 
 /**
+ * Fondo del chip del ícono — por defecto es el color de marca sólido
+ * (estilo app-icon de iOS). Para Instagram usamos el gradiente clásico
+ * multicolor. TikTok es el negro con el logo teal/rojo. X es negro.
+ * Apple Music usa su propio gradiente rojo→magenta. Así cada chip es
+ * inmediatamente reconocible aun en miniatura.
+ */
+const ICON_BG: Record<Platform, string> = {
+  instagram:
+    'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)',
+  'instagram-foto':
+    'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)',
+  spotify: '#1DB954',
+  'apple-music': 'linear-gradient(180deg, #FA233B 0%, #FB5C74 100%)',
+  youtube: '#FF0000',
+  tiktok: '#010101',
+  twitch: '#9146FF',
+  twitter: '#000000',
+  mail: 'linear-gradient(180deg, #FA5D29 0%, #F02E65 100%)',
+  generic: 'linear-gradient(180deg, #FA5D29 0%, #F02E65 100%)',
+};
+
+/**
  * Minimal monochrome SVG logos. `fill="currentColor"` so the color follows
  * the text color (accent on hover via the brand gradient behind).
  */
@@ -251,6 +273,7 @@ export default function RedesSection() {
           {socials.map((s) => {
             const platform = detectPlatform(s.platform || s.name);
             const brand = BRAND[platform];
+            const iconBg = ICON_BG[platform];
             return (
               <a
                 key={s.id}
@@ -263,7 +286,8 @@ export default function RedesSection() {
                 style={{ ['--brand' as string]: brand }}
               >
                 <span className="rdx-glow" aria-hidden />
-                <span className="rdx-icon" aria-hidden>
+                <span className="rdx-icon" aria-hidden style={{ background: iconBg }}>
+                  <span className="rdx-icon-shine" aria-hidden />
                   <PlatformLogo platform={platform} />
                 </span>
                 <span className="rdx-text">
@@ -338,24 +362,36 @@ const GLASS_CSS = `
   transition:opacity .3s ease;
 }
 .rdx-card:hover .rdx-glow{ opacity:.9; }
+/* App-icon style chip: fondo 100% marca + logo blanco. El inline style
+   setea background por plataforma (Instagram gradient, Spotify verde, etc).
+   Mantenemos un shine sutil arriba para el look "glass". */
 .rdx-icon{
-  width:44px; height:44px;
+  position:relative;
+  width:46px; height:46px;
   display:grid; place-items:center;
-  border-radius:14px;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 100%),
-    color-mix(in oklab, var(--brand) 18%, rgba(18,16,20,0.7));
-  color:color-mix(in oklab, var(--brand) 70%, #ffffff);
-  border:1px solid rgba(255,255,255,0.12);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
-  transition: color .25s ease, background .25s ease, transform .3s ease;
+  border-radius:13px;
+  color:#ffffff;
+  border:1px solid rgba(255,255,255,0.18);
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.28),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+  overflow:hidden;
+  transition: transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s ease;
+  flex-shrink:0;
+}
+.rdx-icon > svg{ position:relative; z-index:1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
+.rdx-icon-shine{
+  position:absolute; inset:0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 60%);
+  pointer-events:none;
+  opacity:.7;
 }
 .rdx-card:hover .rdx-icon{
-  color:#fff;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 100%),
-    color-mix(in oklab, var(--brand) 55%, rgba(18,16,20,0.4));
-  transform: scale(1.05);
+  transform: scale(1.08) rotate(-2deg);
+  box-shadow:
+    0 10px 24px rgba(0,0,0,0.35),
+    0 0 24px color-mix(in oklab, var(--brand) 45%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.45);
 }
 .rdx-text{ display:flex; flex-direction:column; min-width:0; }
 .rdx-name{
