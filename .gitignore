@@ -37,11 +37,15 @@ update_brutalist.py
 informe-balosky.md
 README-agenda-publica.md
 
-# user-uploaded media (too big for git; served from local disk in dev, blob storage in prod)
+# user-uploaded media. La idea original era servir estos desde blob
+# storage en prod (ver scripts/migrate-media-to-blob.ts), pero hasta
+# que esa migración esté lista necesitamos los assets en el repo
+# para que Vercel los deployee — es stateless: cada deploy arranca
+# desde el commit, no hay disco persistente. Ojo y wallpapers van al
+# repo (assets curados). Videos y la carpeta YYYY/MM/ se siguen
+# ignorando porque son demasiado pesados o transitorios.
 public/uploads/2026/
-public/uploads/ojo/
 public/uploads/videos/
-public/uploads/wallpapers/
 
 # diagnostic / QA build outputs
 dist-migrate-check/
