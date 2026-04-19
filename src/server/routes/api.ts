@@ -1434,31 +1434,25 @@ router.post('/webhook/mercadopago', async (req, res) => {
 });
 
 // --- FILE UPLOAD (admin) ---
+//
+// Estrategia: si hay BLOB_READ_WRITE_TOKEN seteado (Vercel prod + dev con
+// .env.local), subimos al Vercel Blob Store y devolvemos la URL pública del
+// blob (https://xxx.public.blob.vercel-storage.com/...). En dev sin token,
+// caemos al viejo disco local en /public/uploads/YYYY/MM. Esto permite
+// seguir laburando offline y al mismo tiempo funcionar en producción
+// (donde el filesystem serverless es effectively read-only).
 const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-const uploadStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    // Partition by year/month to keep the folder tidy
-    const d = new Date();
-    const year = String(d.getFullYear());
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const dest = path.join(UPLOADS_DIR, year, month);
-    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-    cb(null, dest);
-  },
-  filename: (_req, file, cb) => {
-    const safeBase = path.parse(file.originalname).name
-      .toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 40);
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${safeBase || 'file'}-${Date.now()}${ext}`);
-  }
-});
+const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN?.trim();
 
+// Muxer siempre en memoria — en prod lo mandamos al blob, en dev lo
+// escribimos al disco nosotros mismos. Simplifica el branching y evita el
+// tmpfile intermedio de disk storage.
 const upload = multer({
-  storage: uploadStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB — enough for short videos + hi-res images
   fileFilter: (_req, file, cb) => {
     const allowed = /^(image|video|audio)\//.test(file.mimetype);
@@ -1467,18 +1461,63 @@ const upload = multer({
   }
 });
 
-router.post('/upload', requireAuth, upload.single('file'), (req, res) => {
+function kindFolder(mimetype: string): string {
+  if (mimetype.startsWith('image/')) return 'images';
+  if (mimetype.startsWith('video/')) return 'videos';
+  if (mimetype.startsWith('audio/')) return 'audio';
+  return 'other';
+}
+
+function safeName(originalname: string): string {
+  const base = path.parse(originalname).name
+    .toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 40) || 'file';
+  const ext = path.extname(originalname).toLowerCase();
+  return `${base}-${Date.now()}${ext}`;
+}
+
+router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
   try {
     const f = req.file;
     if (!f) return res.status(400).json({ error: 'No file uploaded' });
-    // Path relative to /public so it's served as static
-    const rel = path.relative(path.join(process.cwd(), 'public'), f.path);
+    const filename = safeName(f.originalname);
+
+    // Prod path: sube al Vercel Blob Store.
+    if (BLOB_TOKEN) {
+      const { put } = await import('@vercel/blob');
+      const key = `uploads/${kindFolder(f.mimetype)}/${filename}`;
+      const { url } = await put(key, f.buffer, {
+        access: 'public',
+        contentType: f.mimetype,
+        token: BLOB_TOKEN,
+        addRandomSuffix: false,
+        allowOverwrite: true
+      });
+      return res.json({
+        url,
+        filename,
+        mimetype: f.mimetype,
+        size: f.size,
+        storage: 'blob'
+      });
+    }
+
+    // Dev fallback: disco local, mismo esquema YYYY/MM que antes para no
+    // romper rutas ya guardadas en la DB de desarrollo.
+    const d = new Date();
+    const year = String(d.getFullYear());
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const dest = path.join(UPLOADS_DIR, year, month);
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    const fullPath = path.join(dest, filename);
+    fs.writeFileSync(fullPath, f.buffer);
+    const rel = path.relative(path.join(process.cwd(), 'public'), fullPath);
     const url = '/' + rel.split(path.sep).join('/');
     res.json({
       url,
-      filename: f.filename,
+      filename,
       mimetype: f.mimetype,
-      size: f.size
+      size: f.size,
+      storage: 'local'
     });
   } catch (e) {
     console.error('[POST /upload]', e);
