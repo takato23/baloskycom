@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/services/api';
 import type { Media } from '@/types';
 import MediaLightbox from './MediaLightbox';
 import EarlyDropBadge from './EarlyDropBadge';
+import { getMediaPlaceholder } from '@/lib/mediaPlaceholder';
 
 /**
  * Port of `<section id="vision">` — AI video grid.
@@ -27,6 +28,20 @@ const PREVIEW_LIMIT = 4;
 export default function VisionSection() {
   const [items, setItems] = useState<Media[]>([]);
   const [active, setActive] = useState<number | null>(null);
+  /* Videos que fallaron al cargar — los seguimos mostrando pero marcamos
+   * la tile como "no-playable" para esconder el botón ▶ y que al clickear
+   * no se abra el lightbox a un `<video>` roto. Así evitamos el "Tal vez
+   * moví la página..." que aparecía cuando el usuario clickeaba "abrir
+   * original" en el fallback del lightbox. */
+  const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set());
+  const markBroken = (id: string) => {
+    setBrokenIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -41,6 +56,14 @@ export default function VisionSection() {
       mounted = false;
     };
   }, []);
+
+  /* Para el lightbox, filtramos videos rotos — al abrirlos daba error y
+   * el user terminaba en /uploads/... → NotFound. Mejor mostrar solo los
+   * que realmente reproducen. */
+  const playableItems = useMemo(
+    () => items.filter((m) => !brokenIds.has(m.id)),
+    [items, brokenIds],
+  );
 
   return (
     <section id="vision">
@@ -77,45 +100,81 @@ export default function VisionSection() {
               próximamente · cargando videos
             </div>
           ) : (
-            items.slice(0, PREVIEW_LIMIT).map((m, i) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setActive(i)}
-                className={`vi-tile ${spanFor(i)}`}
-                data-cursor="VER"
-                style={{ border: 0, padding: 0, textAlign: 'left', position: 'relative' }}
-              >
-                <EarlyDropBadge media={m} />
-                {m.mediaUrl ? (
-                  <video
-                    src={m.mediaUrl}
-                    poster={m.coverImage || undefined}
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
-                    onMouseLeave={(e) => (e.currentTarget as HTMLVideoElement).pause()}
-                  />
-                ) : m.coverImage ? (
-                  <img src={m.coverImage} alt={m.title} loading="lazy" />
-                ) : null}
-                <div className="vi-overlay" />
-                {m.aiTool && (
-                  <div className="vi-ai-badge" aria-label={`Generado con IA · ${m.aiTool}`}>
-                    <span className="vi-ai-badge__dot" aria-hidden="true" />
-                    IA · {m.aiTool}
+            items.slice(0, PREVIEW_LIMIT).map((m, i) => {
+              const broken = brokenIds.has(m.id);
+              const playableIndex = playableItems.findIndex((p) => p.id === m.id);
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    // Si el video está roto, no abrimos el lightbox — quedaba
+                    // en estado de error y el "abrir original" del fallback
+                    // mandaba al 404. Mejor no-op (visual: cursor "próximamente").
+                    if (broken || playableIndex < 0) return;
+                    setActive(playableIndex);
+                  }}
+                  className={`vi-tile ${spanFor(i)}${broken ? ' vi-tile--broken' : ''}`}
+                  data-cursor={broken ? 'PRONTO' : 'VER'}
+                  style={{ border: 0, padding: 0, textAlign: 'left', position: 'relative' }}
+                  aria-disabled={broken || undefined}
+                >
+                  <EarlyDropBadge media={m} />
+                  {m.mediaUrl && !broken ? (
+                    <video
+                      src={m.mediaUrl}
+                      poster={m.coverImage || undefined}
+                      muted
+                      loop
+                      playsInline
+                      preload="metadata"
+                      onError={() => markBroken(m.id)}
+                      onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+                      onMouseLeave={(e) => (e.currentTarget as HTMLVideoElement).pause()}
+                    />
+                  ) : m.coverImage ? (
+                    <img
+                      src={m.coverImage}
+                      alt={m.title}
+                      loading="lazy"
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        if (img.dataset.fallback === '1') return;
+                        img.dataset.fallback = '1';
+                        img.src = getMediaPlaceholder(m.title, { category: m.aiTool || m.category, width: 800, height: 450 });
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={getMediaPlaceholder(m.title, { category: m.aiTool || m.category, width: 800, height: 450 })}
+                      alt={m.title}
+                      loading="lazy"
+                    />
+                  )}
+                  <div className="vi-overlay" />
+                  {m.aiTool && (
+                    <div className="vi-ai-badge" aria-label={`Generado con IA · ${m.aiTool}`}>
+                      <span className="vi-ai-badge__dot" aria-hidden="true" />
+                      IA · {m.aiTool}
+                    </div>
+                  )}
+                  {m.duration && <div className="vi-dur">{m.duration}</div>}
+                  <div className="vi-play">{broken ? '◌' : '▶'}</div>
+                  <div className="vi-meta">
+                    {m.aiTool && <div className="vi-cat">{m.aiTool}</div>}
+                    <h4>{m.title}</h4>
+                    {broken && (
+                      <div
+                        className="t-mono"
+                        style={{ marginTop: 4, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(243,239,230,0.55)' }}
+                      >
+                        · próximamente ·
+                      </div>
+                    )}
                   </div>
-                )}
-                {m.duration && <div className="vi-dur">{m.duration}</div>}
-                <div className="vi-play">▶</div>
-                <div className="vi-meta">
-                  {m.aiTool && <div className="vi-cat">{m.aiTool}</div>}
-                  <h4>{m.title}</h4>
-                </div>
-              </button>
-            ))
+                </button>
+              );
+            })
           )}
         </div>
 

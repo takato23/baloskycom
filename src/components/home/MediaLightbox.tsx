@@ -160,13 +160,18 @@ export default function MediaLightbox({ items, index, onClose, onNavigate, mode 
             />
           )}
 
+          {/* Fallback visible solo en estado de error. NO linkeamos al
+           * `item.mediaUrl` porque si el archivo original no existe el
+           * target termina en un 404 (o peor, en el NotFound de React
+           * pidiendo "volver al inicio"). Mejor mostrar un mensaje
+           * estático — el usuario ya puede cerrar el modal con ESC o el
+           * botón ✕. */}
           <div className="mm-fallback">
-            no se pudo cargar ·{' '}
-            {item.mediaUrl && (
-              <a href={item.mediaUrl} target="_blank" rel="noopener noreferrer">
-                abrir original
-              </a>
-            )}
+            · este archivo todavía no está disponible ·
+            <br />
+            <span style={{ opacity: 0.6, fontSize: 11, letterSpacing: '0.18em' }}>
+              próximamente
+            </span>
           </div>
         </div>
 
