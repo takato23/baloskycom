@@ -386,8 +386,8 @@ export interface Webhook {
   active: boolean;
 }
 
-// ===== MEDIA (video_ia, foto, wallpaper, cancion) =====
-export type MediaKind = 'video_ia' | 'foto' | 'wallpaper' | 'cancion';
+// ===== MEDIA (video_ia, foto, wallpaper, cancion, panorama_360) =====
+export type MediaKind = 'video_ia' | 'foto' | 'wallpaper' | 'cancion' | 'panorama_360';
 
 export interface Media {
   id: string;
@@ -418,6 +418,8 @@ export interface Media {
    * laboratorio page for transparency. Optional.
    */
   aiPrompt?: string | null;
+  /** Images/references used to build a video_ia piece. Shown as an asset wall in Laboratorio. */
+  assetUrls?: string[];
   /**
    * Aspect ratio hint for the laboratorio grid. When all visible items share
    * one ratio the grid uses it; when mixed, the grid falls back to 1:1 so
