@@ -46,7 +46,7 @@ const FALLBACK_VIDEOS: Media[] = [{
   title: 'El molinete del conurbano',
   description: 'Pieza de archivo para que el Laboratorio siga vivo aunque el feed tarde en responder.',
   category: 'IDEAS · IA',
-  mediaUrl: '',
+  mediaUrl: 'https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/videos/balosky-molinete-conurbano.web.mp4',
   coverImage: '/uploads/thumbs/balosky-hero-loop-first.png',
   thumbUrl: '/uploads/thumbs/balosky-hero-loop-first.png',
   duration: '0:24',
@@ -979,7 +979,7 @@ function AssetWall({ urls, mobile = false }: { urls?: string[] | null; mobile?: 
           ))}
         </div>
         <p className={cn('max-w-[34ch] text-xs leading-relaxed', mobile ? 'text-white/60' : 'text-white/45')}>
-          Todavía no hay frames para esta pieza. Pronto se suma el storyboard.
+          Todavía no hay frames cargados para esta pieza. Cuando los agregues desde el admin, aparecen acá como storyboard.
         </p>
       </div>
     );
