@@ -19,7 +19,7 @@ const SENSITIVE_RE = /([^\s@]+@[^\s@]+\.[^\s@]+)|(payment|payer|purchase|externa
 const IGNORED_PUBLIC_PATHS = ['/admin', '/preview-', '/home-preview', '/preview-full', '/preview-v2'];
 const SOCIAL_HOST_RE = /(instagram|spotify|music\.apple|youtube|youtu\.be|tiktok|x\.com|twitter|threads|twitch|soundcloud|linktr\.ee|wa\.me|whatsapp)/i;
 const CHECKOUT_PATH_RE = /^\/(cafecito|checkout)(\/|$)|^\/api\/checkout\/quick/i;
-const CTA_PATH_RE = /^\/(btv|laboratorio|club|wall|vip|portfolio|gallery|blog|ideas|agenda-publica)(\/|$)/i;
+const CTA_PATH_RE = /^\/(productora|btv|laboratorio|club|wall|vip|portfolio|gallery|blog|ideas|agenda-publica)(\/|$)/i;
 
 declare global {
   interface Window {

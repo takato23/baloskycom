@@ -3,6 +3,7 @@ import { ArrowUpRight, Check, Film, Mail, Play, Sparkles } from 'lucide-react';
 import { api } from '@/services/api';
 import type { Media } from '@/types';
 import { getMediaPlaceholder } from '@/lib/mediaPlaceholder';
+import { trackEvent } from '@/lib/analytics';
 import PageMeta from '@/components/PageMeta';
 import '@/styles/productora.css';
 
@@ -66,6 +67,10 @@ export default function Productora() {
   const markBroken = (id: string) =>
     setBrokenIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
 
+  const trackProductora = (target: string, extra?: Record<string, string | number | boolean>) => {
+    trackEvent('cta_click', { source: 'productora', target, ...extra }, { target });
+  };
+
   useEffect(() => {
     document.body.classList.add('productora-route');
     return () => {
@@ -107,6 +112,7 @@ export default function Productora() {
     pauseOthers(m.id);
     setPreviewId(null);
     setPlayingId(m.id);
+    trackEvent('media_open', { source: 'productora', kind: 'work_video', title: m.title }, { target: m.mediaUrl || m.id });
   };
 
   useEffect(() => {
@@ -166,6 +172,12 @@ export default function Productora() {
     ].join('\n');
 
     setState('sending');
+    trackEvent('encargo_start', {
+      source: 'productora',
+      packageId: 'spot',
+      hasBrand: Boolean(brand.trim()),
+      briefLength: brief.trim().length,
+    }, { target: 'productora_form' });
     try {
       await api.createEncargo({
         name: name.trim(),
@@ -174,6 +186,11 @@ export default function Productora() {
         brief: composedBrief,
       });
       setState('sent');
+      trackEvent('encargo_created', {
+        source: 'productora',
+        packageId: 'spot',
+        hasBrand: Boolean(brand.trim()),
+      }, { target: 'productora_form' });
       setName('');
       setContact('');
       setBrand('');
@@ -218,11 +235,21 @@ export default function Productora() {
             Spots, trailers y piezas con IA para marcas. Pensados para el feed: que enganchen en los primeros segundos y se entiendan sin sonido.
           </p>
           <div className="prod-actions">
-            <a className="prod-btn prod-btn--solid" href="#consulta" data-cursor="HABLAR">
+            <a
+              className="prod-btn prod-btn--solid"
+              href="#consulta"
+              data-cursor="HABLAR"
+              onClick={() => trackProductora('hero_contact')}
+            >
               <Mail size={16} />
               Contar proyecto
             </a>
-            <a className="prod-btn prod-btn--ghost" href="#formatos" data-cursor="VER">
+            <a
+              className="prod-btn prod-btn--ghost"
+              href="#formatos"
+              data-cursor="VER"
+              onClick={() => trackProductora('hero_formats')}
+            >
               <Play size={15} />
               Ver formatos
             </a>
@@ -239,7 +266,14 @@ export default function Productora() {
           <strong>De la idea al video listo.</strong>
         </aside>
 
-        <a className="prod-scroll" href="#enfoque" aria-label="Bajar a la sección">scroll</a>
+        <a
+          className="prod-scroll"
+          href="#enfoque"
+          aria-label="Bajar a la sección"
+          onClick={() => trackProductora('hero_scroll')}
+        >
+          scroll
+        </a>
       </section>
 
       <section className="prod-band prod-band--intro" id="enfoque">
@@ -424,7 +458,11 @@ export default function Productora() {
             <p>
               Contame qué vendés: un producto, un local, un lanzamiento o una idea rara que tengas dando vueltas. Si veo algo posible, te respondo con una propuesta concreta y un número.
             </p>
-            <a href="mailto:hola@balosky.com" className="prod-mail">
+            <a
+              href="mailto:hola@balosky.com"
+              className="prod-mail"
+              onClick={() => trackProductora('mailto')}
+            >
               hola@balosky.com
               <ArrowUpRight size={16} />
             </a>
