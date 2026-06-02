@@ -32,10 +32,11 @@ const formats = [
 ];
 
 const shots = [
-  '/uploads/thumbs/ojo/Redes_Obelisco_BuenosAires.webp',
-  '/uploads/thumbs/ojo/Redes_Chinatown_Noche.webp',
-  '/uploads/thumbs/wallpapers/Wallpaper_Puerto_Madero_Atardecer.webp',
+  '/images/home-editorial/ojo-poster-h.jpg',
+  '/images/home-editorial/lab-poster-h.jpg',
   '/uploads/thumbs/panoramas/moria-360.webp',
+  '/uploads/thumbs/panoramas/concierto-queen-360.webp',
+  '/uploads/thumbs/panoramas/corazon-360.webp',
 ];
 
 const principles = [
@@ -60,6 +61,7 @@ export default function Productora() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set());
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const heroVideoUrl = works.find((m) => m.mediaUrl && !brokenIds.has(m.id))?.mediaUrl;
 
   const markBroken = (id: string) =>
     setBrokenIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
@@ -194,12 +196,12 @@ export default function Productora() {
       <section className="prod-hero" id="productora">
         <video
           className="prod-hero__video"
-          src="/uploads/videos/balosky-hero-loop-hd.mp4"
+          src={heroVideoUrl || undefined}
           autoPlay
           muted
           loop
           playsInline
-          poster="/uploads/thumbs/balosky-hero-loop-first.png"
+          poster="/og-card.jpg"
           aria-hidden="true"
         />
         <div className="prod-hero__shade" aria-hidden="true" />

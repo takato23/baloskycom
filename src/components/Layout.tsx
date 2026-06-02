@@ -223,7 +223,7 @@ export default function Layout() {
         {/* Delirio chrome — hide cursor + theme fab inside admin. */}
         {!isAdmin && <DelirioCursor />}
         {!isAdmin && !isHome && !isProductora && <ThemeFab />}
-        {!isAdmin && !isHome && !isProductora && <MobileNav />}
+        {!isAdmin && !isHome && <MobileNav />}
       </div>
     </MusicPlayerProvider>
   );

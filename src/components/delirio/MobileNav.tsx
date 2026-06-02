@@ -50,6 +50,7 @@ export default function MobileNav() {
 
   const isLab = location.pathname === '/laboratorio';
   const isBtv = location.pathname === '/btv' || location.pathname === '/balosflix';
+  const isProductora = location.pathname === '/productora';
 
   /* Si estás en / y hacés click en un anchor, el navegador no scrollea
    * porque la URL sólo cambia el hash. Forzamos el scroll nativo para
@@ -75,6 +76,7 @@ export default function MobileNav() {
           const active =
             (e.href === '/laboratorio' && isLab) ||
             (e.href === '/btv' && isBtv) ||
+            (e.href === '/productora' && isProductora) ||
             false;
           const content = (
             <span className="mobile-nav__inner">

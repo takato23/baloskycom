@@ -597,7 +597,7 @@
   background:
     linear-gradient(180deg, rgba(10, 9, 8, 0.12), rgba(10, 9, 8, 0.82)),
     linear-gradient(180deg, rgba(250, 93, 41, 0.04), rgba(250, 93, 41, 0.18)),
-    url('/uploads/thumbs/ojo/Redes_Escalera_Graffitis.webp') center/cover;
+    url('/images/home-editorial/lab-poster-h.jpg') center/cover;
 }
 
 .prod-panel .prod-eyebrow {
@@ -787,6 +787,10 @@
 }
 
 @media (max-width: 620px) {
+  .prod-page {
+    padding-bottom: 78px;
+  }
+
   .prod-hero {
     min-height: 92svh;
     padding-top: 104px;
