@@ -52,7 +52,7 @@ export default function MiraSection() {
             <h2>el último<br /><em>showreel</em>.</h2>
           </div>
           <p>
-            Documentamos el proceso. Detrás de cada canción, una decisión. Scrub, mirá, saltá de
+            Te muestro cómo sale cada canción, paso a paso. Scrubeá, mirá, saltá de
             capítulo.
           </p>
         </div>

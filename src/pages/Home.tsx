@@ -249,19 +249,6 @@ export default function Home() {
   const [currentSection, setCurrentSection] = useState({ num: 1, label: 'INICIO' });
   const sectionCounterRef = useRef<HTMLDivElement>(null);
 
-  /* ─── Visitor count illusion ─── */
-  const [liveCount, setLiveCount] = useState(Math.floor(Math.random() * 8) + 3);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLiveCount(prev => {
-        const delta = Math.random() > 0.5 ? 1 : -1;
-        return Math.max(2, Math.min(15, prev + delta));
-      });
-    }, 5000 + Math.random() * 10000);
-    return () => clearInterval(interval);
-  }, []);
-
   /* ─── Stroke-fill reveal on scroll ─── */
   useEffect(() => {
     const titles = document.querySelectorAll('.stroke-fill');
@@ -322,10 +309,11 @@ export default function Home() {
   ];
 
   const galleryStrip = galleryImages.map((g) => ({ url: g.imageUrl, label: g.title }));
-  const portfolioItems = galleryImages.map((g) => ({
+  const portfolioTags = ['IA \u00b7 Generativo', 'Foto \u00b7 IA', 'Video \u00b7 IA', 'Dise\u00f1o \u00b7 Web', 'Render 3D', 'Editorial \u00b7 IA'];
+  const portfolioItems = galleryImages.map((g, i) => ({
     url: g.imageUrl,
     label: g.title,
-    tag: 'IA \u00b7 Generativo',
+    tag: portfolioTags[i % portfolioTags.length],
   }));
 
   const supportCardIcons = [Coffee, Wand2, Star];
@@ -348,13 +336,13 @@ export default function Home() {
   useEffect(() => {
     const sectionMap = [
       { id: 'hero-section', num: 1, label: 'INICIO' },
-      { id: 'support-modes', num: 2, label: 'APOYO' },
-      { id: 'featured-campaign', num: 3, label: 'MISION' },
-      { id: 'rewards', num: 4, label: 'REWARDS' },
-      { id: 'discovery', num: 5, label: 'EXPLORAR' },
-      { id: 'portfolio', num: 6, label: 'PORTFOLIO' },
-      { id: 'courses', num: 7, label: 'CURSOS' },
-      { id: 'music', num: 8, label: 'MUSICA' },
+      { id: 'portfolio', num: 2, label: 'PORTFOLIO' },
+      { id: 'music', num: 3, label: 'MUSICA' },
+      { id: 'support-modes', num: 4, label: 'APOYO' },
+      { id: 'featured-campaign', num: 5, label: 'MISION' },
+      { id: 'rewards', num: 6, label: 'REWARDS' },
+      { id: 'discovery', num: 7, label: 'EXPLORAR' },
+      { id: 'courses', num: 8, label: 'CURSOS' },
       { id: 'community', num: 9, label: 'COMUNIDAD' },
     ];
     let lastSection = '';
@@ -508,11 +496,11 @@ export default function Home() {
                 transition={{ delay: 0.2, duration: 0.7 }}
                 ref={heroEyebrowRef}
               >
-                {greeting} — {home?.hero.eyebrow || 'Creador — IA — Musica'}
+                {greeting} — {home?.hero.eyebrow || 'estudio creativo · IA · música'}
               </motion.p>
 
               <h1 ref={heroTitleRef} className="t-hero text-[clamp(3.5rem,13vw,14rem)] relative z-[2]" style={{ letterSpacing: '-0.02em', transition: 'letter-spacing 0.1s linear' }}>
-                {(hero?.title || 'si me bancás\nalgo te llevás').split('\n').map((line, i) => {
+                {(hero?.title || 'fábrica de\ndelirios con IA').split('\n').map((line, i) => {
                   const accentWords = ['llevás', 'delirio', 'Mesaza', 'Cómplice', 'Morerial'];
                   const match = accentWords.find((w) => line.includes(w));
                   return (
@@ -544,7 +532,7 @@ export default function Home() {
                 transition={{ delay: 0.9, duration: 0.7 }}
                 ref={heroSubRef}
               >
-                {hero?.subtitle || 'Stickers, wallpapers y los delirios que vas a querer mandar al grupo.'}
+                {hero?.subtitle || 'Música, imágenes, video y webs hechas con IA. Más los delirios que vas a querer mandar al grupo.'}
               </motion.p>
 
               <motion.div
@@ -554,17 +542,17 @@ export default function Home() {
                 transition={{ delay: 1.05, duration: 0.7 }}
               >
                 <Link
-                  to={hero?.primaryCtaHref || '/checkout'}
+                  to={hero?.primaryCtaHref || '/portfolio'}
                   className="group inline-flex items-center gap-2 bg-[var(--accent)] text-black px-6 py-3 sm:px-8 sm:py-4 text-sm sm:text-base font-medium tracking-tight hover:bg-black hover:text-[var(--accent)] border border-[var(--accent)] transition-colors duration-300"
                 >
-                  {hero?.primaryCtaLabel || 'Elegir pack'}
+                  {hero?.primaryCtaLabel || 'Ver el laburo'}
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link
-                  to={hero?.secondaryCtaHref || '/vip'}
+                  to={hero?.secondaryCtaHref || '/checkout'}
                   className="group inline-flex items-center gap-2 border border-[var(--border)] text-[var(--white)] px-6 py-3 sm:px-8 sm:py-4 text-sm sm:text-base font-medium tracking-tight hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors duration-300"
                 >
-                  {hero?.secondaryCtaLabel || 'Qué hay adentro'}
+                  {hero?.secondaryCtaLabel || 'Bancá el proyecto'}
                 </Link>
               </motion.div>
             </div>
@@ -596,23 +584,207 @@ export default function Home() {
             transition={{ delay: 1.1, duration: 0.7 }}
           >
             <div className={cn(INNER, 'flex flex-wrap gap-x-6 gap-y-3 sm:gap-8 md:gap-16 py-4 sm:py-6 md:py-8')}>
-              <AnimatedStat value={totalRaised} prefix="$" label="Aportado" />
+              <AnimatedStat value={galleryImages.length} label="Piezas IA" />
               <AnimatedStat value={activeCampaigns.length} label="Misiones activas" />
               <AnimatedStat value={supporters.length} label="Apoyos" />
-              <div className="flex items-baseline gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-2xl sm:text-[clamp(1.8rem,3.5vw,3rem)] font-extrabold tracking-tight">
-                    {liveCount}
-                  </span>
-                </div>
-                <span className="t-eyebrow">online ahora</span>
-              </div>
+              <AnimatedStat value={totalRaised} prefix="$" label="Aportado" />
             </div>
           </motion.div>
         </section>
 
         <SvgDivider offset={0} />
+
+        {/* ═══════════════════════════════════════
+           PORTFOLIO GRID — asymmetric project cards
+           ═══════════════════════════════════════ */}
+        {portfolioItems.length > 0 && (
+          <section id="portfolio" className={cn(SECTION_PAD, 'py-[clamp(60px,10vh,120px)]')}>
+            <div className={INNER}>
+              <motion.div
+                className="mb-12 md:mb-16"
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-40px' }}
+              >
+                <p className="t-eyebrow">el laburo</p>
+                <h2 className="t-section text-[clamp(2rem,5vw,4.5rem)] mt-3 stroke-fill">
+                  Lo que hago
+                </h2>
+              </motion.div>
+
+              <div className="portfolio-grid">
+                {portfolioItems.map((img, i) => (
+                  <PortfolioCard key={i} img={img} index={i} isMobile={isMobile} />
+                ))}
+              </div>
+
+              <Link
+                to="/portfolio"
+                className="inline-flex items-center gap-2 mt-8 text-[var(--accent)] font-semibold text-sm"
+                data-hover
+              >
+                Ver todo el portfolio <ArrowRight size={14} />
+              </Link>
+            </div>
+          </section>
+        )}
+
+        <SvgDivider offset={2} />
+
+        {/* ═══════════════════════════════════════
+           HORIZONTAL GALLERY STRIP
+           ═══════════════════════════════════════ */}
+        {galleryStrip.length > 0 && <HorizontalGallery images={galleryStrip} />}
+
+        {/* ═══════════════════════════════════════
+           MUSIC — visualizer + links
+           ═══════════════════════════════════════ */}
+        {music && (
+          <section id="music" data-dark-section className={cn(SECTION_PAD, 'py-[clamp(60px,10vh,120px)] bg-[var(--black)] text-[var(--white)]')}>
+            <div className={INNER}>
+              <motion.div
+                className="mb-12 md:mb-16"
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-40px' }}
+              >
+                <p className="t-eyebrow">{music.eyebrow}</p>
+                <h2 className="t-section text-[clamp(2rem,5vw,4.5rem)] mt-3 stroke-fill">{music.title}</h2>
+                {music.subtitle && <p className="t-body mt-4 max-w-2xl">{music.subtitle}</p>}
+              </motion.div>
+
+              <motion.div
+                className="grid md:grid-cols-2 gap-8 items-start"
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-40px' }}
+              >
+                {/* Visualizer — live audio driven */}
+                <div className="flex flex-col gap-3">
+                  <div className="aspect-square md:aspect-[4/3] bg-black overflow-hidden relative">
+                    <Visualizer type={vizType} />
+                  </div>
+                  <VisualizerPicker active={vizType} onChange={setVizType} />
+                </div>
+
+                {/* Platform links */}
+                <div className="flex flex-col gap-3">
+                  {music.spotifyUrl && (
+                    <a
+                      href={music.spotifyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between p-5 border border-[var(--border)] hover:border-[#1DB954] hover:bg-[#1DB954]/5 transition-all"
+                      data-hover
+                    >
+                      <span className="font-bold tracking-tight">Spotify</span>
+                      <ExternalLink size={16} className="text-[var(--muted)]" />
+                    </a>
+                  )}
+                  {music.appleMusicUrl && (
+                    <a
+                      href={music.appleMusicUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between p-5 border border-[var(--border)] hover:border-[var(--black)] transition-all"
+                      data-hover
+                    >
+                      <span className="font-bold tracking-tight">Apple Music</span>
+                      <ExternalLink size={16} className="text-[var(--muted)]" />
+                    </a>
+                  )}
+                  {music.youtubeChannelUrl && (
+                    <a
+                      href={music.youtubeChannelUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between p-5 border border-[var(--border)] hover:border-[#FF0000] hover:bg-[#FF0000]/5 transition-all"
+                      data-hover
+                    >
+                      <span className="font-bold tracking-tight">YouTube</span>
+                      <ExternalLink size={16} className="text-[var(--muted)]" />
+                    </a>
+                  )}
+
+                  {/* Tracks list — wired to MusicPlayerContext */}
+                  {allTracks.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <p className="t-eyebrow mb-3">Inéditos</p>
+                      {allTracks.map((track) => {
+                        const isActive = currentTrack?.id === track.id;
+                        const showPause = isActive && isPlaying;
+                        return (
+                          <button
+                            key={track.id}
+                            type="button"
+                            onClick={() => {
+                              if (isActive) void playPause();
+                              else selectTrack(track.id);
+                            }}
+                            className={cn(
+                              'w-full flex items-center gap-4 p-3 border transition-colors text-left',
+                              isActive
+                                ? 'border-[var(--accent)] bg-[var(--accent)]/5'
+                                : 'border-[var(--border)] hover:border-[var(--accent)]'
+                            )}
+                            data-hover
+                          >
+                            <div
+                              className="w-9 h-9 flex items-center justify-center flex-shrink-0"
+                              style={{ background: track.accentColor || 'var(--accent)' }}
+                            >
+                              {showPause ? (
+                                <Pause size={14} className="text-white" />
+                              ) : (
+                                <Play size={14} className="text-white" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-sm truncate">{track.title}</p>
+                              <p className="text-xs text-[var(--muted)] truncate">
+                                {track.category} &middot; {track.artist}
+                              </p>
+                            </div>
+                            {isActive && (
+                              <span className="text-[10px] font-mono tracking-[0.18em] text-[var(--accent)] uppercase">
+                                {isPlaying ? 'Sonando' : 'Pausa'}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Fallback if no URLs configured — show a "próximamente" placeholder
+                      instead of dead href="#" links that lead nowhere. */}
+                  {!music.spotifyUrl && !music.appleMusicUrl && !music.youtubeChannelUrl && (
+                    <div className="p-8 border border-dashed border-[var(--border)] text-center">
+                      <p className="font-bold tracking-tight text-lg mb-1">próximamente</p>
+                      <p className="text-xs text-[var(--muted)] font-mono tracking-[0.14em] uppercase">
+                        estamos subiendo la música a las plataformas
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Full catalogue from the media table — one card per cancion
+                  with per-track embed / MP3 fallback and category filter. */}
+              <motion.div
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-40px' }}
+              >
+                <PublicSongsCatalog />
+              </motion.div>
+            </div>
+          </section>
+        )}
 
         {/* ═══════════════════════════════════════
            SUPPORT MODES — 3 cards
@@ -680,7 +852,7 @@ export default function Home() {
                     </p>
                     <Link
                       to={mode.href}
-                      className="inline-flex items-center gap-2 text-[var(--accent)] font-semibold text-[11px] tracking-[0.1em] uppercase group-hover:gap-4 transition-all"
+                      className="inline-flex items-center gap-2 text-[var(--accent)] font-semibold text-sm group-hover:gap-4 transition-all"
                       data-hover
                     >
                       {mode.ctaLabel} <span>&rarr;</span>
@@ -1025,49 +1197,6 @@ export default function Home() {
         </section>
 
         {/* ═══════════════════════════════════════
-           PORTFOLIO GRID — asymmetric project cards
-           ═══════════════════════════════════════ */}
-        {portfolioItems.length > 0 && (
-          <section id="portfolio" className={cn(SECTION_PAD, 'py-[clamp(60px,10vh,120px)]')}>
-            <div className={INNER}>
-              <motion.div
-                className="mb-12 md:mb-16"
-                variants={fadeUp}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-40px' }}
-              >
-                <p className="t-eyebrow">Proyectos</p>
-                <h2 className="t-section text-[clamp(2rem,5vw,4.5rem)] mt-3 stroke-fill">
-                  Lo que hago
-                </h2>
-              </motion.div>
-
-              <div className="portfolio-grid">
-                {portfolioItems.map((img, i) => (
-                  <PortfolioCard key={i} img={img} index={i} isMobile={isMobile} />
-                ))}
-              </div>
-
-              <Link
-                to="/portfolio"
-                className="inline-flex items-center gap-2 mt-8 text-[var(--accent)] font-semibold text-sm"
-                data-hover
-              >
-                Ver todo el portfolio <ArrowRight size={14} />
-              </Link>
-            </div>
-          </section>
-        )}
-
-        <SvgDivider offset={2} />
-
-        {/* ═══════════════════════════════════════
-           HORIZONTAL GALLERY STRIP
-           ═══════════════════════════════════════ */}
-        {galleryStrip.length > 0 && <HorizontalGallery images={galleryStrip} />}
-
-        {/* ═══════════════════════════════════════
            COURSES
            ═══════════════════════════════════════ */}
         {courses && courses.items.length > 0 && (
@@ -1117,155 +1246,6 @@ export default function Home() {
                     </a>
                   </motion.div>
                 ))}
-              </motion.div>
-            </div>
-          </section>
-        )}
-
-        {/* ═══════════════════════════════════════
-           MUSIC — visualizer + links
-           ═══════════════════════════════════════ */}
-        {music && (
-          <section id="music" data-dark-section className={cn(SECTION_PAD, 'py-[clamp(60px,10vh,120px)] bg-[var(--black)] text-[var(--white)]')}>
-            <div className={INNER}>
-              <motion.div
-                className="mb-12 md:mb-16"
-                variants={fadeUp}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-40px' }}
-              >
-                <p className="t-eyebrow">{music.eyebrow}</p>
-                <h2 className="t-section text-[clamp(2rem,5vw,4.5rem)] mt-3 stroke-fill">{music.title}</h2>
-                {music.subtitle && <p className="t-body mt-4 max-w-2xl">{music.subtitle}</p>}
-              </motion.div>
-
-              <motion.div
-                className="grid md:grid-cols-2 gap-8 items-start"
-                variants={fadeUp}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-40px' }}
-              >
-                {/* Visualizer — live audio driven */}
-                <div className="flex flex-col gap-3">
-                  <div className="aspect-square md:aspect-[4/3] bg-black overflow-hidden relative">
-                    <Visualizer type={vizType} />
-                  </div>
-                  <VisualizerPicker active={vizType} onChange={setVizType} />
-                </div>
-
-                {/* Platform links */}
-                <div className="flex flex-col gap-3">
-                  {music.spotifyUrl && (
-                    <a
-                      href={music.spotifyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-between p-5 border border-[var(--border)] hover:border-[#1DB954] hover:bg-[#1DB954]/5 transition-all"
-                      data-hover
-                    >
-                      <span className="font-bold tracking-tight">Spotify</span>
-                      <ExternalLink size={16} className="text-[var(--muted)]" />
-                    </a>
-                  )}
-                  {music.appleMusicUrl && (
-                    <a
-                      href={music.appleMusicUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-between p-5 border border-[var(--border)] hover:border-[var(--black)] transition-all"
-                      data-hover
-                    >
-                      <span className="font-bold tracking-tight">Apple Music</span>
-                      <ExternalLink size={16} className="text-[var(--muted)]" />
-                    </a>
-                  )}
-                  {music.youtubeChannelUrl && (
-                    <a
-                      href={music.youtubeChannelUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-between p-5 border border-[var(--border)] hover:border-[#FF0000] hover:bg-[#FF0000]/5 transition-all"
-                      data-hover
-                    >
-                      <span className="font-bold tracking-tight">YouTube</span>
-                      <ExternalLink size={16} className="text-[var(--muted)]" />
-                    </a>
-                  )}
-
-                  {/* Tracks list — wired to MusicPlayerContext */}
-                  {allTracks.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      <p className="t-eyebrow mb-3">Inéditos</p>
-                      {allTracks.map((track) => {
-                        const isActive = currentTrack?.id === track.id;
-                        const showPause = isActive && isPlaying;
-                        return (
-                          <button
-                            key={track.id}
-                            type="button"
-                            onClick={() => {
-                              if (isActive) void playPause();
-                              else selectTrack(track.id);
-                            }}
-                            className={cn(
-                              'w-full flex items-center gap-4 p-3 border transition-colors text-left',
-                              isActive
-                                ? 'border-[var(--accent)] bg-[var(--accent)]/5'
-                                : 'border-[var(--border)] hover:border-[var(--accent)]'
-                            )}
-                            data-hover
-                          >
-                            <div
-                              className="w-9 h-9 flex items-center justify-center flex-shrink-0"
-                              style={{ background: track.accentColor || 'var(--accent)' }}
-                            >
-                              {showPause ? (
-                                <Pause size={14} className="text-white" />
-                              ) : (
-                                <Play size={14} className="text-white" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm truncate">{track.title}</p>
-                              <p className="text-xs text-[var(--muted)] truncate">
-                                {track.category} &middot; {track.artist}
-                              </p>
-                            </div>
-                            {isActive && (
-                              <span className="text-[10px] font-mono tracking-[0.18em] text-[var(--accent)] uppercase">
-                                {isPlaying ? 'Sonando' : 'Pausa'}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Fallback if no URLs configured — show a "próximamente" placeholder
-                      instead of dead href="#" links that lead nowhere. */}
-                  {!music.spotifyUrl && !music.appleMusicUrl && !music.youtubeChannelUrl && (
-                    <div className="p-8 border border-dashed border-[var(--border)] text-center">
-                      <p className="font-bold tracking-tight text-lg mb-1">próximamente</p>
-                      <p className="text-xs text-[var(--muted)] font-mono tracking-[0.14em] uppercase">
-                        estamos subiendo la música a las plataformas
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-
-              {/* Full catalogue from the media table — one card per cancion
-                  with per-track embed / MP3 fallback and category filter. */}
-              <motion.div
-                variants={fadeUp}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-40px' }}
-              >
-                <PublicSongsCatalog />
               </motion.div>
             </div>
           </section>

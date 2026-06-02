@@ -9,6 +9,9 @@ import {
   Product,
   Membership,
   Idea,
+  Encargo,
+  EncargoStatus,
+  EventSummary,
   Media,
   MediaKind,
   Social,
@@ -21,6 +24,12 @@ import {
 // ==========================================
 
 const API_URL = '/api';
+const ADMIN_AUTH_INVALID_EVENT = 'admin-auth-invalid';
+
+const clearInvalidAdminToken = () => {
+  localStorage.removeItem('admin_token');
+  window.dispatchEvent(new Event(ADMIN_AUTH_INVALID_EVENT));
+};
 
 const getHeaders = () => {
   const token = localStorage.getItem('admin_token');
@@ -32,8 +41,8 @@ const getHeaders = () => {
 
 export const api = {
   // Auth
-  getAdminAuthStatus: async (): Promise<AdminAuthStatus> => {
-    const res = await fetch(`${API_URL}/auth/status`);
+  getAdminAuthStatus: async (signal?: AbortSignal): Promise<AdminAuthStatus> => {
+    const res = await fetch(`${API_URL}/auth/status`, { signal });
     if (!res.ok) throw new Error('Failed to fetch auth status');
     return res.json();
   },
@@ -53,6 +62,15 @@ export const api = {
       body: JSON.stringify({ username, password })
     });
     if (!res.ok) throw new Error('Invalid credentials');
+    return res.json();
+  },
+  getCurrentAdmin: async (): Promise<{ ok: boolean; user: { id: string; username: string } }> => {
+    const res = await fetch(`${API_URL}/auth/me`, { headers: getHeaders() });
+    if (res.status === 401) {
+      clearInvalidAdminToken();
+      throw new Error('Tu sesión admin venció. Volvé a iniciar sesión.');
+    }
+    if (!res.ok) throw new Error('Failed to verify admin session');
     return res.json();
   },
   updateAdminCredentials: async (username: string, password: string) => {
@@ -166,6 +184,36 @@ export const api = {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to delete idea');
+  },
+
+  // Encargos / pre-pedidos
+  getEncargos: async (): Promise<Encargo[]> => {
+    const res = await fetch(`${API_URL}/encargos`, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch encargos');
+    return res.json();
+  },
+  updateEncargoStatus: async (id: string, status: EncargoStatus): Promise<Encargo> => {
+    const res = await fetch(`${API_URL}/encargos/${id}/status`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ status })
+    });
+    if (!res.ok) throw new Error('Failed to update encargo status');
+    return res.json();
+  },
+  deleteEncargo: async (id: string): Promise<void> => {
+    const res = await fetch(`${API_URL}/encargos/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to delete encargo');
+  },
+  getEventSummary: async (days = 30): Promise<EventSummary> => {
+    const res = await fetch(`${API_URL}/events/summary?days=${encodeURIComponent(String(days))}`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch event summary');
+    return res.json();
   },
 
   // Memberships
@@ -320,14 +368,18 @@ export const api = {
     title: string,
     campaignId?: string,
     supporterName?: string,
-    message?: string
+    message?: string,
+    email?: string
   ): Promise<CheckoutPreferenceResponse> => {
     const res = await fetch(`${API_URL}/checkout/preference`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount, title, campaignId, supporterName, message })
+      body: JSON.stringify({ amount, title, campaignId, supporterName, message, email })
     });
-    if (!res.ok) throw new Error('Failed to create preference');
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.detail || data?.error || 'Failed to create preference');
+    }
     return res.json();
   },
   // Mercado Pago Preapproval (recurring subscription) — usado por
@@ -337,6 +389,29 @@ export const api = {
   // fila en `subscriptions` (status=pending), llama a MP /preapproval,
   // y devuelve el initPoint al que redirigimos. Cuando el usuario
   // autoriza en MP, el webhook actualiza la subscription a `authorized`.
+  // Pre-pedido de encargos (videos IA / consultoría / proyectos) — el form
+  // en MonetizacionHub (tab A MEDIDA) y el CTA de la card VIDEO IA apuntan
+  // acá. No es una compra: crea una fila `encargos` con status=nuevo y
+  // Santi responde por el canal que dejen. Rate limited y con
+  // honeypot en el backend.
+  createEncargo: async (payload: {
+    name: string;
+    contact: string;
+    brief: string;
+    packageId?: string;
+    referenceUrl?: string;
+  }): Promise<{ ok: true; id: string }> => {
+    const res = await fetch(`${API_URL}/encargos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody?.error || 'No pudimos enviar tu pedido');
+    }
+    return res.json();
+  },
   createSubscription: async (
     membershipId: string,
     email: string
@@ -415,10 +490,49 @@ export const api = {
     const res = await fetch(`${API_URL}/media/${id}`, { method: 'DELETE', headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to delete media');
   },
+  /**
+   * Resuelve la portada de un track a partir de su URL pública
+   * (Spotify/YouTube/Apple Music). Usado desde AdminMedia para autocompletar
+   * `coverImage` cuando el usuario pega un link y el ID3 no trajo APIC.
+   */
+  resolveMediaCover: async (url: string): Promise<{
+    coverUrl: string | null;
+    platform: 'spotify' | 'youtube' | 'apple-music' | 'unknown';
+  }> => {
+    const res = await fetch(`${API_URL}/media/resolve-cover`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) throw new Error('Failed to resolve cover');
+    return res.json();
+  },
+  /**
+   * Recorre todas las canciones sin cover y autocompleta el campo usando la
+   * misma lógica que `resolveMediaCover`. Devuelve el conteo de tracks
+   * actualizadas + las que no pudo resolver.
+   */
+  backfillMediaCovers: async (): Promise<{
+    updated: number;
+    scanned: number;
+    failures: { id: string; title: string; reason: string }[];
+  }> => {
+    const res = await fetch(`${API_URL}/media/backfill-covers`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to backfill covers');
+    return res.json();
+  },
 
   // Socials
   getSocials: async (): Promise<Social[]> => {
     const res = await fetch(`${API_URL}/socials`);
+    if (!res.ok) throw new Error('Failed to fetch socials');
+    return res.json();
+  },
+  getAdminSocials: async (): Promise<Social[]> => {
+    const res = await fetch(`${API_URL}/socials`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch socials');
     return res.json();
   },
@@ -451,7 +565,14 @@ export const api = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form
     });
-    if (!res.ok) throw new Error('Failed to upload file');
+    if (res.status === 401) {
+      clearInvalidAdminToken();
+      throw new Error('Tu sesión admin venció. Volvé a iniciar sesión y subí el archivo otra vez.');
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || err.error || 'Failed to upload file');
+    }
     return res.json();
   },
 

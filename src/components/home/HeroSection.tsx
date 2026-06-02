@@ -3,24 +3,32 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import OrbPlaceholder from './OrbPlaceholder';
 
 /**
- * HeroOrb3D (desktop) = Three.js full: icosahedron subdiv 42, wireframe
- * overlay, 180-point starfield, 4 orbital planets, torus, cassette, vinyl
- * disk, drag physics. Gorgeous, but ~180kb JS + GPU always-on.
+ * HERO CENTERPIECE — cabeza 3D de Santi (Head3D).
  *
- * HeroOrb3DLite (mobile) = Three.js reducido: subdiv 8, sin wireframe, 40
- * partículas, sin orbitals/cassette/vinyl/torus, DPR cap 1.5, pausa RAF
- * cuando no está en viewport. Mantiene interactividad (tap para cyclear
- * paleta, pulse hook). Se siente REAL, no como el placeholder CSS.
+ * Antes acá vivía HeroOrb3D: icosaedro subdivisado + wireframe + starfield +
+ * 4 planets orbitales + torus + cassette + vinyl disk + drag physics. Muy
+ * lindo, pero representaba a cualquiera — podía estar en cualquier sitio
+ * de un diseñador. Lo que faltaba era el dueño del sitio en el centro.
+ *
+ * Ahora el centro es el modelo 3D de Santi (public/models/santi-head.glb,
+ * generado con Meshy AI desde una foto). Gira lento en idle, te sigue con
+ * el mouse. Los cartelitos orbitales (EN VIVO / ARGENTINA / 185K / MÚSICA /
+ * CAFECITOS / COMUNIDAD), el título y el BOOM dot siguen igual.
+ *
+ * Live-strip de stats mockup (Apoyos · mes / Recaudado · ARS / club /
+ * Campañas activas) sacado: eran números inventados y Santi pidió
+ * "no TAN inventados". Si querés traerlos de vuelta con datos reales,
+ * buscar el commit previo o la sección `live-strip` en delirio.css.
+ *
+ * Rollback: si esto no cierra, cambiar `Head3D` → `HeroOrb3D` en el render
+ * de abajo y descomentar el import original. El archivo HeroOrb3D.tsx sigue
+ * on disk intacto, no se borró nada.
  *
  * Si `prefers-reduced-motion` → cae al OrbPlaceholder CSS (accesibilidad).
  */
-const HeroOrb3D = lazy(() => import('./HeroOrb3D'));
-// HeroOrb3DLite queda disponible pero ya no se usa por defecto.
-// Usuario pidió mantener los planets / detalle también en mobile —
-// el Full está optimizado con IO pause + RAF throttle + DPR cap, así
-// que se banca en iPhones modernos. Si volvemos a ver jank en dispositivos
-// bajos, re-activar el Lite detectando `navigator.hardwareConcurrency <= 4`.
-// const HeroOrb3DLite = lazy(() => import('./HeroOrb3DLite'));
+const Head3D = lazy(() => import('@/pages/previewV2/effects/Head3D'));
+// HeroOrb3D queda disponible para rollback — dejado como lazy import comentado.
+// const HeroOrb3D = lazy(() => import('./HeroOrb3D'));
 
 /**
  * Port of the `<section class="hero">` block from delirio.html.
@@ -32,34 +40,10 @@ const HeroOrb3D = lazy(() => import('./HeroOrb3D'));
  *
  * Active pieces of JS ported:
  *   - Live clock (HH:MM, updates every minute)
- *   - Count-up animation for the 4 stat numbers, triggered when the strip
- *     enters the viewport
  *   - Boom-dot pop animation on click
  */
 
-type Stat = {
-  label: string;
-  target: number;
-  prefix?: string;
-  suffix?: string;
-  tint: 'orange' | 'mag' | 'violet' | 'teal';
-};
-
-const STATS: Stat[] = [
-  { label: 'Apoyos · mes', target: 1247, tint: 'orange' },
-  { label: 'Recaudado · ARS', target: 2180, prefix: '$', suffix: 'k', tint: 'mag' },
-  { label: 'Baloskiers', target: 486, tint: 'violet' },
-  { label: 'Campañas activas', target: 7, tint: 'teal' },
-];
-
-const ORBIT_STICKERS = [
-  { cls: 's1', text: 'EN VIVO' },
-  { cls: 's2', text: 'ARGENTINA' },
-  { cls: 's3', text: '176K ✦' },
-  { cls: 's4', text: 'MÚSICA' },
-  { cls: 's5', text: 'CAFECITOS' },
-  { cls: 's6', text: 'COMUNIDAD' },
-];
+const ORBIT_STICKERS: Array<{ cls: string; text: string }> = [];
 
 function useLiveClock(): string {
   const [now, setNow] = useState(() => new Date());
@@ -72,70 +56,19 @@ function useLiveClock(): string {
   return `${h} : ${m}`;
 }
 
-function useCountUp(target: number, start: boolean, durationMs = 1600): number {
-  const [value, setValue] = useState(0);
-  const raf = useRef(0);
-  useEffect(() => {
-    if (!start) return;
-    const t0 = performance.now();
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - t0) / durationMs);
-      // ease-out cubic
-      const eased = 1 - Math.pow(1 - p, 3);
-      setValue(Math.round(target * eased));
-      if (p < 1) raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
-  }, [target, start, durationMs]);
-  return value;
-}
-
-function StatNum({ stat, run }: { stat: Stat; run: boolean }) {
-  const v = useCountUp(stat.target, run);
-  const tintClass = `tint-${stat.tint}`;
-  return (
-    <div className="num">
-      {stat.prefix && <span className={tintClass}>{stat.prefix}</span>}
-      <span className={`count ${tintClass}`}>{v.toLocaleString('es-AR')}</span>
-      {stat.suffix && <span className={tintClass}>{stat.suffix}</span>}
-    </div>
-  );
-}
-
 export default function HeroSection() {
   const clock = useLiveClock();
   const reducedMotion = usePrefersReducedMotion();
-  // Dos modos de orbe:
+  // Dos modos de centro del hero:
   //  · prefers-reduced-motion → OrbPlaceholder (CSS puro, 0 GPU, accesibilidad)
-  //  · default → HeroOrb3D (versión completa con planets / cassette / vinyl).
-  //    El usuario prefiere mantener el detalle visual en mobile — ya está
-  //    optimizado con IntersectionObserver + Page Visibility (pausa RAF
-  //    cuando no se ve) + DPR cap.
+  //  · default → Head3D (cabeza 3D de Santi, gira en idle + tilt al mouse).
+  //    El modelo son 15MB hoy — lazy import así no pega la carga inicial,
+  //    y el Suspense fallback mantiene OrbPlaceholder visible durante la
+  //    descarga para que no haya un hueco negro en el hero.
 
   const dotRef = useRef<HTMLSpanElement | null>(null);
-  const stripRef = useRef<HTMLDivElement | null>(null);
   const stickersRef = useRef<HTMLDivElement | null>(null);
-  const [runCount, setRunCount] = useState(false);
-
-  // Trigger the count-up when the live-strip scrolls into view.
-  useEffect(() => {
-    const el = stripRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            setRunCount(true);
-            io.disconnect();
-          }
-        });
-      },
-      { threshold: 0.3 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  const heroRef = useRef<HTMLElement | null>(null);
 
   /* Orbit RAF — port directo de delirio.html.
    * Los cartelitos (EN VIVO / ARGENTINA / 176K / MÚSICA / CAFECITOS / COMUNIDAD)
@@ -222,6 +155,56 @@ export default function HeroSection() {
     };
   }, [reducedMotion]);
 
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero || reducedMotion || !window.matchMedia('(pointer: fine)').matches) return;
+
+    let raf = 0;
+    let mx = 0.58;
+    let my = 0.42;
+    let tiltX = 0;
+    let tiltY = 0;
+
+    const apply = () => {
+      raf = 0;
+      hero.style.setProperty('--hero-mx', `${Math.round(mx * 100)}%`);
+      hero.style.setProperty('--hero-my', `${Math.round(my * 100)}%`);
+      hero.style.setProperty('--hero-tilt-x', `${tiltX.toFixed(1)}px`);
+      hero.style.setProperty('--hero-tilt-y', `${tiltY.toFixed(1)}px`);
+    };
+
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+
+    const onMove = (event: PointerEvent) => {
+      const rect = hero.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      mx = Math.min(0.92, Math.max(0.08, (event.clientX - rect.left) / rect.width));
+      my = Math.min(0.86, Math.max(0.12, (event.clientY - rect.top) / rect.height));
+      tiltX = (mx - 0.5) * 22;
+      tiltY = (my - 0.5) * 16;
+      schedule();
+    };
+
+    const onLeave = () => {
+      mx = 0.58;
+      my = 0.42;
+      tiltX = 0;
+      tiltY = 0;
+      schedule();
+    };
+
+    hero.addEventListener('pointermove', onMove, { passive: true });
+    hero.addEventListener('pointerleave', onLeave);
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      hero.removeEventListener('pointermove', onMove);
+      hero.removeEventListener('pointerleave', onLeave);
+    };
+  }, [reducedMotion]);
+
   // Boom-dot pop on click — matches the static home's easter-egg dot.
   const popBoomDot = () => {
     const el = dotRef.current;
@@ -233,14 +216,25 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="hero">
+    <section ref={heroRef} className="hero">
       <div className="hero-aura" aria-hidden="true" />
       <div className="hero-canvas-wrap">
         {reducedMotion ? (
           <OrbPlaceholder />
         ) : (
           <Suspense fallback={<OrbPlaceholder />}>
-            <HeroOrb3D />
+            {/* `disableRandomGestures` corta los nods/shakes/glances random
+             * cada 8-15s — Santi los llamó "saltitos" y los pidió fuera.
+             * Queda activo sólo: look-at (seguir mouse), idle swing suave,
+             * respiración, pestañeo, y el big-nod del click. Menos jitter,
+             * más estoico. */}
+            <Head3D
+              disableRandomGestures
+              disableBlink
+              breathAmpScale={0.35}
+              cameraZ={3.15}
+              yOffsetRatio={0.12}
+            />
           </Suspense>
         )}
       </div>
@@ -256,7 +250,7 @@ export default function HeroSection() {
         <div className="hero-inner">
           <div className="hero-top">
             <div className="t-mono" style={{ color: 'var(--muted)' }}>
-              Creator · 176K IG · Buenos Aires
+              Edición IA · 185K IG · Buenos Aires
             </div>
             <div className="t-mono" style={{ color: 'var(--muted)' }}>
               {clock}
@@ -265,13 +259,17 @@ export default function HeroSection() {
 
           <h1 className="hero-title">
             <span className="line">
-              <span data-split>lo que hago,</span>
+              <span data-split>edición IA,</span>
+            </span>
+            <span className="line line--together">
+              <span data-split>
+                con <em className="morph">mirada</em>
+              </span>
             </span>
             <span className="line">
               <span data-split>
-                lo <em className="morph">hacemos</em>{' '}
                 <span className="word-last">
-                  juntos
+                  propia
                   <span
                     ref={dotRef}
                     className="boom-dot"
@@ -287,30 +285,18 @@ export default function HeroSection() {
           </h1>
 
           <div className="hero-bottom">
-            <p className="hero-sub">
-              Una plataforma abierta para sostener lo que creo. Cafecitos, encargos, proyectos,
-              membresías. <b>Donde termina el feed, empezamos nosotros.</b>
-            </p>
             <div className="cta-row">
-              <a className="cta cta-primary" href="/#apoya" data-cursor="APORTAR">
-                <span>Apoyar ahora</span>
-                <span className="arr">→</span>
-              </a>
-              <a className="cta cta-ghost" href="/#mira" data-cursor="MIRAR">
-                <span>Mirá el último</span>
+              <a className="cta cta-primary cta-lab" href="/#trabajemos" data-cursor="BRIEF">
+                <span>Presupuestame esto!</span>
                 <span className="arr">↗</span>
+              </a>
+              <a className="cta cta-ghost" href="/cafecito" data-cursor="CAFECITO">
+                <span>Cafecito</span>
+                <span className="arr">→</span>
               </a>
             </div>
           </div>
 
-          <div className="live-strip" ref={stripRef}>
-            {STATS.map((s) => (
-              <div key={s.label} className="stat">
-                <StatNum stat={s} run={runCount} />
-                <div className="lbl">{s.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </section>

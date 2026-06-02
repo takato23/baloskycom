@@ -73,7 +73,7 @@ export const AGENDA_PUBLICA_CONTENT = {
   studyIntro: {
     title: 'De qué va',
     body:
-      'Mira qué temas se llevaron la atención pública en Argentina y en el mundo entre 2019 y 2026.',
+      'Mirá qué temas se llevaron la atención en Argentina y en el mundo entre 2019 y 2026.',
   },
   studyFinding: {
     title: 'Qué encontró',
@@ -145,7 +145,7 @@ export const AGENDA_PUBLICA_CONTENT = {
       {
         title: 'Exploración',
         body:
-          'De acá salen preguntas.',
+          'Acá te ponés a hurgar y salen preguntas.',
       },
       {
         title: 'Conversación',

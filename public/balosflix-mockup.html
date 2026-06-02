@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Balosflix / BTV — Mockup</title>
+  <meta name="description" content="Mockup editorial de Balosflix/BTV para ordenar reels, universos, encargos y apoyo directo." />
+  <style>
+    :root {
+      --ink: #f6f0e8;
+      --paper: #070707;
+      --muted: rgba(246, 240, 232, 0.66);
+      --soft: rgba(246, 240, 232, 0.12);
+      --line: rgba(246, 240, 232, 0.18);
+      --hot: #fa5d29;
+      --aqua: #18d2c4;
+      --acid: #d7ff4d;
+      --deep: #111111;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -3;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 74% 18%, rgba(250, 93, 41, 0.24), transparent 28vw),
+        radial-gradient(circle at 8% 78%, rgba(24, 210, 196, 0.16), transparent 34vw),
+        linear-gradient(180deg, #060606 0%, #101010 42%, #080808 100%);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0.16;
+      mix-blend-mode: screen;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 3px),
+        radial-gradient(circle, transparent 0 42%, rgba(255,255,255,0.08) 43% 44%, transparent 45%);
+      background-size: auto, 3px 3px;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img, video { display: block; max-width: 100%; }
+
+    .mock-shell {
+      width: min(1760px, 100%);
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 24px;
+      padding: 16px clamp(16px, 3vw, 44px);
+      background: linear-gradient(180deg, rgba(0,0,0,0.86), rgba(0,0,0,0.2) 72%, transparent);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: max-content;
+      font-weight: 950;
+      text-transform: uppercase;
+      font-size: clamp(18px, 2vw, 28px);
+      line-height: 0.9;
+    }
+
+    .brand-mark {
+      width: 14px;
+      height: 14px;
+      background: var(--hot);
+      box-shadow: 0 0 0 4px rgba(250, 93, 41, 0.18), 0 0 32px rgba(250, 93, 41, 0.72);
+      transform: rotate(45deg);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: rgba(246, 240, 232, 0.72);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .nav a {
+      padding: 10px 2px;
+      border-bottom: 1px solid transparent;
+      transition: color .2s ease, border-color .2s ease;
+    }
+
+    .nav a:hover { color: var(--ink); border-color: var(--hot); }
+
+    .top-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1px solid rgba(246, 240, 232, 0.28);
+      border-radius: 999px;
+      color: var(--ink);
+      background: rgba(246, 240, 232, 0.08);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      transition: transform .2s ease, background .2s ease, color .2s ease, border-color .2s ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover { transform: translateY(-2px); border-color: var(--ink); background: rgba(246, 240, 232, 0.16); }
+    .btn.primary { color: #060606; background: var(--hot); border-color: var(--hot); }
+    .btn.primary:hover { background: var(--ink); border-color: var(--ink); }
+    .btn.aqua { color: #06110f; background: var(--aqua); border-color: var(--aqua); }
+
+    .hero {
+      min-height: 100svh;
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 0.72fr);
+      align-items: end;
+      gap: clamp(24px, 4vw, 72px);
+      padding: clamp(108px, 11vh, 160px) clamp(18px, 4vw, 68px) 54px;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-media {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      opacity: 0.64;
+    }
+
+    .hero-media video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: saturate(0.82) contrast(1.16) brightness(0.64);
+      transform: scale(1.04);
+    }
+
+    .hero-vignette {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background:
+        linear-gradient(90deg, rgba(7,7,7,0.98) 0%, rgba(7,7,7,0.74) 32%, rgba(7,7,7,0.34) 62%, rgba(7,7,7,0.9) 100%),
+        linear-gradient(0deg, rgba(7,7,7,1) 0%, transparent 38%, rgba(7,7,7,0.38) 100%);
+    }
+
+    .hero-kicker {
+      margin: 0 0 16px;
+      color: var(--aqua);
+      font-size: 13px;
+      font-weight: 950;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 920px;
+      font-size: clamp(58px, 9.6vw, 156px);
+      line-height: 0.79;
+      font-weight: 1000;
+      letter-spacing: -0.055em;
+      text-transform: uppercase;
+      text-wrap: balance;
+    }
+
+    .hero-copy {
+      max-width: 620px;
+      margin: 24px 0 0;
+      color: rgba(246, 240, 232, 0.78);
+      font-size: clamp(18px, 2vw, 26px);
+      line-height: 1.18;
+      font-weight: 650;
+    }
+
+    .hero-ctas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .signal-panel {
+      justify-self: end;
+      width: min(460px, 100%);
+      padding: 22px;
+      background: rgba(7, 7, 7, 0.54);
+      border: 1px solid rgba(246, 240, 232, 0.24);
+      backdrop-filter: blur(24px);
+      box-shadow: 0 26px 80px rgba(0,0,0,0.32);
+    }
+
+    .signal-panel h2 {
+      margin: 0 0 18px;
+      font-size: 14px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(246, 240, 232, 0.72);
+    }
+
+    .episode-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .episode-link {
+      display: grid;
+      grid-template-columns: 82px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(246, 240, 232, 0.12);
+    }
+
+    .episode-link:last-child { border-bottom: 0; padding-bottom: 0; }
+
+    .episode-thumb {
+      aspect-ratio: 16 / 10;
+      overflow: hidden;
+      background: #222;
+    }
+
+    .episode-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .episode-link strong { display: block; font-size: 16px; line-height: 1.02; }
+    .episode-link span { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.25; }
+
+    section {
+      padding: clamp(62px, 9vw, 136px) clamp(18px, 4vw, 68px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(280px, 0.48fr);
+      gap: clamp(24px, 6vw, 92px);
+      align-items: end;
+      margin-bottom: clamp(28px, 5vw, 62px);
+    }
+
+    .eyebrow {
+      margin: 0 0 14px;
+      color: var(--hot);
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    h2.section-title {
+      margin: 0;
+      max-width: 980px;
+      font-size: clamp(44px, 8vw, 132px);
+      line-height: 0.86;
+      letter-spacing: -0.05em;
+      text-transform: uppercase;
+      text-wrap: balance;
+    }
+
+    .section-copy {
+      margin: 0;
+      color: rgba(246, 240, 232, 0.68);
+      font-size: clamp(17px, 1.4vw, 22px);
+      line-height: 1.35;
+    }
+
+    .universe-track {
+      display: grid;
+      grid-template-columns: 1.25fr 0.9fr 0.9fr;
+      gap: clamp(14px, 2vw, 24px);
+    }
+
+    .universe {
+      min-height: clamp(420px, 48vw, 720px);
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      overflow: hidden;
+      isolation: isolate;
+      background: #141414;
+      border: 1px solid rgba(246, 240, 232, 0.12);
+    }
+
+    .universe:nth-child(2),
+    .universe:nth-child(3) { min-height: clamp(340px, 40vw, 560px); }
+
+    .universe img,
+    .universe video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -2;
+      filter: saturate(0.9) contrast(1.08) brightness(0.78);
+      transition: transform .6s ease, filter .6s ease;
+    }
+
+    .universe:hover img,
+    .universe:hover video {
+      transform: scale(1.045);
+      filter: saturate(1.05) contrast(1.14) brightness(0.9);
+    }
+
+    .universe::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background: linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.86) 72%, rgba(0,0,0,0.98));
+    }
+
+    .universe-body {
+      width: 100%;
+      padding: clamp(18px, 3vw, 34px);
+    }
+
+    .tag {
+      display: inline-flex;
+      width: max-content;
+      margin-bottom: 12px;
+      padding: 7px 9px;
+      color: #080808;
+      background: var(--acid);
+      font-size: 11px;
+      font-weight: 950;
+      line-height: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .universe h3 {
+      margin: 0;
+      font-size: clamp(32px, 4.2vw, 82px);
+      line-height: 0.86;
+      letter-spacing: -0.045em;
+      text-transform: uppercase;
+      text-wrap: balance;
+    }
+
+    .universe p {
+      max-width: 520px;
+      margin: 14px 0 22px;
+      color: rgba(246, 240, 232, 0.78);
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    .inline-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .ritual {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.62fr) minmax(0, 1fr);
+      gap: clamp(20px, 5vw, 80px);
+      align-items: start;
+    }
+
+    .ritual-list {
+      display: grid;
+      border-top: 1px solid var(--line);
+    }
+
+    .ritual-item {
+      display: grid;
+      grid-template-columns: 130px minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: center;
+      min-height: 124px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .ritual-item .num {
+      color: rgba(246, 240, 232, 0.38);
+      font-size: 13px;
+      font-weight: 950;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .ritual-item h3 {
+      margin: 0 0 8px;
+      font-size: clamp(24px, 3vw, 48px);
+      line-height: 0.95;
+      letter-spacing: -0.035em;
+      text-transform: uppercase;
+    }
+
+    .ritual-item p {
+      margin: 0;
+      max-width: 620px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .ritual-item .price {
+      min-width: 120px;
+      color: var(--aqua);
+      font-weight: 950;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .lab-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: clamp(18px, 3vw, 36px);
+      align-items: stretch;
+    }
+
+    .lab-media {
+      min-height: 580px;
+      position: sticky;
+      top: 86px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #131313;
+    }
+
+    .lab-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: saturate(0.88) contrast(1.08);
+    }
+
+    .lab-notes {
+      display: grid;
+      align-content: center;
+      gap: 14px;
+    }
+
+    .note {
+      padding: 22px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .note:first-child { border-top: 1px solid var(--line); }
+    .note b {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--aqua);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .note p {
+      margin: 0;
+      max-width: 640px;
+      font-size: clamp(22px, 3vw, 42px);
+      line-height: 1.03;
+      letter-spacing: -0.035em;
+      font-weight: 850;
+      text-wrap: balance;
+    }
+
+    .final-cta {
+      min-height: 72svh;
+      display: grid;
+      align-items: end;
+      background:
+        linear-gradient(180deg, rgba(7,7,7,0.55), rgba(7,7,7,0.98)),
+        url("/uploads/thumbs/balosky-portrait-frente.png") center 18% / min(780px, 82vw) auto no-repeat;
+    }
+
+    .final-cta h2 {
+      margin: 0;
+      max-width: 1120px;
+      font-size: clamp(54px, 11vw, 184px);
+      line-height: 0.78;
+      letter-spacing: -0.055em;
+      text-transform: uppercase;
+    }
+
+    .final-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      margin-top: 28px;
+    }
+
+    .cafecito-sticker {
+      position: fixed;
+      right: clamp(14px, 2.6vw, 32px);
+      bottom: clamp(14px, 2.6vw, 32px);
+      z-index: 11;
+      width: 116px;
+      height: 116px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--hot);
+      color: #070707;
+      border: 2px solid #070707;
+      box-shadow: 0 18px 42px rgba(0,0,0,0.45), 0 0 0 8px rgba(250,93,41,0.18);
+      font-weight: 1000;
+      text-transform: uppercase;
+      text-align: center;
+      line-height: 0.9;
+      transform: rotate(-8deg);
+      transition: transform .2s ease;
+    }
+
+    .cafecito-sticker:hover { transform: rotate(-3deg) scale(1.06); }
+
+    .mock-note {
+      position: fixed;
+      left: 16px;
+      bottom: 16px;
+      z-index: 12;
+      max-width: 320px;
+      padding: 10px 12px;
+      color: rgba(246, 240, 232, 0.76);
+      background: rgba(0,0,0,0.62);
+      border: 1px solid rgba(246, 240, 232, 0.16);
+      font-size: 11px;
+      line-height: 1.3;
+      backdrop-filter: blur(14px);
+    }
+
+    @media (max-width: 920px) {
+      .topbar {
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+      }
+
+      .nav { display: none; }
+      .top-actions .btn:not(.primary) { display: none; }
+
+      .hero {
+        min-height: 96svh;
+        grid-template-columns: 1fr;
+        align-content: end;
+        gap: 24px;
+        padding: 104px 16px 34px;
+      }
+
+      .hero-vignette {
+        background:
+          linear-gradient(180deg, rgba(7,7,7,0.72), rgba(7,7,7,0.26) 34%, rgba(7,7,7,0.98) 82%),
+          linear-gradient(90deg, rgba(7,7,7,0.88), rgba(7,7,7,0.22));
+      }
+
+      .signal-panel {
+        justify-self: stretch;
+        width: 100%;
+        padding: 16px;
+      }
+
+      .episode-list { grid-template-columns: 1fr; }
+      .episode-link { grid-template-columns: 72px 1fr; }
+
+      section { padding: 58px 16px; }
+      .section-head { grid-template-columns: 1fr; align-items: start; }
+      .universe-track { grid-template-columns: 1fr; }
+      .universe,
+      .universe:nth-child(2),
+      .universe:nth-child(3) { min-height: 420px; }
+
+      .ritual { grid-template-columns: 1fr; }
+      .ritual-item {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        min-height: 0;
+        padding: 22px 0;
+      }
+      .ritual-item .price { text-align: left; }
+
+      .lab-grid { grid-template-columns: 1fr; }
+      .lab-media {
+        position: relative;
+        top: auto;
+        min-height: 420px;
+      }
+
+      .final-cta {
+        min-height: 78svh;
+        background-size: 94vw auto;
+        background-position: center 14%;
+      }
+
+      .cafecito-sticker {
+        width: 94px;
+        height: 94px;
+        right: 12px;
+        bottom: 12px;
+        font-size: 13px;
+      }
+
+      .mock-note { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="mock-shell">
+    <header class="topbar" aria-label="Navegación Balosflix">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Balosflix</span>
+      </a>
+      <nav class="nav" aria-label="Secciones">
+        <a href="#universos">Universos</a>
+        <a href="#encargos">Encargos</a>
+        <a href="#laboratorio">Laboratorio</a>
+        <a href="#apoyar">Apoyar</a>
+      </nav>
+      <div class="top-actions">
+        <a class="btn" href="/delirio.html">Sitio actual</a>
+        <a class="btn primary" href="/cafecito">Cafecito</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="top">
+        <div class="hero-media" aria-hidden="true">
+          <video src="/uploads/videos/balosky-molinete-conurbano.web.mp4" autoplay muted loop playsinline poster="/uploads/thumbs/balosky-hero-loop-first.png"></video>
+        </div>
+        <div class="hero-vignette" aria-hidden="true"></div>
+
+        <div>
+          <p class="hero-kicker">BTV · IA · sketch · música · caos argentino</p>
+          <h1>Donde el reel se vuelve universo.</h1>
+          <p class="hero-copy">Catálogo vivo de series falsas, canciones reales, videos con IA y delirios financiados por gente que quiere ver el próximo capítulo.</p>
+          <div class="hero-ctas">
+            <a class="btn primary" href="#universos">Ver universos</a>
+            <a class="btn aqua" href="/#prepedido-custom">Pedime algo con IA</a>
+            <a class="btn" href="/cafecito">Financiar próximo episodio</a>
+          </div>
+        </div>
+
+        <aside class="signal-panel" aria-label="En emisión">
+          <h2>En emisión</h2>
+          <div class="episode-list">
+            <a class="episode-link" href="#universos">
+              <span class="episode-thumb"><img src="/images/home-editorial/lab-poster-h.jpg" alt="" /></span>
+              <span><strong>Mi vecino es libertario</strong><span>Capítulo 1 · sitcom política de realidad alternativa.</span></span>
+            </a>
+            <a class="episode-link" href="#laboratorio">
+              <span class="episode-thumb"><img src="/uploads/thumbs/balosky-hero-open-last-frame.png" alt="" /></span>
+              <span><strong>Los presos y yo</strong><span>Universo recurrente para episodios, canciones y escenas descartadas.</span></span>
+            </a>
+            <a class="episode-link" href="/#prepedido-custom">
+              <span class="episode-thumb"><img src="/images/home-editorial/ojo-poster-h.jpg" alt="" /></span>
+              <span><strong>Haceme uno así</strong><span>Encargos: video, canción, sketch, promo o idea rara.</span></span>
+            </a>
+          </div>
+        </aside>
+      </section>
+
+      <section id="universos">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Catálogo BTV</p>
+            <h2 class="section-title">Series, fakes y sagas del feed.</h2>
+          </div>
+          <p class="section-copy">La idea no es esconder el contenido en categorías frías: cada reel importante se vuelve una puerta a un mundo, con episodios, making-of y una forma directa de bancarlo.</p>
+        </div>
+
+        <div class="universe-track">
+          <article class="universe">
+            <video src="/uploads/videos/balosky-hero-ideas.mp4" autoplay muted loop playsinline poster="/images/home-editorial/lab-poster-v.jpg"></video>
+            <div class="universe-body">
+              <span class="tag">Serie abierta</span>
+              <h3>Una condena poco firme.</h3>
+              <p>Capítulos, escenas casi post-créditos, personajes recurrentes y encuesta para elegir qué sigue.</p>
+              <div class="inline-actions">
+                <a class="btn primary" href="/cafecito">Apoyar cap. 2</a>
+                <a class="btn" href="/laboratorio">Making-of</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="universe">
+            <img src="/uploads/thumbs/balosky-portrait-frente-depth.png" alt="" />
+            <div class="universe-body">
+              <span class="tag">IA lab</span>
+              <h3>Balosky multiverse.</h3>
+              <p>Transformaciones, posters, videos IA y pruebas que nacen del feed.</p>
+              <div class="inline-actions">
+                <a class="btn" href="/#prepedido-custom">Pedime uno</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="universe">
+            <img src="/images/home-editorial/ojo-poster-v.jpg" alt="" />
+            <div class="universe-body">
+              <span class="tag">Archivo visual</span>
+              <h3>Fotobalosky.</h3>
+              <p>El costado foto/video: San Martín, Pergamino, calle, wallpapers y material para bajar.</p>
+              <div class="inline-actions">
+                <a class="btn" href="/#ojo">Ver ojo</a>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="encargos">
+        <div class="ritual">
+          <div>
+            <p class="eyebrow">Monetización simple</p>
+            <h2 class="section-title">Del DM al pre-pedido sin fricción.</h2>
+          </div>
+
+          <div class="ritual-list">
+            <a class="ritual-item" href="/cafecito">
+              <span class="num">01 · apoyo</span>
+              <span>
+                <h3>Cafecito con destino.</h3>
+                <p>“Bancá el próximo episodio” vive en cada universo, no solo como botón suelto.</p>
+              </span>
+              <span class="price">$1.000+</span>
+            </a>
+            <a class="ritual-item" href="/#prepedido-custom">
+              <span class="num">02 · pedido</span>
+              <span>
+                <h3>Video / canción / sketch IA.</h3>
+                <p>Un formulario corto reemplaza el ida y vuelta eterno: idea, referencia, fecha y mail.</p>
+              </span>
+              <span class="price">a cotizar</span>
+            </a>
+            <a class="ritual-item" href="/#prepedido-consultoria">
+              <span class="num">03 · collab</span>
+              <span>
+                <h3>Marca, artista o proyecto.</h3>
+                <p>Brief premium para trabajos más grandes: concepto, entrega, derechos y contacto.</p>
+              </span>
+              <span class="price">a cotizar</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="laboratorio">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">IA / making-of</p>
+            <h2 class="section-title">La cocina también es contenido.</h2>
+          </div>
+          <p class="section-copy">Tus reels ya muestran que a la gente le interesa cómo se fabrican estos mundos. Acá el proceso se vuelve sección: herramientas, prompts, referencias y versiones completas.</p>
+        </div>
+
+        <div class="lab-grid">
+          <figure class="lab-media">
+            <img src="/uploads/IMG_8874.PNG" alt="Mockup visual del laboratorio Balosky" />
+          </figure>
+          <div class="lab-notes">
+            <div class="note">
+              <b>01 · antes / después</b>
+              <p>Mostrar qué salió de cámara, qué inventó la IA y qué quedó en montaje.</p>
+            </div>
+            <div class="note">
+              <b>02 · prompt / storyboard</b>
+              <p>Que el proceso parezca parte del show, no una explicación técnica aburrida.</p>
+            </div>
+            <div class="note">
+              <b>03 · versión completa</b>
+              <p>Enviar a YouTube, Suno o una descarga privada cuando el contenido sea pago.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="final-cta" id="apoyar">
+        <div>
+          <p class="eyebrow">Próximo episodio</p>
+          <h2>Si te reíste, produciste un poco.</h2>
+          <div class="final-row">
+            <a class="btn primary" href="/cafecito">Comprame un cafecito</a>
+            <a class="btn aqua" href="/#prepedido-custom">Mandar una idea</a>
+            <a class="btn" href="/delirio.html">Volver al sitio actual</a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <a class="cafecito-sticker" href="/cafecito" aria-label="Comprame un cafecito">Café<br />para<br />cap. 2</a>
+  <div class="mock-note">Mockup aislado. No reemplaza la home: muestra una posible capa Balosflix/BTV encima de lo que ya existe.</div>
+</body>
+</html>

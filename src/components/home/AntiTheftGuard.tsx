@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
  * any opt-in `.no-steal`). Blocks right-click, drag, copy, text selection,
  * and Ctrl/Cmd+S/P/U inside those zones. PrintScreen can't be blocked, so
  * we just flash the toast on keyup. Not anti-forensic — purely social
- * friction to nudge people toward the apoyá CTA.
+ * friction to nudge people toward the cafecito CTA.
  *
  * Renders the toast itself so we don't depend on extra DOM in HomePreview.
  */
@@ -113,10 +113,10 @@ export default function AntiTheftGuard() {
       <div className="steal-toast__body">
         psst. las fotos son <strong>de balosky</strong>.
         <br />
-        si te re-gustó una, <strong>apoyá</strong> y llevate la original en alta.
+        si te re-gustó una, <strong>cafecito</strong> y seguimos haciendo archivo.
       </div>
-      <a className="steal-toast__cta" href="#apoya" data-cursor="APOYAR">
-        apoyar →
+      <a className="steal-toast__cta" href="/cafecito" data-cursor="CAFECITO">
+        cafecito →
       </a>
     </div>
   );

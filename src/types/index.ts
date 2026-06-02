@@ -55,6 +55,50 @@ export interface Idea {
   createdAt: string;
 }
 
+export type EncargoStatus = 'nuevo' | 'respondido' | 'cotizado' | 'ganado' | 'perdido';
+
+export interface Encargo {
+  id: string;
+  name: string;
+  contact: string;
+  packageId: string;
+  brief: string;
+  referenceUrl?: string | null;
+  status: EncargoStatus;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface EventSummary {
+  days: number;
+  counts: Record<string, number>;
+  topPaths: Array<{
+    path: string;
+    count: number;
+  }>;
+  recentEvents: Array<{
+    id: string;
+    eventName: string;
+    path?: string | null;
+    target?: string | null;
+    metadata?: Record<string, string | number | boolean>;
+    createdAt: string;
+  }>;
+  encargo: {
+    starts: number;
+    created: number;
+    conversionRate: number;
+  };
+  recentEncargoEvents: Array<{
+    id: string;
+    eventName: 'encargo_start' | 'encargo_created';
+    path?: string | null;
+    target?: string | null;
+    metadata?: Record<string, string | number | boolean>;
+    createdAt: string;
+  }>;
+}
+
 export interface Membership {
   id: string;
   name: string;
@@ -101,6 +145,13 @@ export interface SiteSettings {
   visibleSections: string[];
   highlightedCampaignId?: string;
   supportAmountsSuggested: number[];
+  cafecito: {
+    amount: number;
+    mercadoPagoLink?: string;
+    paypalLink?: string;
+    paypalCurrency?: string;
+    paypalUnitAmount?: number;
+  };
   legalText: string;
   content: PublicContentSettings;
   discordWebhookUrl?: string;
@@ -386,8 +437,8 @@ export interface Webhook {
   active: boolean;
 }
 
-// ===== MEDIA (video_ia, foto, wallpaper, cancion) =====
-export type MediaKind = 'video_ia' | 'foto' | 'wallpaper' | 'cancion';
+// ===== MEDIA (video_ia, foto, wallpaper, cancion, panorama_360) =====
+export type MediaKind = 'video_ia' | 'foto' | 'wallpaper' | 'cancion' | 'panorama_360';
 
 export interface Media {
   id: string;
@@ -418,6 +469,8 @@ export interface Media {
    * laboratorio page for transparency. Optional.
    */
   aiPrompt?: string | null;
+  /** Images/references used to build a video_ia piece. Shown as an asset wall in Laboratorio. */
+  assetUrls?: string[];
   /**
    * Aspect ratio hint for the laboratorio grid. When all visible items share
    * one ratio the grid uses it; when mixed, the grid falls back to 1:1 so
@@ -479,4 +532,5 @@ export interface UploadResult {
   filename: string;
   mimetype: string;
   size: number;
+  storage?: 'r2' | 'supabase' | 'blob' | 'local';
 }

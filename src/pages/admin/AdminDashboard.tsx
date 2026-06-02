@@ -1,8 +1,155 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Check, X, Eye, EyeOff, Wand2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  ArrowUpRight,
+  Check,
+  Copy,
+  Edit2,
+  Eye,
+  EyeOff,
+  Film,
+  Image,
+  Lightbulb,
+  MessageSquare,
+  Music,
+  Package,
+  Plus,
+  Settings,
+  Sparkles,
+  Target,
+  Trash2,
+  Users,
+  Wand2,
+  X,
+} from 'lucide-react';
 import { api } from '@/services/api';
-import { Campaign, SupporterMessage, Product, Membership, Idea } from '@/types';
+import { Campaign, SupporterMessage, Product, Membership, Idea, Encargo, EncargoStatus, EventSummary } from '@/types';
 import { Modal } from '@/components/Modal';
+
+const panelClass = 'rounded-[24px] border border-white/10 bg-zinc-950/70 p-4 shadow-[0_18px_70px_rgba(0,0,0,0.22)] sm:p-5';
+const listItemClass = 'rounded-[22px] border border-white/10 bg-zinc-950/70 p-4 transition-colors hover:border-white/18 sm:p-5';
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black !text-zinc-950 transition-colors hover:bg-zinc-200';
+const iconButtonClass = 'grid min-h-11 min-w-11 place-items-center rounded-2xl border border-white/10 bg-zinc-900 text-zinc-400 transition-colors hover:border-white/20 hover:text-white';
+
+function AdminSectionHeader({
+  eyebrow,
+  title,
+  copy,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  copy?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-zinc-500">{eyebrow}</p>
+        <h2 className="mt-1 text-3xl font-black tracking-[-0.07em] text-white sm:text-5xl">{title}</h2>
+        {copy && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">{copy}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+}) {
+  return (
+    <div className={panelClass}>
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">{label}</p>
+      <p className="mt-3 text-4xl font-black tracking-[-0.07em] text-white sm:text-5xl">{value}</p>
+      {detail && <p className="mt-2 text-xs font-medium text-zinc-500">{detail}</p>}
+    </div>
+  );
+}
+
+function QuickAction({
+  to,
+  icon: Icon,
+  label,
+  detail,
+}: {
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  detail: string;
+}) {
+  return (
+    <Link to={to} className="group flex min-h-24 items-center gap-3 rounded-[22px] border border-white/10 bg-zinc-950/70 p-4 transition-colors hover:border-cyan-300/50 hover:bg-zinc-900">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white !text-zinc-950">
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black text-white">{label}</span>
+        <span className="mt-1 block text-xs leading-snug text-zinc-500">{detail}</span>
+      </span>
+      <ArrowUpRight className="h-4 w-4 shrink-0 text-zinc-600 transition-colors group-hover:text-cyan-300" />
+    </Link>
+  );
+}
+
+const encargoStatuses: EncargoStatus[] = ['nuevo', 'respondido', 'cotizado', 'ganado', 'perdido'];
+
+const encargoStatusMeta: Record<EncargoStatus, { label: string; className: string }> = {
+  nuevo: { label: 'Nuevo', className: 'bg-orange-500/15 text-orange-300 border-orange-400/20' },
+  respondido: { label: 'Respondido', className: 'bg-sky-500/15 text-sky-300 border-sky-400/20' },
+  cotizado: { label: 'Cotizado', className: 'bg-violet-500/15 text-violet-300 border-violet-400/20' },
+  ganado: { label: 'Ganado', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/20' },
+  perdido: { label: 'Perdido', className: 'bg-zinc-700/50 text-zinc-300 border-white/10' },
+};
+
+const encargoPackageLabel: Record<string, string> = {
+  reel: 'Reel 15s',
+  spot: 'Spot 30s',
+  historia: 'Historia narrativa',
+  consultoria: 'Consultoría IA',
+  serie: 'Serie de videos',
+  web: 'Web / webapp',
+  proyecto: 'Proyecto grande',
+  custom: 'Idea rara',
+};
+
+const analyticsEventLabel: Record<string, { label: string; detail: string }> = {
+  page_view: { label: 'Visitas', detail: 'Páginas públicas vistas' },
+  cta_click: { label: 'CTAs', detail: 'Clicks hacia secciones internas' },
+  checkout_start: { label: 'Checkout iniciado', detail: 'Clicks o botones de pago' },
+  checkout_created: { label: 'Link de pago creado', detail: 'Salida real a MP/PayPal' },
+  social_click: { label: 'Redes', detail: 'Clicks a redes externas' },
+  media_open: { label: 'Media', detail: 'Videos, fotos, canciones o descargas abiertas' },
+  encargo_start: { label: 'Pre-pedido abierto', detail: 'Formulario de encargo abierto' },
+  encargo_created: { label: 'Pre-pedido enviado', detail: 'Lead de encargo creado' },
+};
+
+const analyticsEventOrder = [
+  'page_view',
+  'checkout_start',
+  'checkout_created',
+  'cta_click',
+  'social_click',
+  'media_open',
+  'encargo_start',
+  'encargo_created',
+];
+
+const eventLabel = (eventName: string) => analyticsEventLabel[eventName]?.label || eventName.replace(/_/g, ' ');
+
+function contactHref(contact: string) {
+  const raw = contact.trim();
+  if (!raw) return '';
+  if (raw.includes('@') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return `mailto:${raw}`;
+  const ig = raw.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/\/$/, '');
+  if (/^[a-zA-Z0-9._]{2,30}$/.test(ig)) return `https://ig.me/m/${ig}`;
+  return '';
+}
 
 export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab?: string }) {
   const [activeTab, setActiveTab] = useState(defaultTab);
@@ -11,6 +158,8 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
   const [products, setProducts] = useState<Product[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [encargos, setEncargos] = useState<Encargo[]>([]);
+  const [eventSummary, setEventSummary] = useState<EventSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal states
@@ -36,19 +185,29 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
 
   useEffect(() => {
     const fetchData = async () => {
+      const readResult = <T,>(result: PromiseSettledResult<T>, fallback: T, label: string): T => {
+        if (result.status === 'fulfilled') return result.value;
+        console.error(`Error fetching admin ${label}:`, result.reason);
+        return fallback;
+      };
+
       try {
-        const [c, m, p, mem, i] = await Promise.all([
+        const [c, m, p, mem, i, e, events] = await Promise.allSettled([
           api.getCampaigns(),
           api.getMessages(),
           api.getProducts(),
           api.getMemberships(),
-          api.getIdeas()
+          api.getIdeas(),
+          api.getEncargos(),
+          api.getEventSummary(30),
         ]);
-        setCampaigns(c);
-        setMessages(m);
-        setProducts(p);
-        setMemberships(mem);
-        setIdeas(i);
+        setCampaigns(readResult(c, [], 'campaigns'));
+        setMessages(readResult(m, [], 'messages'));
+        setProducts(readResult(p, [], 'products'));
+        setMemberships(readResult(mem, [], 'memberships'));
+        setIdeas(readResult(i, [], 'ideas'));
+        setEncargos(readResult(e, [], 'encargos'));
+        setEventSummary(readResult(events, null, 'event summary'));
       } catch (error) {
         console.error('Error fetching admin data:', error);
       } finally {
@@ -213,59 +372,274 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
     }
   };
 
+  const handleUpdateEncargoStatus = async (id: string, status: EncargoStatus) => {
+    try {
+      const updated = await api.updateEncargoStatus(id, status);
+      setEncargos(encargos.map((encargo) => (encargo.id === id ? updated : encargo)));
+    } catch (error) {
+      console.error('Error updating encargo status:', error);
+    }
+  };
+
+  const handleDeleteEncargo = async (id: string) => {
+    if (window.confirm('¿Eliminar este pre-pedido?')) {
+      try {
+        await api.deleteEncargo(id);
+        setEncargos(encargos.filter((encargo) => encargo.id !== id));
+      } catch (error) {
+        console.error('Error deleting encargo:', error);
+      }
+    }
+  };
+
+  const copyContact = async (contact: string) => {
+    try {
+      await navigator.clipboard.writeText(contact);
+    } catch {
+      window.prompt('Copiar contacto', contact);
+    }
+  };
+
   if (isLoading) {
-    return <div className="text-white">Cargando...</div>;
+    return (
+      <div className="grid min-h-[40vh] place-items-center rounded-[28px] border border-white/10 bg-zinc-950/70 text-sm font-bold text-zinc-500">
+        Cargando admin...
+      </div>
+    );
   }
 
   return (
     <div className="space-y-8">
       {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <h2 className="text-2xl font-display font-bold text-white">Resumen</h2>
-          <p className="text-sm text-zinc-400 max-w-3xl">
-            Usá este panel para manejar campañas, productos, membresías, mensajes y la configuración pública del sitio.
-            El acceso admin ahora se configura aparte y ya no se mezcla con una sección falsa de usuarios.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-              <h3 className="text-zinc-400 font-medium mb-2">Recaudación Total</h3>
-              <p className="text-3xl font-bold text-white">
-                ${campaigns.reduce((sum, c) => sum + c.currentAmount, 0).toLocaleString()}
-              </p>
+        <div className="space-y-5">
+          <AdminSectionHeader
+            eyebrow="Panel operativo"
+            title="Resumen"
+            copy="Lo importante para operar la web: cargar laboratorio, revisar mensajes, ajustar apoyos y entrar rápido desde mobile."
+            action={
+              <a href="/laboratorio" className={primaryButtonClass}>
+                Ver laboratorio <ArrowUpRight className="h-4 w-4" />
+              </a>
+            }
+          />
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="Recaudación"
+              value={`$${campaigns.reduce((sum, c) => sum + c.currentAmount, 0).toLocaleString()}`}
+              detail="Total registrado en campañas"
+            />
+            <MetricCard
+              label="Mensajes pendientes"
+              value={messages.filter(m => !m.isApproved).length}
+              detail="Revisar antes de publicar"
+            />
+            <MetricCard
+              label="Pre-pedidos abiertos"
+              value={encargos.filter(e => !['ganado', 'perdido'].includes(e.status)).length}
+              detail={`${encargos.length} leads en pipeline`}
+            />
+            <MetricCard
+              label="Inventario"
+              value={products.length + memberships.length + ideas.length}
+              detail="Productos, membresías e ideas"
+            />
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className={panelClass}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">Carga rápida</p>
+                  <h3 className="mt-1 text-2xl font-black tracking-[-0.05em] text-white">Laboratorio</h3>
+                </div>
+                <Link to="/admin/media" className="text-xs font-black text-zinc-400 hover:text-white">Abrir todo</Link>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <QuickAction to="/admin/media/videos" icon={Film} label="Subir video IA" detail="Video, poster, prompt y storyboard." />
+                <QuickAction to="/admin/media/panoramas" icon={Sparkles} label="Subir panorama 360" detail="Imágenes 2:1 con preview y destacado." />
+                <QuickAction to="/admin/media/fotos" icon={Image} label="Subir foto" detail="Archivo visual para Ojo/foto." />
+                <QuickAction to="/admin/media/canciones" icon={Music} label="Subir canción" detail="MP3 o embed externo." />
+              </div>
             </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-              <h3 className="text-zinc-400 font-medium mb-2">Mensajes Pendientes</h3>
-              <p className="text-3xl font-bold text-white">
-                {messages.filter(m => !m.isApproved).length}
-              </p>
-            </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-              <h3 className="text-zinc-400 font-medium mb-2">Misiones Activas</h3>
-              <p className="text-3xl font-bold text-white">
-                {campaigns.filter(c => c.status === 'active').length}
-              </p>
+
+            <div className={panelClass}>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">Pendientes</p>
+              <div className="mt-4 space-y-3">
+                <Link to="/admin/messages" className="flex items-center justify-between rounded-2xl bg-black/35 p-3">
+                  <span className="flex items-center gap-3">
+                    <MessageSquare className="h-5 w-5 text-yellow-300" />
+                    <span>
+                      <span className="block text-sm font-black text-white">Mensajes</span>
+                      <span className="text-xs text-zinc-500">Moderación del muro</span>
+                    </span>
+                  </span>
+                  <b className="text-xl text-white">{messages.filter(m => !m.isApproved).length}</b>
+                </Link>
+                <Link to="/admin/encargos" className="flex items-center justify-between rounded-2xl bg-black/35 p-3">
+                  <span className="flex items-center gap-3">
+                    <Lightbulb className="h-5 w-5 text-violet-300" />
+                    <span>
+                      <span className="block text-sm font-black text-white">Pre-pedidos</span>
+                      <span className="text-xs text-zinc-500">Responder y cotizar</span>
+                    </span>
+                  </span>
+                  <b className="text-xl text-white">{encargos.filter(e => e.status === 'nuevo').length}</b>
+                </Link>
+                <Link to="/admin/settings" className="flex items-center justify-between rounded-2xl bg-black/35 p-3">
+                  <span className="flex items-center gap-3">
+                    <Settings className="h-5 w-5 text-zinc-300" />
+                    <span>
+                      <span className="block text-sm font-black text-white">Ajustes públicos</span>
+                      <span className="text-xs text-zinc-500">Home, apoyo y acceso</span>
+                    </span>
+                  </span>
+                  <ArrowUpRight className="h-4 w-4 text-zinc-500" />
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       )}
 
+      {activeTab === 'analytics' && (() => {
+        const counts = eventSummary?.counts ?? {};
+        const eventRows = analyticsEventOrder.map((eventName) => ({
+          eventName,
+          count: counts[eventName] || 0,
+          ...analyticsEventLabel[eventName],
+        }));
+        const checkoutStarts = counts.checkout_start || 0;
+        const checkoutCreated = counts.checkout_created || 0;
+        const checkoutRate = checkoutStarts > 0 ? Math.round((checkoutCreated / checkoutStarts) * 1000) / 10 : 0;
+        const recentEvents = eventSummary?.recentEvents ?? [];
+        const topPaths = eventSummary?.topPaths ?? [];
+
+        return (
+          <div className="space-y-6">
+            <AdminSectionHeader
+              eyebrow="Medición"
+              title="Analytics"
+              copy="Lectura rápida de lo que está pasando en la web pública. Excluye admin y previews internas."
+            />
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard
+                label="Visitas"
+                value={counts.page_view || 0}
+                detail={`Últimos ${eventSummary?.days ?? 30} días`}
+              />
+              <MetricCard
+                label="Checkout iniciado"
+                value={checkoutStarts}
+                detail="Cafecito, checkout y botones de pago"
+              />
+              <MetricCard
+                label="Link de pago"
+                value={checkoutCreated}
+                detail={`${checkoutRate}% de handoff a pago`}
+              />
+              <MetricCard
+                label="Clicks externos"
+                value={counts.social_click || 0}
+                detail="Instagram, Spotify, YouTube, etc."
+              />
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+              <div className={panelClass}>
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Eventos</p>
+                    <h3 className="mt-1 text-2xl font-black tracking-[-0.05em] text-white">Qué está haciendo la gente</h3>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-black/30 px-3 py-2 text-xs font-black text-zinc-400">
+                    {Object.values(counts).reduce((sum, count) => sum + Number(count || 0), 0)} eventos
+                  </span>
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {eventRows.map((event) => (
+                    <div key={event.eventName} className="rounded-2xl border border-white/10 bg-black/25 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black text-white">{event.label}</p>
+                          <p className="mt-1 text-xs leading-snug text-zinc-500">{event.detail}</p>
+                        </div>
+                        <b className="text-2xl font-black tracking-[-0.06em] text-white">{event.count}</b>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className={panelClass}>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Top páginas</p>
+                <div className="mt-4 space-y-2">
+                  {topPaths.length === 0 ? (
+                    <p className="text-sm text-zinc-500">Todavía no hay vistas registradas.</p>
+                  ) : (
+                    topPaths.map((row) => (
+                      <div key={row.path} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/25 p-3">
+                        <span className="min-w-0 truncate text-sm font-bold text-zinc-200">{row.path}</span>
+                        <b className="shrink-0 text-lg font-black text-white">{row.count}</b>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className={panelClass}>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Actividad reciente</p>
+                  <h3 className="mt-1 text-2xl font-black tracking-[-0.05em] text-white">Últimos eventos</h3>
+                </div>
+                <p className="text-xs font-medium text-zinc-500">Sin emails, tokens ni referencias de pago.</p>
+              </div>
+              <div className="mt-4 grid gap-2">
+                {recentEvents.length === 0 ? (
+                  <p className="text-sm text-zinc-500">Todavía no hay eventos para mostrar.</p>
+                ) : (
+                  recentEvents.slice(0, 12).map((event) => (
+                    <div key={event.id} className="grid gap-2 rounded-2xl border border-white/10 bg-black/25 p-3 sm:grid-cols-[180px_1fr_auto] sm:items-center">
+                      <span className="text-sm font-black text-white">{eventLabel(event.eventName)}</span>
+                      <span className="min-w-0 truncate text-xs text-zinc-500">
+                        {event.path || '/'}{event.target ? ` · ${event.target}` : ''}
+                      </span>
+                      <span className="text-[11px] font-medium text-zinc-500">
+                        {new Date(event.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {activeTab === 'campaigns' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-display font-bold text-white">Misiones</h2>
+          <AdminSectionHeader
+            eyebrow="Apoyo"
+            title="Misiones"
+            copy="Campañas, objetivos y recaudación visible."
+            action={
             <button 
               onClick={() => { setEditingCampaign({}); setIsCampaignModalOpen(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+              className={primaryButtonClass}
             >
               <Plus className="w-4 h-4" />
               Nueva Misión
             </button>
-          </div>
+            }
+          />
           
           <div className="grid gap-4">
             {campaigns.map(campaign => (
-              <div key={campaign.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex items-center justify-between">
-                <div>
+              <div key={campaign.id} className={`${listItemClass} flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}>
+                <div className="min-w-0">
                   <h3 className="text-lg font-bold text-white">{campaign.title}</h3>
                   <p className="text-zinc-400 text-sm mt-1">
                     ${campaign.currentAmount.toLocaleString()} de ${campaign.targetAmount.toLocaleString()}
@@ -274,13 +648,13 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => { setEditingCampaign(campaign); setIsCampaignModalOpen(true); }}
-                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                    className={iconButtonClass}
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button 
                     onClick={() => handleDeleteCampaign(campaign.id)}
-                    className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                    className={iconButtonClass}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -294,21 +668,25 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
       {/* Products Tab */}
       {activeTab === 'products' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-display font-bold text-white">Productos</h2>
+          <AdminSectionHeader
+            eyebrow="Ventas"
+            title="Productos"
+            copy="Compras puntuales, entregables digitales y recursos."
+            action={
             <button 
               onClick={() => { setEditingProduct({}); setIsProductModalOpen(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+              className={primaryButtonClass}
             >
               <Plus className="w-4 h-4" />
               Nuevo Producto
             </button>
-          </div>
+            }
+          />
           
           <div className="grid gap-4">
             {products.map(product => (
-              <div key={product.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex items-center justify-between">
-                <div>
+              <div key={product.id} className={`${listItemClass} flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}>
+                <div className="min-w-0">
                   <h3 className="text-lg font-bold text-white">{product.title}</h3>
                   <p className="text-zinc-400 text-sm mt-1">
                     ${product.price.toLocaleString()} • {product.category}
@@ -317,13 +695,13 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => { setEditingProduct(product); setIsProductModalOpen(true); }}
-                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                    className={iconButtonClass}
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button 
                     onClick={() => handleDeleteProduct(product.id)}
-                    className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                    className={iconButtonClass}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -337,21 +715,25 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
       {/* Memberships Tab */}
       {activeTab === 'memberships' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-display font-bold text-white">Membresías</h2>
+          <AdminSectionHeader
+            eyebrow="Club"
+            title="Membresías"
+            copy="Niveles de apoyo recurrente y acceso."
+            action={
             <button 
               onClick={() => { setEditingMembership({}); setIsMembershipModalOpen(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+              className={primaryButtonClass}
             >
               <Plus className="w-4 h-4" />
               Nueva Membresía
             </button>
-          </div>
+            }
+          />
           
           <div className="grid gap-4">
             {memberships.map(membership => (
-              <div key={membership.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex items-center justify-between">
-                <div>
+              <div key={membership.id} className={`${listItemClass} flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}>
+                <div className="min-w-0">
                   <h3 className="text-lg font-bold text-white">{membership.name}</h3>
                   <p className="text-zinc-400 text-sm mt-1">
                     ${membership.price.toLocaleString()} / {membership.billingPeriod === 'monthly' ? 'mes' : 'año'}
@@ -360,13 +742,13 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => { setEditingMembership(membership); setIsMembershipModalOpen(true); }}
-                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                    className={iconButtonClass}
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button 
                     onClick={() => handleDeleteMembership(membership.id)}
-                    className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                    className={iconButtonClass}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -377,28 +759,233 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
         </div>
       )}
 
+      {activeTab === 'encargos' && (() => {
+        const openCount = encargos.filter((e) => !['ganado', 'perdido'].includes(e.status)).length;
+        const newCount = encargos.filter((e) => e.status === 'nuevo').length;
+        const sorted = [...encargos].sort((a, b) => {
+          const statusWeight: Record<EncargoStatus, number> = {
+            nuevo: 0,
+            respondido: 1,
+            cotizado: 2,
+            ganado: 3,
+            perdido: 4,
+          };
+          const byStatus = statusWeight[a.status] - statusWeight[b.status];
+          if (byStatus !== 0) return byStatus;
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        });
+        const funnel = eventSummary?.encargo;
+        const recentEvents = eventSummary?.recentEncargoEvents ?? [];
+
+        return (
+          <div className="space-y-6">
+            <AdminSectionHeader
+              eyebrow="Pipeline"
+              title="Pre-pedidos"
+              copy="Leads que llegaron desde la web. Primero respondés y cotizás; recién después se cobra."
+              action={
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full border border-orange-400/20 bg-orange-500/10 px-3 py-2 text-sm font-black text-orange-300">
+                    {newCount} nuevo{newCount === 1 ? '' : 's'}
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-zinc-950 px-3 py-2 text-sm font-black text-zinc-300">
+                    {openCount} abierto{openCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+              }
+            />
+
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              {encargoStatuses.map((status) => (
+                <div key={status} className={panelClass}>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    {encargoStatusMeta[status].label}
+                  </p>
+                  <p className="mt-2 text-3xl font-black tracking-[-0.06em] text-white">
+                    {encargos.filter((e) => e.status === status).length}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className={panelClass}>
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                      Funnel web · {eventSummary?.days ?? 30} días
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                      Mide cuánta gente abre el pre-pedido y cuántos terminan enviándolo.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-sm font-black text-cyan-300">
+                    {funnel?.conversionRate ?? 0}% conversión
+                  </span>
+                </div>
+                <div className="mt-5 grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Abrieron</p>
+                    <p className="mt-2 text-3xl font-black tracking-[-0.06em] text-white">{funnel?.starts ?? 0}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Enviaron</p>
+                    <p className="mt-2 text-3xl font-black tracking-[-0.06em] text-white">{funnel?.created ?? 0}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Pendientes</p>
+                    <p className="mt-2 text-3xl font-black tracking-[-0.06em] text-white">{newCount}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className={panelClass}>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Últimos eventos</p>
+                <div className="mt-3 space-y-2">
+                  {recentEvents.length === 0 ? (
+                    <p className="text-sm text-zinc-500">Todavía no hay eventos de pre-pedido.</p>
+                  ) : (
+                    recentEvents.slice(0, 5).map((event) => (
+                      <div key={event.id} className="rounded-2xl border border-white/10 bg-black/25 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-black text-zinc-200">
+                            {event.eventName === 'encargo_created' ? 'Enviado' : 'Abierto'}
+                          </span>
+                          <span className="text-[11px] font-medium text-zinc-500">
+                            {new Date(event.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-zinc-500">{event.target || 'custom'}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {sorted.length === 0 ? (
+              <div className="rounded-[24px] border border-dashed border-white/10 bg-zinc-950/50 p-10 text-center text-sm text-zinc-500">
+                Todavía no entró ningún pre-pedido.
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {sorted.map((encargo) => {
+                  const status = encargoStatusMeta[encargo.status];
+                  const href = contactHref(encargo.contact);
+                  return (
+                    <div key={encargo.id} className={`${listItemClass} space-y-4`}>
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-xl font-black tracking-[-0.04em] text-white">{encargo.name}</h3>
+                            <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${status.className}`}>
+                              {status.label}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-xs font-black text-zinc-300">
+                              {encargoPackageLabel[encargo.packageId] || encargo.packageId}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-xs font-medium text-zinc-500">
+                            {new Date(encargo.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}
+                            {encargo.updatedAt ? ` · actualizado ${new Date(encargo.updatedAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
+                          </p>
+                          <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">{encargo.brief}</p>
+                          {encargo.referenceUrl && (
+                            <a
+                              href={encargo.referenceUrl}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="mt-3 inline-flex max-w-full items-start gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-200 hover:border-cyan-200/40 hover:text-cyan-100"
+                            >
+                              <span className="shrink-0 uppercase tracking-[0.14em]">Referencia</span>
+                              <span className="min-w-0 break-all text-cyan-100/80">{encargo.referenceUrl}</span>
+                              <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            </a>
+                          )}
+                        </div>
+
+                        <div className="flex min-w-[240px] flex-col gap-2">
+                          <select
+                            value={encargo.status}
+                            onChange={(event) => handleUpdateEncargoStatus(encargo.id, event.target.value as EncargoStatus)}
+                            className="min-h-11 rounded-2xl border border-white/10 bg-zinc-950 px-3 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-white/20"
+                          >
+                            {encargoStatuses.map((statusKey) => (
+                              <option key={statusKey} value={statusKey}>{encargoStatusMeta[statusKey].label}</option>
+                            ))}
+                          </select>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => copyContact(encargo.contact)}
+                              className={iconButtonClass}
+                              title="Copiar contacto"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                            {href ? (
+                              <a href={href} target="_blank" rel="noreferrer noopener" className={iconButtonClass} title="Abrir contacto">
+                                <ArrowUpRight className="h-4 w-4" />
+                              </a>
+                            ) : (
+                              <button type="button" className={iconButtonClass} disabled title="Contacto sin link directo">
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateEncargoStatus(encargo.id, 'respondido')}
+                              className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-500/10 px-3 text-sm font-black text-sky-300 hover:bg-sky-500/15"
+                            >
+                              Marcar respondido
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEncargo(encargo.id)}
+                              className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 px-3 text-sm font-black text-red-300 hover:bg-red-500/15"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-3 text-xs text-zinc-500">
+                        <span className="font-black uppercase tracking-[0.14em] text-zinc-600">contacto</span>
+                        <button type="button" onClick={() => copyContact(encargo.contact)} className="font-bold text-zinc-300 hover:text-white">
+                          {encargo.contact}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Ideas Tab */}
       {activeTab === 'ideas' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-display font-bold text-white">Ideas</h2>
-              <p className="text-sm text-zinc-500 mt-1">
-                Webapps, investigaciones de ChatGPT, experimentos — cada idea es una tarjeta que linkea afuera.
-              </p>
-            </div>
+          <AdminSectionHeader
+            eyebrow="Entrada"
+            title="Encargos / Ideas"
+            copy="Webapps, investigaciones, experimentos y pedidos raros que pueden convertirse en piezas públicas."
+            action={
             <button
               onClick={() => openIdeaModal(null)}
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+              className={primaryButtonClass}
             >
               <Plus className="w-4 h-4" />
               Nueva Idea
             </button>
-          </div>
+            }
+          />
 
           <div className="grid gap-4">
             {ideas.map(idea => (
-              <div key={idea.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex items-center justify-between gap-4">
+              <div key={idea.id} className={`${listItemClass} flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-lg font-bold text-white truncate">{idea.title}</h3>
@@ -418,20 +1005,20 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                     href={idea.url}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                    className={iconButtonClass}
                     title="Abrir"
                   >
                     <Eye className="w-4 h-4" />
                   </a>
                   <button
                     onClick={() => openIdeaModal(idea)}
-                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                    className={iconButtonClass}
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteIdea(idea.id)}
-                    className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                    className={iconButtonClass}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -439,7 +1026,7 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
               </div>
             ))}
             {ideas.length === 0 && (
-              <div className="border border-dashed border-zinc-800 rounded-2xl p-10 text-center text-sm text-zinc-500">
+              <div className="rounded-[24px] border border-dashed border-white/10 bg-zinc-950/50 p-10 text-center text-sm text-zinc-500">
                 Todavía no publicaste ninguna idea.
               </div>
             )}
@@ -473,10 +1060,10 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
             key={key}
             type="button"
             onClick={() => setMessageFilter(key)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
+            className={`min-h-10 px-3 py-1.5 rounded-full text-sm font-black transition-colors flex items-center gap-2 ${
               messageFilter === key
-                ? 'bg-violet-600/20 text-violet-300 border border-violet-500/40'
-                : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-zinc-200'
+                ? 'bg-white text-zinc-950 border border-white'
+                : 'bg-zinc-950 text-zinc-400 border border-white/10 hover:text-zinc-200'
             }`}
           >
             {label}
@@ -490,9 +1077,13 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
 
         return (
         <div className="space-y-6">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <h2 className="text-2xl font-display font-bold text-white">Mensajes</h2>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <AdminSectionHeader
+                eyebrow="Comunidad"
+                title="Mensajes"
+                copy="Moderá el muro, respondé y separá apoyos reales de comentarios sueltos."
+              />
               {pendingCount > 0 && (
                 <span className="px-3 py-1 bg-yellow-500/10 text-yellow-400 text-sm font-bold rounded-full">
                   {pendingCount} pendiente{pendingCount === 1 ? '' : 's'} de moderación
@@ -508,7 +1099,7 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
           </div>
 
           {sorted.length === 0 ? (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center text-zinc-500">
+            <div className="rounded-[24px] border border-white/10 bg-zinc-950/70 p-8 text-center text-zinc-500">
               {messageFilter === 'pending'
                 ? 'No hay mensajes pendientes. Todo aprobado.'
                 : messageFilter === 'wall'
@@ -518,11 +1109,11 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
           ) : (
           <div className="grid gap-4">
             {sorted.map(msg => (
-              <div key={msg.id} className={`bg-zinc-900 border rounded-2xl p-6 flex flex-col gap-4 ${
-                !msg.isApproved ? 'border-yellow-500/30' : 'border-zinc-800'
+              <div key={msg.id} className={`rounded-[24px] border bg-zinc-950/70 p-4 flex flex-col gap-4 sm:p-5 ${
+                !msg.isApproved ? 'border-yellow-500/30' : 'border-white/10'
               }`}>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className="font-bold text-white">{msg.isAnonymous ? 'Anónimo' : msg.supporterName}</span>
                       {(msg.amount || 0) > 0 ? (
@@ -555,7 +1146,7 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                     {msg.isApproved ? (
                       <button 
                         onClick={() => handleApproveMessage(msg.id, false)}
-                        className="p-2 text-zinc-400 hover:text-yellow-400 hover:bg-yellow-400/10 rounded-lg transition-colors"
+                        className={iconButtonClass}
                         title="Ocultar"
                       >
                         <EyeOff className="w-4 h-4" />
@@ -563,7 +1154,7 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                     ) : (
                       <button 
                         onClick={() => handleApproveMessage(msg.id, true)}
-                        className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors"
+                        className={iconButtonClass}
                         title="Aprobar"
                       >
                         <Check className="w-4 h-4" />
@@ -571,7 +1162,7 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                     )}
                     <button 
                       onClick={() => handleDeleteMessage(msg.id)}
-                      className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                      className={iconButtonClass}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -579,11 +1170,11 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                 </div>
                 
                 {/* Creator Response Section */}
-                <div className="mt-2 pt-4 border-t border-zinc-800">
+                <div className="mt-2 border-t border-white/10 pt-4">
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-medium text-zinc-400">Tu respuesta:</label>
                     <textarea 
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+                      className="w-full min-h-24 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"
                       rows={2}
                       placeholder="Escribe una respuesta pública a este mensaje..."
                       defaultValue={msg.creatorResponse || ''}

@@ -187,7 +187,7 @@ export default function Profile() {
             </div>
             <div>
               <p className={cn("font-bold", "uppercase font-brutal")}>¡Nueva recompensa desbloqueada!</p>
-              <p className={cn("text-sm", "font-bold")}>Revisa tu sección de recompensas.</p>
+              <p className={cn("text-sm", "font-bold")}>Mirá tu sección de recompensas.</p>
             </div>
           </motion.div>
         )}
@@ -280,7 +280,7 @@ export default function Profile() {
               </span>
             ))}
             {userProfile.badges.length === 0 && (
-              <span className={cn("text-xs italic", "text-black/60 font-bold")}>Tus reconocimientos van a aparecer acá cuando existan beneficios asignados.</span>
+              <span className={cn("text-xs italic", "text-black/60 font-bold")}>Acá van a aparecer tus reconocimientos cuando los tengas.</span>
             )}
           </div>
           
@@ -296,7 +296,7 @@ export default function Profile() {
                 Mensaje del creador
               </div>
               <p className={cn("text-sm italic", "text-black font-medium")}>
-                "¡Hola {userProfile.name}! Quería agradecerte personalmente por todo tu apoyo. Gracias a personas como vos puedo seguir creando el contenido que tanto nos gusta. ¡Sos increíble!"
+                "¡{userProfile.name}, gracias en serio! Con gente como vos puedo seguir haciendo esto. Te debo una."
               </p>
             </div>
           )}

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '@/services/api';
+import { useAppContext } from '@/context/AppContext';
+import { trackEvent } from '@/lib/analytics';
 
 /**
  * Checkout — "single question per screen" flow (mockup-2 port).
@@ -10,15 +12,14 @@ import { api } from '@/services/api';
  * (progress dots, step label, fixed bottom CTA, ←-back) and ties it to the
  * real backend endpoints:
  *
- *   · One-time payments (cafecito / encargo / producto) → `api.createPreference`
+ *   · One-time payments (cafecito / producto) → `api.createPreference`
  *   · Recurring subscriptions (baloskiers) → `api.createSubscription`
  *
  * The flow adapts to the URL mode:
  *
  *   /checkout                          → full 4-step: mission → amount → datos → confirm
  *   /checkout?mode=cafecito            → amount (chips + custom) → datos → confirm
- *   /checkout?mode=cafecito&amount=2000→ amount pre-selected, datos → confirm
- *   /checkout?mode=encargo&amount=25000→ fixed amount, pedido (required) → datos → confirm
+ *   /checkout?mode=cafecito&amount=3000→ amount pre-selected, datos → confirm
  *   /checkout?mode=baloskiers          → tier → email (required) → confirm
  *   /checkout?mode=baloskiers&tier=orbita
  *                                       → tier pre-selected, email → confirm
@@ -42,7 +43,7 @@ type MissionDef = {
 
 const MISSIONS: MissionDef[] = [
   { id: 'cafecito',   icon: '☕', title: 'Cafecito',    sub: 'aporte libre a lo que Santi esté haciendo' },
-  { id: 'encargo',    icon: '◈', title: 'Encargo IA',  sub: 'un pedido concreto + IA mágica' },
+  { id: 'encargo',    icon: '◈', title: 'Encargo IA',  sub: 'pre-pedido primero · se paga después de cotizar' },
   { id: 'baloskiers', icon: '⌘', title: 'Baloskiers',  sub: 'membresía mensual · contenido exclusivo' },
   { id: 'producto',   icon: '◎', title: 'Del muro',    sub: 'un producto del catálogo' },
 ];
@@ -55,29 +56,14 @@ const TIERS: Tier[] = [
 ];
 
 type AmountChip = { value: number; label: string };
-const AMOUNT_CHIPS_CAFECITO: AmountChip[] = [
-  { value: 2000,   label: 'cafecito' },
-  { value: 5000,   label: 'para 2 cafés' },
-  { value: 10000,  label: 'el almuerzo' },
-  { value: 25000,  label: 'una canción IA' },
-];
+const DEFAULT_CAFECITO_AMOUNT = 3000;
 
-// For encargo the "suggested" row is the real product price list from the
-// home. When a card on the home links here with amount=N, we jump straight
-// past this step, but if someone lands on /checkout?mode=encargo without a
-// preset amount we show these as the menu.
-const AMOUNT_CHIPS_ENCARGO: AmountChip[] = [
-  { value: 25000,  label: 'canción IA' },
-  { value: 80000,  label: 'pack 5 imágenes' },
-  { value: 99000,  label: 'zoom 1:1 · 45min' },
-  { value: 150000, label: 'pedido custom' },
-];
-
-const MIN_AMOUNT = 500;
+const BASE_MIN_AMOUNT = 500;
 
 export default function Checkout() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { settings } = useAppContext();
 
   // ---------------- URL → initial state ------------------------------------
   const urlMode = searchParams.get('mode') as Mission | null;
@@ -106,6 +92,16 @@ export default function Checkout() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+
+  const goToPrePedido = () => {
+    window.location.assign('/#prepedido-custom');
+  };
+
+  useEffect(() => {
+    if (urlMode === 'encargo') {
+      window.location.replace('/#prepedido-custom');
+    }
+  }, [urlMode]);
 
   // ---------------- Steps --------------------------------------------------
   // We compute the step list dynamically based on what's already been filled
@@ -155,9 +151,28 @@ export default function Checkout() {
 
   // ---------------- Derived -----------------------------------------------
   const currentMission = mission ?? missionPreset;
-  const effectiveAmount = currentMission === 'baloskiers' ? tier?.amount ?? 0 : amount;
+  const cafecitoMinAmount = Number(settings?.cafecito?.amount) > 0
+    ? Number(settings.cafecito.amount)
+    : DEFAULT_CAFECITO_AMOUNT;
+  const cafecitoChips = useMemo<AmountChip[]>(() => {
+    const suggested = settings?.supportAmountsSuggested?.length
+      ? settings.supportAmountsSuggested
+      : [cafecitoMinAmount, 5000, 10000, 15000];
+    const values = Array.from(new Set([cafecitoMinAmount, ...suggested]))
+      .map((value) => Math.round(Number(value)))
+      .filter((value) => Number.isFinite(value) && value >= cafecitoMinAmount)
+      .slice(0, 4);
 
-  const amountValid = effectiveAmount >= MIN_AMOUNT;
+    return values.map((value, index) => ({
+      value,
+      label: index === 0 ? '1 cafecito' : `$${value.toLocaleString('es-AR')}`,
+    }));
+  }, [cafecitoMinAmount, settings?.supportAmountsSuggested]);
+  const effectiveAmount = currentMission === 'baloskiers' ? tier?.amount ?? 0 : amount;
+  const minAmount = currentMission === 'cafecito' ? cafecitoMinAmount : BASE_MIN_AMOUNT;
+  const shouldShowOptionalEmail = currentMission === 'encargo';
+
+  const amountValid = effectiveAmount >= minAmount;
   const pedidoValid = pedido.trim().length >= 10;
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -169,7 +184,7 @@ export default function Checkout() {
       case 'amount':  return amountValid;
       case 'pedido':  return pedidoValid;
       case 'email':   return emailValid;
-      case 'datos':   return true; // optional
+      case 'datos':   return true;
       case 'confirm': return true;
       default: return false;
     }
@@ -203,40 +218,76 @@ export default function Checkout() {
     setAmount(digits ? parseInt(digits, 10) : 0);
   };
 
+  useEffect(() => {
+    if (currentMission === 'cafecito' && urlAmount && urlAmount < cafecitoMinAmount) {
+      setAmount(cafecitoMinAmount);
+    }
+  }, [cafecitoMinAmount, currentMission, urlAmount]);
+
   async function handleSubmit() {
     setSubmitError('');
     setSubmitting(true);
     try {
       if (currentMission === 'baloskiers') {
         if (!tier) throw new Error('Falta elegir el tier.');
+        trackEvent('checkout_start', {
+          source: 'checkout_flow',
+          mission: currentMission,
+          tier: tier.id,
+          amount: tier.amount,
+          currency: 'ARS',
+        }, { target: currentMission });
         const resp = await api.createSubscription(tier.id, email.trim().toLowerCase());
         const redirect = resp.initPoint || resp.sandboxInitPoint;
         if (!redirect) throw new Error('Mercado Pago no devolvió link.');
+        trackEvent('checkout_created', {
+          source: 'checkout_flow',
+          mission: currentMission,
+          tier: tier.id,
+          amount: tier.amount,
+          currency: 'ARS',
+        }, { target: currentMission });
         window.location.href = redirect;
         return;
       }
 
       // One-time payments (cafecito, encargo, producto)
-      const title = currentMission === 'encargo'
-        ? 'Encargo · Balosky'
-        : currentMission === 'producto'
+      if (effectiveAmount < minAmount) {
+        throw new Error(`El monto mínimo es $${minAmount.toLocaleString('es-AR')}.`);
+      }
+
+      if (currentMission === 'encargo') {
+        goToPrePedido();
+        return;
+      }
+
+      const title = currentMission === 'producto'
         ? 'Producto · Balosky'
         : 'Aporte · Balosky';
 
-      const finalMessage = currentMission === 'encargo'
-        ? `[ENCARGO]\nPedido: ${pedido}\n\n${message ? `Mensaje: ${message}` : ''}`.trim()
-        : message;
-
       const campaignId = urlProductId || 'c3'; // c3 = cafecito catch-all
+      trackEvent('checkout_start', {
+        source: 'checkout_flow',
+        mission: currentMission || 'unknown',
+        amount: effectiveAmount,
+        currency: 'ARS',
+      }, { target: currentMission || 'checkout' });
       const resp = await api.createPreference(
         effectiveAmount,
         title,
         campaignId,
         name || undefined,
-        finalMessage || undefined,
+        message || undefined,
+        email.trim().toLowerCase() || undefined,
       );
       const redirect = resp.init_point || resp.sandbox_init_point;
       if (!redirect) throw new Error('Mercado Pago no devolvió link.');
+      trackEvent('checkout_created', {
+        source: 'checkout_flow',
+        mission: currentMission || 'unknown',
+        amount: effectiveAmount,
+        currency: 'ARS',
+      }, { target: currentMission || 'checkout' });
       window.location.href = redirect;
     } catch (err: any) {
       console.error('checkout submit failed', err);
@@ -299,7 +350,13 @@ export default function Checkout() {
                     key={m.id}
                     type="button"
                     className={`chk-choice${mission === m.id ? ' active' : ''}`}
-                    onClick={() => setMission(m.id)}
+                    onClick={() => {
+                      if (m.id === 'encargo') {
+                        goToPrePedido();
+                        return;
+                      }
+                      setMission(m.id);
+                    }}
                   >
                     <div className="chk-icn">{m.icon}</div>
                     <div>
@@ -343,14 +400,16 @@ export default function Checkout() {
           {step === 'amount' && (
             <section className="chk-screen">
               <div className="chk-eyebrow">paso {stepNumber}</div>
-              <h1 className="chk-prompt">¿cuánto ponés?</h1>
+              <h1 className="chk-prompt">
+                {currentMission === 'encargo' ? 'elegí el tipo de pedido.' : '¿cuánto ponés?'}
+              </h1>
               <p className="chk-hint">
                 {currentMission === 'encargo'
-                  ? 'Elegí el pack o ingresá un monto custom.'
+                  ? 'Primero definimos qué querés armar. Después te pido la idea y lo terminamos de cerrar.'
                   : 'Cada monto tiene su onda. Tirá un extra si querés.'}
               </p>
               <div className="chk-amount-grid">
-                {(currentMission === 'encargo' ? AMOUNT_CHIPS_ENCARGO : AMOUNT_CHIPS_CAFECITO).map((chip) => (
+                {cafecitoChips.map((chip) => (
                   <button
                     key={chip.value}
                     type="button"
@@ -373,7 +432,7 @@ export default function Checkout() {
                 />
               </div>
               {!amountValid && amount > 0 && (
-                <p className="chk-err">El monto mínimo es ${MIN_AMOUNT}.</p>
+                <p className="chk-err">El monto mínimo es ${minAmount.toLocaleString('es-AR')}.</p>
               )}
             </section>
           )}
@@ -433,10 +492,27 @@ export default function Checkout() {
               <h1 className="chk-prompt">¿dejás un mensaje?</h1>
               <p className="chk-hint">
                 {currentMission === 'encargo'
-                  ? 'Dejame cómo contactarte y lo que quieras agregar.'
+                  ? 'Dejame cómo contactarte y lo que quieras agregar. El mail es opcional.'
                   : 'Todo opcional. Si dejás nombre, aparece en el muro de aportantes.'}
               </p>
               <div className="chk-text-input">
+                {shouldShowOptionalEmail && (
+                  <>
+                    <label className="chk-lbl">tu email (opcional)</label>
+                    <input
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      placeholder="vos@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoFocus
+                    />
+                    {!emailValid && email.length > 0 && (
+                      <p className="chk-err">Revisá el email.</p>
+                    )}
+                  </>
+                )}
                 <label className="chk-lbl">tu nombre o @IG</label>
                 <input
                   type="text"
@@ -496,6 +572,12 @@ export default function Checkout() {
                       <div className="chk-sum-row">
                         <span className="k">nombre</span>
                         <span className="v">{name}</span>
+                      </div>
+                    )}
+                    {shouldShowOptionalEmail && email && (
+                      <div className="chk-sum-row">
+                        <span className="k">email</span>
+                        <span className="v" style={{ maxWidth: '60%', textAlign: 'right', fontSize: 13 }}>{email}</span>
                       </div>
                     )}
                   </>

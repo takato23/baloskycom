@@ -13,6 +13,7 @@ import {
   sendMagicLinkEmail,
   sendAdminAlert
 } from '../email.js';
+import { detectMessageLead } from '../leadDetection.js';
 const router = express.Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const JWT_SECRET = process.env.JWT_SECRET?.trim();
@@ -34,16 +35,43 @@ const mpClient = new MercadoPagoConfig({
 });
 const preferenceClient = new Preference(mpClient);
 const paymentClient = new Payment(mpClient);
+const DEFAULT_CAFECITO_AMOUNT = 3000;
+const DEFAULT_PAYPAL_LINK = 'https://paypal.me/balosky';
+const DEFAULT_PAYPAL_CURRENCY = 'USD';
+const DEFAULT_PAYPAL_UNIT_AMOUNT = 3;
+
+const isDevLocalRequest = (req: express.Request) => {
+  if (IS_PRODUCTION) return false;
+  const host = req.hostname;
+  const ip = req.ip || req.socket.remoteAddress || '';
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    ip === '::1' ||
+    ip === '127.0.0.1' ||
+    ip === '::ffff:127.0.0.1'
+  );
+};
 
 const publicLimiter = rateLimit({
   windowMs: 60_000,
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === '/webhook/mercadopago' || Boolean(req.headers.authorization)
+  skip: (req) => isDevLocalRequest(req) || req.path === '/webhook/mercadopago' || Boolean(req.headers.authorization)
 });
 
 router.use(publicLimiter);
+
+const authLimiter = rateLimit({
+  windowMs: 10 * 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isDevLocalRequest,
+  message: { error: 'Demasiados intentos. Esperá unos minutos.' }
+});
 
 /* Rate-limit estricto para escritura pública sin auth (muro, leads).
    5 posts por IP cada 5 min — suficiente para uso humano, ahoga bots. */
@@ -52,18 +80,51 @@ const writePublicLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => Boolean(req.headers.authorization),
+  skip: (req) => isDevLocalRequest(req) || Boolean(req.headers.authorization),
   message: { error: 'Demasiados intentos. Esperá unos minutos.' }
 });
 
-const getBaseUrl = (req: express.Request) => {
-  const configuredUrl = process.env.APP_URL?.trim();
-  if (configuredUrl) return configuredUrl.replace(/\/$/, '');
+const eventLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => isDevLocalRequest(req) || Boolean(req.headers.authorization),
+  message: { error: 'Demasiados eventos. Esperá unos minutos.' }
+});
 
-  const origin = req.headers.origin;
+const isLocalBaseUrl = (value: string) => {
+  try {
+    const hostname = new URL(value).hostname;
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch {
+    return false;
+  }
+};
+
+const getRequestBaseUrl = (req: express.Request) => {
+  const origin = req.get('origin')?.trim();
   if (origin) return origin.replace(/\/$/, '');
 
-  return `${req.protocol}://${req.get('host')}`;
+  const forwardedProto = req.get('x-forwarded-proto')?.split(',')[0]?.trim();
+  const forwardedHost = req.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const proto = forwardedProto || req.protocol;
+  const host = forwardedHost || req.get('host');
+  return host ? `${proto}://${host}`.replace(/\/$/, '') : '';
+};
+
+const getBaseUrl = (req: express.Request) => {
+  const configuredUrl = process.env.APP_URL?.trim();
+  const requestUrl = getRequestBaseUrl(req);
+
+  if (configuredUrl) {
+    const normalized = configuredUrl.replace(/\/$/, '');
+    if (!isLocalBaseUrl(normalized)) return normalized;
+    if (requestUrl && !isLocalBaseUrl(requestUrl)) return requestUrl;
+    return normalized;
+  }
+
+  return requestUrl || `${req.protocol}://${req.get('host')}`;
 };
 
 const getNotificationUrl = (req: express.Request) => {
@@ -71,7 +132,7 @@ const getNotificationUrl = (req: express.Request) => {
 
   try {
     const hostname = new URL(baseUrl).hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
       return undefined;
     }
   } catch (error) {
@@ -80,6 +141,15 @@ const getNotificationUrl = (req: express.Request) => {
   }
 
   return `${baseUrl}/api/webhook/mercadopago`;
+};
+
+const shouldUseAutoReturn = (baseUrl: string) => {
+  try {
+    const hostname = new URL(baseUrl).hostname;
+    return hostname !== 'localhost' && hostname !== '127.0.0.1';
+  } catch {
+    return false;
+  }
 };
 
 const getClientIp = (req: express.Request) => {
@@ -117,6 +187,114 @@ const getPaymentIdFromWebhook = (req: express.Request) => {
 
   const parsedPaymentId = Number(maybePaymentId);
   return Number.isFinite(parsedPaymentId) ? parsedPaymentId : null;
+};
+
+const isExternalHttpUrl = (value: string) => /^https?:\/\//i.test(value);
+const isPayPalUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    return (
+      /^https?:$/i.test(url.protocol) &&
+      (host === 'paypal.me' || host.endsWith('.paypal.me') || host === 'paypal.com' || host.endsWith('.paypal.com'))
+    );
+  } catch {
+    return false;
+  }
+};
+
+const normalizePaypalCurrency = (value: unknown) => {
+  const currency = String(value || DEFAULT_PAYPAL_CURRENCY).trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(currency) ? currency : DEFAULT_PAYPAL_CURRENCY;
+};
+
+const normalizePaypalUnitAmount = (value: unknown) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0
+    ? Math.round(amount * 100) / 100
+    : DEFAULT_PAYPAL_UNIT_AMOUNT;
+};
+
+const formatPaypalAmount = (value: number) => {
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+};
+
+const buildPaypalCheckoutUrl = (paypalLink: string, amount: number, currency: string) => {
+  if (!paypalLink || !isPayPalUrl(paypalLink)) return '';
+
+  const url = new URL(paypalLink);
+  const host = url.hostname.toLowerCase();
+  const amountToken = `${formatPaypalAmount(amount)}${normalizePaypalCurrency(currency)}`;
+
+  if (host === 'paypal.me' || host.endsWith('.paypal.me') || url.pathname.toLowerCase().startsWith('/paypalme/')) {
+    url.pathname = `${url.pathname.replace(/\/+$/, '')}/${amountToken}`;
+    url.search = '';
+    url.hash = '';
+  }
+
+  return url.toString();
+};
+
+const getStoredSettings = async () => {
+  const row = await db.prepare('SELECT data FROM settings WHERE id = ?').get('global') as any;
+  if (!row?.data) return {};
+  try {
+    return JSON.parse(row.data) || {};
+  } catch {
+    return {};
+  }
+};
+
+const withCafecitoPaymentDefaults = (settings: any) => {
+  const cafecito = settings?.cafecito || {};
+  const amount = Number(cafecito.amount);
+  const mercadoPagoLink = typeof cafecito.mercadoPagoLink === 'string'
+    ? cafecito.mercadoPagoLink.trim()
+    : '';
+  const paypalLink = typeof cafecito.paypalLink === 'string'
+    ? cafecito.paypalLink.trim()
+    : DEFAULT_PAYPAL_LINK;
+
+  return {
+    ...settings,
+    cafecito: {
+      ...cafecito,
+      amount: Number.isFinite(amount) && amount >= 1 ? Math.round(amount) : DEFAULT_CAFECITO_AMOUNT,
+      mercadoPagoLink,
+      paypalLink,
+      paypalCurrency: normalizePaypalCurrency(cafecito.paypalCurrency),
+      paypalUnitAmount: normalizePaypalUnitAmount(cafecito.paypalUnitAmount),
+    },
+  };
+};
+
+const getCafecitoSettings = async () => {
+  const settings: any = withCafecitoPaymentDefaults(await getStoredSettings());
+  const amount = Number(settings?.cafecito?.amount);
+  const mercadoPagoLink = typeof settings?.cafecito?.mercadoPagoLink === 'string'
+    ? settings.cafecito.mercadoPagoLink.trim()
+    : '';
+  const paypalLink = typeof settings?.cafecito?.paypalLink === 'string'
+    ? settings.cafecito.paypalLink.trim()
+    : '';
+
+  return {
+    amount: Number.isFinite(amount) && amount >= 1 ? Math.round(amount) : DEFAULT_CAFECITO_AMOUNT,
+    mercadoPagoLink: isExternalHttpUrl(mercadoPagoLink) ? mercadoPagoLink : '',
+    paypalLink: isPayPalUrl(paypalLink) ? paypalLink : '',
+    paypalCurrency: normalizePaypalCurrency(settings?.cafecito?.paypalCurrency),
+    paypalUnitAmount: normalizePaypalUnitAmount(settings?.cafecito?.paypalUnitAmount),
+  };
+};
+
+const isCafecitoCampaign = (campaignId: unknown) => String(campaignId || 'c3') === 'c3';
+const clampCafecitoQuantity = (value: unknown) => {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.min(parsed, 99);
 };
 
 /* Genera un token de descarga firmado, válido 48h. Atado al purchaseId
@@ -351,19 +529,76 @@ const processApprovedPayment = async (payment: Awaited<ReturnType<Payment['get']
   };
 };
 
-// --- AUTH MIDDLEWARE ---
-const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
-  
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
-    (req as any).user = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
+const getPurchaseIdFromPayment = (payment: Awaited<ReturnType<Payment['get']>>) => {
+  const metadata = payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {};
+  const purchaseIdFromMeta = typeof metadata.purchaseId === 'string' ? metadata.purchaseId.trim() : '';
+  const purchaseIdFromExtRef =
+    typeof payment.external_reference === 'string' && payment.external_reference.startsWith('pur_')
+      ? payment.external_reference
+      : '';
+  return purchaseIdFromMeta || purchaseIdFromExtRef;
+};
+
+const PURCHASE_STATUS_BY_MP_STATUS: Record<string, string> = {
+  pending: 'pending',
+  in_process: 'pending',
+  in_mediation: 'pending',
+  authorized: 'pending',
+  rejected: 'rejected',
+  cancelled: 'cancelled',
+  refunded: 'refunded',
+  charged_back: 'refunded'
+};
+
+const syncPurchaseStatusFromPayment = async (payment: Awaited<ReturnType<Payment['get']>>) => {
+  const purchaseId = getPurchaseIdFromPayment(payment);
+  const paymentId = payment.id ? String(payment.id) : '';
+  const mpStatus = String(payment.status || '').toLowerCase();
+  const nextStatus = PURCHASE_STATUS_BY_MP_STATUS[mpStatus];
+
+  if (!purchaseId || !nextStatus) {
+    return { synced: false, reason: 'not-a-purchase-payment' as const };
   }
+
+  const row: any = await db.prepare('SELECT id, status FROM purchases WHERE id = ?').get(purchaseId);
+  if (!row) {
+    console.warn('[payments] status sync skipped: purchase not found', { purchaseId, paymentId, mpStatus });
+    return { synced: false, reason: 'purchase-not-found' as const };
+  }
+
+  // Do not downgrade a delivered purchase unless MP reports money reversal.
+  if (row.status === 'paid' && !['refunded', 'charged_back'].includes(mpStatus)) {
+    return { synced: false, reason: 'already-paid' as const };
+  }
+
+  const now = new Date().toISOString();
+  await db.prepare(`
+    UPDATE purchases
+    SET status = ?, paymentId = COALESCE(paymentId, ?), updatedAt = ?
+    WHERE id = ?
+  `).run(nextStatus, paymentId || null, now, purchaseId);
+
+  console.info('[payments] purchase status synced', { purchaseId, paymentId, mpStatus, purchaseStatus: nextStatus });
+  return { synced: true, reason: 'synced' as const, purchaseId, status: nextStatus };
+};
+
+// --- AUTH MIDDLEWARE ---
+const verifyAdminAuthHeader = (authHeader: string | undefined) => {
+  if (!authHeader) return null;
+  const [scheme, token] = authHeader.split(/\s+/);
+  if (scheme?.toLowerCase() !== 'bearer' || !token) return null;
+  try {
+    return jwt.verify(token, EFFECTIVE_JWT_SECRET);
+  } catch {
+    return null;
+  }
+};
+
+const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const decoded = verifyAdminAuthHeader(req.headers.authorization);
+  if (!decoded) return res.status(401).json({ error: 'Invalid token' });
+  (req as any).user = decoded;
+  next();
 };
 
 // --- AUTH ---
@@ -377,7 +612,7 @@ router.get('/auth/status', async (_req, res) => {
   }
 });
 
-router.post('/auth/bootstrap', async (req, res) => {
+router.post('/auth/bootstrap', authLimiter, async (req, res) => {
   try {
     const hasAdmin = await hasAdminUsers();
     if (hasAdmin) {
@@ -405,7 +640,7 @@ router.post('/auth/bootstrap', async (req, res) => {
   }
 });
 
-router.post('/auth/login', async (req, res) => {
+router.post('/auth/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
     const user = await db
@@ -422,6 +657,17 @@ router.post('/auth/login', async (req, res) => {
     console.error('[POST /auth/login]', e);
     res.status(500).json({ error: 'database error' });
   }
+});
+
+router.get('/auth/me', requireAuth, async (req, res) => {
+  const user = (req as any).user || {};
+  res.json({
+    ok: true,
+    user: {
+      id: user.id,
+      username: user.username
+    }
+  });
 });
 
 router.put('/auth/credentials', requireAuth, async (req, res) => {
@@ -762,17 +1008,32 @@ router.get('/rewards', async (req, res) => {
 });
 
 // --- MESSAGES ---
+const PUBLIC_EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const PUBLIC_PHONE_RE = /(?:\+?\d[\s().-]*){8,}/g;
+
+const redactPublicText = (value: unknown): string | null => {
+  if (value == null) return null;
+  return String(value)
+    .replace(PUBLIC_EMAIL_RE, '[email oculto]')
+    .replace(PUBLIC_PHONE_RE, '[tel oculto]');
+};
+
+const toPublicMessage = (m: any) => ({
+  ...m,
+  supporterName: redactPublicText(m.supporterName) || 'Anónimo',
+  message: redactPublicText(m.message) || '',
+  creatorResponse: redactPublicText(m.creatorResponse),
+  isAnonymous: Boolean(m.isAnonymous),
+  isApproved: Boolean(m.isApproved)
+});
+
 router.get('/messages', async (req, res) => {
   try {
     const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '200'), 10) || 200, 1), 500);
     const messages = await db
       .prepare('SELECT * FROM messages ORDER BY createdAt DESC LIMIT ?')
       .all(limit);
-    res.json(messages.map((m: any) => ({
-      ...m,
-      isAnonymous: Boolean(m.isAnonymous),
-      isApproved: Boolean(m.isApproved)
-    })));
+    res.json(messages.map(toPublicMessage));
   } catch (e) {
     console.error('[GET /messages]', e);
     res.status(500).json({ error: 'database error' });
@@ -872,11 +1133,178 @@ router.post('/messages', writePublicLimiter, async (req, res) => {
       campaignId
     );
 
+    const leadSignal = detectMessageLead(rawMessage);
+    if (leadSignal.shouldNotify) {
+      const adminUrl = `${getBaseUrl(req)}/admin/messages`;
+      await sendAdminAlert({
+        kind: 'lead',
+        summary: `${supporterName} · ${leadSignal.reasons.join(', ')}`,
+        details: {
+          supporterName,
+          reason: leadSignal.reasons.join(', '),
+          message: rawMessage,
+          campaignId,
+          messageId: id,
+          adminUrl
+        }
+      }).catch((alertError) => console.error('[POST /messages] lead alert error', alertError));
+    }
+
     const newMessage: any = await db.prepare('SELECT * FROM messages WHERE id = ?').get(id);
-    res.json(newMessage);
+    res.json(toPublicMessage(newMessage));
   } catch (e) {
     console.error('[POST /messages]', e);
     res.status(500).json({ error: 'database error' });
+  }
+});
+
+/**
+ * POST /api/encargos — pre-pedidos de videos IA / consultoría / proyectos.
+ *
+ * Santi aclaró: "son todas cosas a charlar, no hacen la compra por ahí, acá
+ * hacen un pre pedido, y me mandan lo que quieren y me tiene que llegar".
+ * Este endpoint es el backend de ese flujo. La gente llena el form en el
+ * MonetizacionHub (tab A MEDIDA) o en la card de VIDEO IA de PUNTUAL, se
+ * crea una fila con status='nuevo' y Santi la revisa desde /admin.
+ *
+ * No hay flujo de pago acá. Cuando Santi confirma por email/IG, recién
+ * ahí se emite un checkout manual o una subscription si corresponde.
+ *
+ * Rate limit: writePublicLimiter (mismo que messages/newsletter/wallpapers).
+ * Honeypot: mismo pattern que /messages.
+ */
+const ENCARGO_NAME_MAX = 80;
+const ENCARGO_CONTACT_MAX = 160;
+const ENCARGO_BRIEF_MIN = 10;
+const ENCARGO_BRIEF_MAX = 1200;
+const ENCARGO_REFERENCE_MAX = 500;
+const ENCARGO_PACKAGES = new Set(['reel', 'spot', 'historia', 'consultoria', 'serie', 'web', 'proyecto', 'custom']);
+const ENCARGO_STATUSES = new Set(['nuevo', 'respondido', 'cotizado', 'ganado', 'perdido']);
+const ENCARGO_PAYMENT_RE = /\[ENCARGO\]|\bencargo\b/i;
+
+const normalizeEncargoStatus = (status: unknown) => {
+  const raw = typeof status === 'string' ? status.trim().toLowerCase() : '';
+  if (raw === 'pending') return 'nuevo';
+  if (raw === 'contacted') return 'respondido';
+  if (raw === 'confirmed' || raw === 'done') return 'ganado';
+  if (raw === 'cancelled' || raw === 'canceled') return 'perdido';
+  return ENCARGO_STATUSES.has(raw) ? raw : 'nuevo';
+};
+
+const mapEncargoRow = (row: any) => ({
+  ...row,
+  packageId: row.packageId || row.package_id || 'custom',
+  referenceUrl: row.referenceUrl || row.reference_url || null,
+  status: normalizeEncargoStatus(row.status),
+});
+
+router.get('/encargos', requireAuth, async (_req, res) => {
+  try {
+    const rows = await db.prepare(`
+      SELECT *
+      FROM encargos
+      ORDER BY createdAt DESC
+      LIMIT 250
+    `).all();
+    res.json(rows.map(mapEncargoRow));
+  } catch (e) {
+    console.error('[GET /encargos]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.put('/encargos/:id/status', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const status = normalizeEncargoStatus(req.body?.status);
+    const updatedAt = new Date().toISOString();
+
+    await db
+      .prepare('UPDATE encargos SET status = ?, updatedAt = ? WHERE id = ?')
+      .run(status, updatedAt, id);
+
+    const row = await db.prepare('SELECT * FROM encargos WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'Encargo no encontrado' });
+    res.json(mapEncargoRow(row));
+  } catch (e) {
+    console.error('[PUT /encargos/:id/status]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.delete('/encargos/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.prepare('DELETE FROM encargos WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[DELETE /encargos/:id]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.post('/encargos', writePublicLimiter, async (req, res) => {
+  try {
+    const body = req.body || {};
+
+    // Honeypot — igual que en /messages, los bots llenan campos ocultos.
+    if ((body.website && String(body.website).trim()) || (body.hp_field && String(body.hp_field).trim())) {
+      return res.status(204).end();
+    }
+
+    const rawName = typeof body.name === 'string' ? body.name.trim().slice(0, ENCARGO_NAME_MAX) : '';
+    if (!rawName) {
+      return res.status(400).json({ error: 'Faltan tus datos de contacto (nombre)' });
+    }
+
+    const rawContact = typeof body.contact === 'string' ? body.contact.trim().slice(0, ENCARGO_CONTACT_MAX) : '';
+    if (!rawContact) {
+      return res.status(400).json({ error: 'Dejame cómo contactarte (email o @IG)' });
+    }
+
+    const rawBrief = typeof body.brief === 'string' ? body.brief.trim() : '';
+    if (rawBrief.length < ENCARGO_BRIEF_MIN) {
+      return res.status(400).json({ error: 'Contame un poco más de lo que necesitás' });
+    }
+    if (rawBrief.length > ENCARGO_BRIEF_MAX) {
+      return res.status(400).json({ error: `Brief muy largo (máx ${ENCARGO_BRIEF_MAX})` });
+    }
+
+    const rawPackage = typeof body.packageId === 'string' ? body.packageId.trim().toLowerCase() : '';
+    const packageId = ENCARGO_PACKAGES.has(rawPackage) ? rawPackage : 'custom';
+
+    const rawReference =
+      typeof body.referenceUrl === 'string' ? body.referenceUrl.trim().slice(0, ENCARGO_REFERENCE_MAX) : '';
+
+    const id = `enc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const createdAt = new Date().toISOString();
+
+    await db
+      .prepare(
+        `INSERT INTO encargos (id, name, contact, package_id, brief, reference_url, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'nuevo', ?)`,
+      )
+      .run(id, rawName, rawContact, packageId, rawBrief, rawReference || null, createdAt);
+
+    const adminUrl = `${getBaseUrl(req)}/admin/encargos`;
+    await sendAdminAlert({
+      kind: 'encargo',
+      summary: `${rawName} · ${packageId} · ${rawContact}`,
+      details: {
+        name: rawName,
+        contact: rawContact,
+        packageId,
+        brief: rawBrief.slice(0, 600),
+        referenceUrl: rawReference || '',
+        encargoId: id,
+        adminUrl
+      }
+    }).catch((alertError) => console.error('[POST /encargos] admin alert error', alertError));
+
+    res.json({ ok: true, id });
+  } catch (e) {
+    console.error('[POST /encargos]', e);
+    res.status(500).json({ error: 'No pudimos guardar tu pedido. Probá de nuevo o escribime por IG.' });
   }
 });
 
@@ -981,10 +1409,10 @@ router.get('/settings', async (req, res) => {
   try {
     const row = await db.prepare('SELECT data FROM settings WHERE id = ?').get('global') as any;
     if (row) {
-      res.json(JSON.parse(row.data));
+      res.json(withCafecitoPaymentDefaults(JSON.parse(row.data)));
     } else {
       /* Graceful fallback: return empty object so the frontend doesn't log a 404. */
-      res.json({});
+      res.json(withCafecitoPaymentDefaults({}));
     }
   } catch (e) {
     console.error('[GET /settings]', e);
@@ -1003,41 +1431,275 @@ router.put('/settings', requireAuth, async (req, res) => {
   }
 });
 
+// --- LIGHTWEIGHT PUBLIC ANALYTICS ---
+const EVENT_NAMES = new Set([
+  'page_view',
+  'cta_click',
+  'checkout_start',
+  'checkout_created',
+  'social_click',
+  'media_open',
+  'encargo_start',
+  'encargo_created'
+]);
+const SENSITIVE_EVENT_RE = /([^\s@]+@[^\s@]+\.[^\s@]+)|(payment|payer|purchase|external[_-]?reference|preference|token|password|secret|access[_-]?token|mp_)/i;
+
+const cleanEventValue = (value: unknown, max = 160) => {
+  if (typeof value !== 'string') return '';
+  return value.trim().replace(/\s+/g, ' ').slice(0, max);
+};
+
+const summarizeUserAgent = (ua: string) => {
+  const raw = cleanEventValue(ua, 220);
+  if (!raw) return '';
+  const browser = /Edg\//.test(raw) ? 'Edge'
+    : /Chrome\//.test(raw) ? 'Chrome'
+    : /Safari\//.test(raw) && !/Chrome\//.test(raw) ? 'Safari'
+    : /Firefox\//.test(raw) ? 'Firefox'
+    : 'Other';
+  const os = /Android/i.test(raw) ? 'Android'
+    : /iPhone|iPad|iPod/i.test(raw) ? 'iOS'
+    : /Mac OS X/i.test(raw) ? 'macOS'
+    : /Windows/i.test(raw) ? 'Windows'
+    : /Linux/i.test(raw) ? 'Linux'
+    : 'Unknown';
+  return `${browser} · ${os}`;
+};
+
+const sanitizeEventMetadata = (metadata: unknown) => {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return {};
+  const allowed: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(metadata as Record<string, unknown>).slice(0, 12)) {
+    const safeKey = key.replace(/[^a-zA-Z0-9_.:-]/g, '').slice(0, 40);
+    if (!safeKey || SENSITIVE_EVENT_RE.test(safeKey)) continue;
+    if (typeof value === 'string') {
+      const cleaned = cleanEventValue(value, 120);
+      if (cleaned && !SENSITIVE_EVENT_RE.test(cleaned)) allowed[safeKey] = cleaned;
+    } else if (typeof value === 'number' && Number.isFinite(value)) {
+      allowed[safeKey] = value;
+    } else if (typeof value === 'boolean') {
+      allowed[safeKey] = value;
+    }
+  }
+  return allowed;
+};
+
+const createEventId = () => `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+const insertWebEvent = async (args: {
+  eventName: string;
+  path: string;
+  target?: string;
+  sessionId?: string;
+  userAgent?: string;
+  metadata?: Record<string, string | number | boolean | null | undefined>;
+}) => {
+  const metadataJson = JSON.stringify(sanitizeEventMetadata(args.metadata || {}));
+  await db.prepare(`
+    INSERT INTO web_events (id, eventName, path, target, sessionId, userAgent, metadataJson, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    createEventId(),
+    args.eventName,
+    cleanEventValue(args.path, 180) || '/',
+    cleanEventValue(args.target, 160) || null,
+    cleanEventValue(args.sessionId, 80) || null,
+    cleanEventValue(args.userAgent, 220) || null,
+    metadataJson,
+    new Date().toISOString()
+  );
+};
+
+router.post('/events', eventLimiter, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const eventName = cleanEventValue(body.eventName, 48);
+    if (!EVENT_NAMES.has(eventName)) {
+      return res.status(400).json({ error: 'Evento inválido' });
+    }
+
+    const pathValue = cleanEventValue(body.path, 180) || '/';
+    const target = cleanEventValue(body.target, 160);
+    const sessionId = cleanEventValue(body.sessionId, 80);
+    const metadata = sanitizeEventMetadata(body.metadata);
+    const metadataJson = JSON.stringify(metadata);
+
+    if (
+      SENSITIVE_EVENT_RE.test(pathValue) ||
+      SENSITIVE_EVENT_RE.test(target) ||
+      SENSITIVE_EVENT_RE.test(sessionId) ||
+      metadataJson.length > 1200
+    ) {
+      return res.status(400).json({ error: 'Evento inválido' });
+    }
+
+    await insertWebEvent({
+      eventName,
+      path: pathValue,
+      target,
+      sessionId,
+      userAgent: summarizeUserAgent(String(req.headers['user-agent'] || '')),
+      metadata,
+    });
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[POST /events]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.get('/events/summary', requireAuth, async (req, res) => {
+  try {
+    const requestedDays = Number(req.query.days);
+    const days = Number.isFinite(requestedDays)
+      ? Math.min(90, Math.max(1, Math.round(requestedDays)))
+      : 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const rows = await db.prepare(`
+      SELECT eventName, COUNT(*)::int AS count
+      FROM web_events
+      WHERE createdAt >= ?
+      GROUP BY eventName
+    `).all(since) as any[];
+
+    const topPaths = await db.prepare(`
+      SELECT path, COUNT(*)::int AS count
+      FROM web_events
+      WHERE createdAt >= ? AND eventName = 'page_view' AND path IS NOT NULL
+      GROUP BY path
+      ORDER BY count DESC
+      LIMIT 8
+    `).all(since) as any[];
+
+    const recentEvents = await db.prepare(`
+      SELECT id, eventName, path, target, metadataJson, createdAt
+      FROM web_events
+      WHERE createdAt >= ?
+      ORDER BY createdAt DESC
+      LIMIT 40
+    `).all(since) as any[];
+
+    const recent = await db.prepare(`
+      SELECT id, eventName, path, target, metadataJson, createdAt
+      FROM web_events
+      WHERE eventName IN ('encargo_start', 'encargo_created')
+      ORDER BY createdAt DESC
+      LIMIT 20
+    `).all() as any[];
+
+    const counts = rows.reduce<Record<string, number>>((acc, row) => {
+      acc[String(row.eventName)] = Number(row.count || 0);
+      return acc;
+    }, {});
+    const starts = counts.encargo_start || 0;
+    const created = counts.encargo_created || 0;
+
+    res.json({
+      days,
+      counts,
+      topPaths: topPaths.map((row) => ({
+        path: String(row.path || '/'),
+        count: Number(row.count || 0),
+      })),
+      encargo: {
+        starts,
+        created,
+        conversionRate: starts > 0 ? Math.round((created / starts) * 1000) / 10 : 0,
+      },
+      recentEvents: recentEvents.map((row) => {
+        let metadata = {};
+        try {
+          metadata = row.metadataJson ? JSON.parse(row.metadataJson) : {};
+        } catch {
+          metadata = {};
+        }
+        return { ...row, metadata };
+      }),
+      recentEncargoEvents: recent.map((row) => {
+        let metadata = {};
+        try {
+          metadata = row.metadataJson ? JSON.parse(row.metadataJson) : {};
+        } catch {
+          metadata = {};
+        }
+        return { ...row, metadata };
+      }),
+    });
+  } catch (e) {
+    console.error('[GET /events/summary]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
 // --- MERCADO PAGO ---
 router.post('/checkout/preference', async (req, res) => {
   try {
-    const { amount, title, campaignId, supporterName, message } = req.body;
+    const { amount, title, campaignId, supporterName, message, email } = req.body;
     const normalizedAmount = Number(amount);
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const normalizedTitle = typeof title === 'string' ? title.trim() : '';
+    const normalizedMessage = typeof message === 'string' ? message.trim() : '';
+    const normalizedCampaignId = typeof campaignId === 'string' ? campaignId.trim() : '';
 
     if (!Number.isFinite(normalizedAmount) || normalizedAmount < 1) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
 
+    if (normalizedEmail && !EMAIL_RE.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Invalid email' });
+    }
+
+    if (
+      ENCARGO_PAYMENT_RE.test(normalizedTitle) ||
+      ENCARGO_PAYMENT_RE.test(normalizedMessage) ||
+      ENCARGO_PAYMENT_RE.test(normalizedCampaignId)
+    ) {
+      return res.status(400).json({ error: 'Los encargos entran como pre-pedido y se pagan después de cotizar.' });
+    }
+
+    const cafecitoSettings = isCafecitoCampaign(campaignId)
+      ? await getCafecitoSettings()
+      : null;
+    if (cafecitoSettings?.mercadoPagoLink) {
+      return res.json({
+        init_point: cafecitoSettings.mercadoPagoLink,
+        sandbox_init_point: cafecitoSettings.mercadoPagoLink
+      });
+    }
+    const finalAmount = cafecitoSettings
+      ? Math.max(normalizedAmount, cafecitoSettings.amount)
+      : normalizedAmount;
+
     const baseUrl = getBaseUrl(req);
     const notificationUrl = getNotificationUrl(req);
+    const autoReturn = shouldUseAutoReturn(baseUrl) ? 'approved' : undefined;
 
     const result = await preferenceClient.create({
       body: {
         items: [
           {
             id: campaignId || 'general',
-            title: title || 'Aporte a Creador',
+            title: normalizedTitle || 'Aporte a Creador',
             quantity: 1,
-            unit_price: normalizedAmount,
+            unit_price: finalAmount,
             currency_id: 'ARS'
           }
         ],
+        ...(normalizedEmail ? { payer: { email: normalizedEmail } } : {}),
         back_urls: {
           success: `${baseUrl}/checkout/success`,
           failure: `${baseUrl}/checkout/failure`,
           pending: `${baseUrl}/checkout/pending`
         },
-        auto_return: 'approved',
+        ...(autoReturn ? { auto_return: autoReturn } : {}),
         external_reference: `${campaignId || 'general'}-${Date.now()}`,
         metadata: {
           campaignId,
+          email: normalizedEmail,
           supporterName: typeof supporterName === 'string' ? supporterName.trim() : '',
-          message: typeof message === 'string' ? message.trim() : ''
+          message: normalizedMessage
         },
         ...(notificationUrl ? { notification_url: notificationUrl } : {})
       }
@@ -1049,29 +1711,34 @@ router.post('/checkout/preference', async (req, res) => {
     });
   } catch (error) {
     console.error('Mercado Pago Error:', error);
-    res.status(500).json({ error: 'Error creating preference' });
+    const detail =
+      typeof error === 'object' &&
+      error !== null &&
+      'message' in error &&
+      typeof (error as { message?: unknown }).message === 'string'
+        ? (error as { message: string }).message
+        : 'Error creating preference';
+    res.status(500).json({ error: 'Error creating preference', detail });
   }
 });
 
 /**
  * GET /checkout/quick
  *
- * CTA de "1 click → Mercado Pago". Se usa como `<a href="/api/checkout/quick?mode=cafecito">`
- * y hace 302 directo al init_point de MP sin intermediario ni JS.
+ * CTA de "1 click → pago". Se usa como `<a href="/api/checkout/quick?mode=cafecito">`
+ * y hace 302 directo al init_point de MP sin intermediario ni JS. Para PayPal,
+ * `/api/checkout/quick?mode=cafecito&provider=paypal&qty=3` va a PayPal.Me.
  *
  * Modos soportados:
- *   - cafecito     → $2.000 ARS, campaignId=c3
+ *   - cafecito     → monto configurado en Ajustes, campaignId=c3
  *   - pack-images  → $80.000 ARS, campaignId=c3 (pack 5 imágenes IA)
- *   - zoom         → $99.000 ARS, campaignId=c3 (zoom 1:1 45min)
  *   - pack-walls   → $3.500 ARS, campaignId=c3 (pack 10 wallpapers)
  *   - libre        → monto custom via ?amount= (mínimo $100), campaignId=c3
  *
- * Para encargos IA seguimos usando /checkout (necesita textarea del pedido).
+ * Los encargos IA no entran por quick checkout: van a pre-pedido y se cotizan.
  */
 const QUICK_CHECKOUT_MODES: Record<string, { amount: number; title: string; campaignId: string }> = {
-  cafecito:      { amount: 2000,   title: 'Cafecito para Balosky',                  campaignId: 'c3' },
   'pack-images': { amount: 80000,  title: 'Pack 5 imágenes IA — Balosky',           campaignId: 'c3' },
-  zoom:          { amount: 99000,  title: 'Videollamada 1:1 (45min) — Balosky',     campaignId: 'c3' },
   'pack-walls':  { amount: 3500,   title: 'Pack 10 wallpapers 4K — Balosky',        campaignId: 'c3' },
 };
 
@@ -1079,13 +1746,62 @@ router.get('/checkout/quick', async (req, res) => {
   try {
     const rawMode = typeof req.query.mode === 'string' ? req.query.mode.trim() : '';
     const rawAmount = typeof req.query.amount === 'string' ? req.query.amount : '';
+    const rawQty = req.query.qty ?? req.query.q ?? req.query.cafecitos;
+    const provider = typeof req.query.provider === 'string'
+      ? req.query.provider.trim().toLowerCase()
+      : '';
     const preset = QUICK_CHECKOUT_MODES[rawMode];
 
     let amount: number;
     let title: string;
     let campaignId: string;
+    let purchaseId = '';
+    let quantity = 1;
 
-    if (preset) {
+    if (rawMode === 'cafecito') {
+      const cafecitoSettings = await getCafecitoSettings();
+      const hasExplicitCafecitoValue = Boolean(rawAmount) || rawQty !== undefined;
+      quantity = clampCafecitoQuantity(rawQty);
+
+      if (provider === 'paypal') {
+        const paypalAmount = cafecitoSettings.paypalUnitAmount * quantity;
+        const paypalUrl = buildPaypalCheckoutUrl(
+          cafecitoSettings.paypalLink,
+          paypalAmount,
+          cafecitoSettings.paypalCurrency
+        );
+        await insertWebEvent({
+          eventName: 'checkout_created',
+          path: '/api/checkout/quick',
+          target: 'paypal',
+          userAgent: summarizeUserAgent(String(req.headers['user-agent'] || '')),
+          metadata: {
+            source: 'quick_checkout',
+            mode: rawMode,
+            provider: 'paypal',
+            qty: quantity,
+            amount: paypalAmount,
+            currency: cafecitoSettings.paypalCurrency,
+          },
+        });
+        return res.redirect(302, paypalUrl || '/cafecito?paypal=missing');
+      }
+
+      if (cafecitoSettings.mercadoPagoLink && !hasExplicitCafecitoValue) {
+        return res.redirect(302, cafecitoSettings.mercadoPagoLink);
+      }
+      const parsedAmount = Number(rawAmount);
+      amount = Number.isFinite(parsedAmount) && parsedAmount >= cafecitoSettings.amount
+        ? Math.round(parsedAmount)
+        : cafecitoSettings.amount * quantity;
+      title = quantity === 1
+        ? 'Cafecito para Balosky'
+        : `${quantity} cafecitos para Balosky`;
+      campaignId = 'c3';
+      purchaseId = `pur_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    } else if (rawMode === 'zoom') {
+      return res.redirect(302, '/#prepedido-consultoria');
+    } else if (preset) {
       amount = preset.amount;
       title = preset.title;
       campaignId = preset.campaignId;
@@ -1103,6 +1819,29 @@ router.get('/checkout/quick', async (req, res) => {
 
     const baseUrl = getBaseUrl(req);
     const notificationUrl = getNotificationUrl(req);
+    const autoReturn = shouldUseAutoReturn(baseUrl) ? 'approved' : undefined;
+    const nowIso = new Date().toISOString();
+
+    if (purchaseId) {
+      await db.prepare(`
+        INSERT INTO purchases (
+          id, supporterName, type, itemId, title, createdAt,
+          email, status, amount, externalReference, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        purchaseId,
+        'Anónimo',
+        'campaign',
+        campaignId,
+        title,
+        nowIso,
+        '',
+        'pending',
+        amount,
+        purchaseId,
+        nowIso
+      );
+    }
 
     const result = await preferenceClient.create({
       body: {
@@ -1116,16 +1855,29 @@ router.get('/checkout/quick', async (req, res) => {
           },
         ],
         back_urls: {
-          success: `${baseUrl}/checkout/success`,
-          failure: `${baseUrl}/checkout/failure`,
-          pending: `${baseUrl}/checkout/pending`,
+          success: purchaseId
+            ? `${baseUrl}/pago-exitoso?purchase=${encodeURIComponent(purchaseId)}`
+            : `${baseUrl}/checkout/success`,
+          failure: purchaseId
+            ? `${baseUrl}/pago-fallido?purchase=${encodeURIComponent(purchaseId)}`
+            : `${baseUrl}/checkout/failure`,
+          pending: purchaseId
+            ? `${baseUrl}/pago-pendiente?purchase=${encodeURIComponent(purchaseId)}`
+            : `${baseUrl}/checkout/pending`,
         },
-        auto_return: 'approved',
-        external_reference: `${campaignId}-${rawMode}-${Date.now()}`,
+        ...(autoReturn ? { auto_return: autoReturn } : {}),
+        external_reference: purchaseId || `${campaignId}-${rawMode}-${Date.now()}`,
         metadata: {
           campaignId,
           mode: rawMode,
           quickFlow: true,
+          ...(purchaseId ? {
+            purchaseId,
+            type: 'campaign',
+            itemId: campaignId,
+            quantity,
+            cafecitoUnitAmount: Math.round(amount / quantity),
+          } : {}),
         },
         ...(notificationUrl ? { notification_url: notificationUrl } : {}),
       },
@@ -1136,6 +1888,24 @@ router.get('/checkout/quick', async (req, res) => {
       console.error('[GET /checkout/quick] no init_point in MP response');
       return res.redirect(302, '/checkout?error=mp-unavailable');
     }
+    if (purchaseId && result.id) {
+      await db.prepare('UPDATE purchases SET preferenceId = ?, updatedAt = ? WHERE id = ?')
+        .run(result.id, new Date().toISOString(), purchaseId);
+    }
+    await insertWebEvent({
+      eventName: 'checkout_created',
+      path: '/api/checkout/quick',
+      target: rawMode || 'quick',
+      userAgent: summarizeUserAgent(String(req.headers['user-agent'] || '')),
+      metadata: {
+        source: 'quick_checkout',
+        mode: rawMode || 'quick',
+        provider: 'mercadopago',
+        qty: quantity,
+        amount,
+        currency: 'ARS',
+      },
+    });
     return res.redirect(302, target);
   } catch (error) {
     console.error('[GET /checkout/quick] error:', error);
@@ -1152,7 +1922,9 @@ router.get('/checkout/status/:paymentId', async (req, res) => {
     }
 
     const payment = await paymentClient.get({ id: paymentId });
-    const processingResult = payment.status === 'approved' ? await processApprovedPayment(payment) : null;
+    const processingResult = payment.status === 'approved'
+      ? await processApprovedPayment(payment)
+      : await syncPurchaseStatusFromPayment(payment);
 
     res.json({
       id: payment.id,
@@ -1160,7 +1932,8 @@ router.get('/checkout/status/:paymentId', async (req, res) => {
       statusDetail: payment.status_detail,
       amount: payment.transaction_amount,
       currency: payment.currency_id,
-      processed: processingResult?.reason === 'processed' || processingResult?.reason === 'already-processed'
+      processed: processingResult?.reason === 'processed' || processingResult?.reason === 'already-processed',
+      synced: processingResult?.reason === 'synced'
     });
   } catch (error) {
     console.error('[GET /checkout/status/:paymentId]', error);
@@ -1194,38 +1967,84 @@ const ALLOWED_CHECKOUT_TYPES: readonly CheckoutType[] = ['wallpaper', 'pack', 'p
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+const escapeHtml = (value: unknown) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const sendPublicFileIfLocal = (res: express.Response, publicUrl: string) => {
+  if (!publicUrl.startsWith('/') || publicUrl.startsWith('//')) return false;
+
+  const pathname = decodeURIComponent(new URL(publicUrl, 'http://local').pathname);
+  const publicRoot = path.resolve(process.cwd(), 'public');
+  const fullPath = path.resolve(publicRoot, pathname.replace(/^\/+/, ''));
+  if (!fullPath.startsWith(publicRoot + path.sep)) return false;
+
+  res.sendFile(fullPath);
+  return true;
+};
+
 const resolveItemTitleAndPrice = async (type: CheckoutType, itemId: string | undefined, overrideAmount: number | undefined) => {
-  if (type === 'wallpaper' || type === 'pack') {
+  if (type === 'pack') {
+    const packPrice = 3500;
+    if (overrideAmount !== undefined && Number(overrideAmount) !== packPrice) {
+      return { ok: false, error: 'Monto inválido para pack' as const };
+    }
+    if (itemId) {
+      const row: any = await db.prepare(
+        "SELECT id, active FROM media WHERE id = ? AND kind = 'wallpaper'"
+      ).get(itemId);
+      if (!row || !row.active) return { ok: false, error: 'Wallpaper no disponible' as const };
+    }
+    return {
+      ok: true as const,
+      title: 'Pack 10 wallpapers 4K',
+      amount: packPrice,
+      itemId: itemId || 'pack-wallpapers'
+    };
+  }
+  if (type === 'wallpaper') {
     if (!itemId) return { ok: false, error: 'itemId requerido' as const };
     const row: any = await db.prepare(
       "SELECT id, title, isLocked, active, mediaUrl FROM media WHERE id = ? AND kind = 'wallpaper'"
     ).get(itemId);
     if (!row || !row.active) return { ok: false, error: 'Wallpaper no disponible' as const };
-    // Packs por defecto 3500 ARS; wallpapers sueltos 1200 ARS; override permitido
-    const defaultPrice = type === 'pack' ? 3500 : 1200;
-    const amount = Number.isFinite(Number(overrideAmount)) && Number(overrideAmount) > 0 ? Number(overrideAmount) : defaultPrice;
+    const amount = 1200;
+    if (overrideAmount !== undefined && Number(overrideAmount) !== amount) {
+      return { ok: false, error: 'Monto inválido para wallpaper' as const };
+    }
     return { ok: true as const, title: row.title || 'Wallpaper', amount, itemId: row.id };
   }
   if (type === 'product') {
     if (!itemId) return { ok: false, error: 'itemId requerido' as const };
     const row: any = await db.prepare('SELECT id, title, price, active, deliveryType, fileUrl, externalUrl FROM products WHERE id = ?').get(itemId);
     if (!row || !row.active) return { ok: false, error: 'Producto no disponible' as const };
-    const amount = Number.isFinite(Number(overrideAmount)) && Number(overrideAmount) > 0 ? Number(overrideAmount) : Number(row.price || 0);
+    const amount = Number(row.price || 0);
     if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Precio inválido' as const };
+    if (overrideAmount !== undefined && Number(overrideAmount) !== amount) {
+      return { ok: false, error: 'Monto inválido para producto' as const };
+    }
     return { ok: true as const, title: row.title || 'Producto', amount, itemId: row.id };
   }
   if (type === 'membership') {
     if (!itemId) return { ok: false, error: 'itemId requerido' as const };
     const row: any = await db.prepare('SELECT id, name, price, active FROM memberships WHERE id = ?').get(itemId);
     if (!row || !row.active) return { ok: false, error: 'Membership no disponible' as const };
-    const amount = Number.isFinite(Number(overrideAmount)) && Number(overrideAmount) > 0 ? Number(overrideAmount) : Number(row.price || 0);
+    const amount = Number(row.price || 0);
     if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Precio inválido' as const };
+    if (overrideAmount !== undefined && Number(overrideAmount) !== amount) {
+      return { ok: false, error: 'Monto inválido para membership' as const };
+    }
     return { ok: true as const, title: row.name || 'Membresía', amount, itemId: row.id };
   }
-  // type === 'campaign' (aporte a campaña, monto libre)
-  const amount = Number(overrideAmount);
-  if (!Number.isFinite(amount) || amount < 1) return { ok: false, error: 'Monto inválido' as const };
   const campaignId = itemId || 'c3';
+  const rawAmount = Number(overrideAmount);
+  if (!Number.isFinite(rawAmount) || rawAmount < 1) return { ok: false, error: 'Monto inválido' as const };
+  const cafecitoSettings = isCafecitoCampaign(campaignId) ? await getCafecitoSettings() : null;
+  const amount = cafecitoSettings ? Math.max(rawAmount, cafecitoSettings.amount) : rawAmount;
   const row: any = await db.prepare('SELECT id, title FROM campaigns WHERE id = ?').get(campaignId);
   const title = row?.title ? `Aporte · ${row.title}` : 'Aporte a Balosky';
   return { ok: true as const, title, amount, itemId: campaignId };
@@ -1248,6 +2067,10 @@ router.post('/checkout/create', async (req, res) => {
     const message = typeof body.message === 'string' ? body.message.trim().slice(0, 500) : '';
     const itemIdRaw = typeof body.itemId === 'string' ? body.itemId.trim() : undefined;
     const amountRaw = body.amount !== undefined ? Number(body.amount) : undefined;
+
+    if (ENCARGO_PAYMENT_RE.test(message) || ENCARGO_PAYMENT_RE.test(itemIdRaw || '')) {
+      return res.status(400).json({ error: 'Los encargos entran como pre-pedido y se pagan después de cotizar.' });
+    }
 
     const resolution = await resolveItemTitleAndPrice(type, itemIdRaw, amountRaw);
     if (!resolution.ok) {
@@ -1280,6 +2103,7 @@ router.post('/checkout/create', async (req, res) => {
 
     const baseUrl = getBaseUrl(req);
     const notificationUrl = getNotificationUrl(req);
+    const autoReturn = shouldUseAutoReturn(baseUrl) ? 'approved' : undefined;
 
     const result = await preferenceClient.create({
       body: {
@@ -1298,7 +2122,7 @@ router.post('/checkout/create', async (req, res) => {
           failure: `${baseUrl}/pago-fallido?purchase=${encodeURIComponent(purchaseId)}`,
           pending: `${baseUrl}/pago-pendiente?purchase=${encodeURIComponent(purchaseId)}`
         },
-        auto_return: 'approved',
+        ...(autoReturn ? { auto_return: autoReturn } : {}),
         external_reference: externalReference,
         metadata: {
           purchaseId,
@@ -1319,6 +2143,14 @@ router.post('/checkout/create', async (req, res) => {
       await db.prepare('UPDATE purchases SET preferenceId = ?, updatedAt = ? WHERE id = ?')
         .run(result.id, new Date().toISOString(), purchaseId);
     }
+
+    console.info('[checkout] created', {
+      purchaseId,
+      preferenceId: result.id,
+      type,
+      itemId: resolvedItemId || '',
+      amount
+    });
 
     res.json({
       purchaseId,
@@ -1361,7 +2193,7 @@ router.get('/purchases/:id/status', async (req, res) => {
     };
 
     // Expose downloadToken only when paid. Don't leak email or token otherwise.
-    if (row.status === 'paid' && row.downloadToken) {
+    if (row.status === 'paid' && row.downloadToken && ['product', 'wallpaper', 'pack'].includes(row.type)) {
       base.downloadToken = row.downloadToken;
       base.downloadExpiresAt = row.downloadExpiresAt;
     }
@@ -1369,6 +2201,110 @@ router.get('/purchases/:id/status', async (req, res) => {
     res.json(base);
   } catch (e) {
     console.error('[GET /purchases/:id/status]', e);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+
+router.post('/purchases/:id/followup', writePublicLimiter, async (req, res) => {
+  try {
+    const id = String(req.params.id || '');
+    if (!id || !id.startsWith('pur_')) {
+      return res.status(400).json({ error: 'Invalid purchase id' });
+    }
+
+    const row: any = await db.prepare(`
+      SELECT id, status, title, amount, type, itemId, paymentId
+      FROM purchases WHERE id = ?
+    `).get(id);
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    if (row.status !== 'paid') {
+      return res.status(409).json({ error: 'Todavía no pudimos confirmar el pago.' });
+    }
+
+    const body = req.body || {};
+    const supporterName = typeof body.supporterName === 'string'
+      ? body.supporterName.trim().slice(0, NAME_MAX_LEN)
+      : '';
+    const message = typeof body.message === 'string'
+      ? body.message.trim().slice(0, 500)
+      : '';
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const visibility = body.visibility === 'private' ? 'private' : 'public';
+
+    if (!supporterName && !message && !email) {
+      return res.status(400).json({ error: 'No hay datos para guardar.' });
+    }
+    if (email && !EMAIL_RE.test(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
+    }
+    if (message && message.length < MESSAGE_MIN_LEN) {
+      return res.status(400).json({ error: 'Mensaje muy corto' });
+    }
+
+    const finalName = supporterName || 'Anónimo';
+    const nowIso = new Date().toISOString();
+
+    await db.prepare(`
+      UPDATE purchases
+      SET supporterName = ?,
+          email = COALESCE(NULLIF(email, ''), ?),
+          contactEmail = ?,
+          supporterMessage = ?,
+          messageVisibility = ?,
+          followupAt = ?,
+          updatedAt = ?
+      WHERE id = ?
+    `).run(
+      finalName,
+      email || '',
+      email || '',
+      message || '',
+      visibility,
+      nowIso,
+      nowIso,
+      id
+    );
+
+    if (visibility === 'public' && (supporterName || message)) {
+      const processed: any = await db.prepare(`
+        SELECT messageId FROM processed_payments
+        WHERE externalReference = ? OR paymentId = ?
+        ORDER BY processedAt DESC
+        LIMIT 1
+      `).get(id, row.paymentId || '');
+
+      if (processed?.messageId) {
+        await db.prepare(`
+          UPDATE messages
+          SET supporterName = ?, message = ?, isAnonymous = ?, isApproved = ?
+          WHERE id = ?
+        `).run(
+          finalName,
+          message || null,
+          supporterName ? 0 : 1,
+          1,
+          processed.messageId
+        );
+      }
+    }
+
+    await sendAdminAlert({
+      kind: 'cafecito',
+      summary: `${finalName} · post pago · $${Number(row.amount || 0).toLocaleString('es-AR')} ARS`,
+      details: {
+        purchaseId: id,
+        title: row.title,
+        amount: row.amount,
+        supporterName: finalName,
+        email: email || '',
+        visibility,
+        message: message ? message.slice(0, 500) : ''
+      }
+    }).catch((alertError) => console.error('[POST /purchases/:id/followup] admin alert error', alertError));
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[POST /purchases/:id/followup]', e);
     res.status(500).json({ error: 'server error' });
   }
 });
@@ -1403,8 +2339,12 @@ router.post('/webhook/mercadopago', async (req, res) => {
       return res.status(200).send('Ignored');
     }
 
+    console.info('[webhook/mercadopago] received', { topic: topic || 'payment', id: paymentId });
+
     const payment = await paymentClient.get({ id: paymentId });
-    const processingResult = await processApprovedPayment(payment);
+    const processingResult = payment.status === 'approved'
+      ? await processApprovedPayment(payment)
+      : await syncPurchaseStatusFromPayment(payment);
 
     if (processingResult.reason === 'processed') {
       try {
@@ -1435,18 +2375,25 @@ router.post('/webhook/mercadopago', async (req, res) => {
 
 // --- FILE UPLOAD (admin) ---
 //
-// Estrategia: si hay BLOB_READ_WRITE_TOKEN seteado (Vercel prod + dev con
-// .env.local), subimos al Vercel Blob Store y devolvemos la URL pública del
-// blob (https://xxx.public.blob.vercel-storage.com/...). En dev sin token,
-// caemos al viejo disco local en /public/uploads/YYYY/MM. Esto permite
-// seguir laburando offline y al mismo tiempo funcionar en producción
-// (donde el filesystem serverless es effectively read-only).
+// Estrategia costo-cero primero:
+// - Supabase Storage es el default porque el free tier corta al agotarse.
+// - R2/Vercel Blob quedan bloqueados salvo opt-in explícito: son usage-based.
+// - En dev sin storage remoto, caemos al disco.
+const MEDIA_ALLOW_USAGE_BILLED_STORAGE = process.env.MEDIA_ALLOW_USAGE_BILLED_STORAGE === 'true';
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID?.trim();
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID?.trim();
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY?.trim();
+const R2_BUCKET = process.env.R2_BUCKET?.trim();
+const R2_PUBLIC_BASE_URL = process.env.R2_PUBLIC_BASE_URL?.trim()?.replace(/\/+$/, '');
+const R2_ENABLED = MEDIA_ALLOW_USAGE_BILLED_STORAGE && Boolean(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET && R2_PUBLIC_BASE_URL);
+const SUPABASE_MEDIA_BUCKET = process.env.SUPABASE_MEDIA_BUCKET?.trim();
+const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+const BLOB_ENABLED = MEDIA_ALLOW_USAGE_BILLED_STORAGE && Boolean(BLOB_TOKEN);
+const USE_LOCAL_UPLOADS = !R2_ENABLED && !SUPABASE_MEDIA_BUCKET && !BLOB_ENABLED && !process.env.VERCEL;
 const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) {
+if (USE_LOCAL_UPLOADS && !fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
-
-const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN?.trim();
 
 // Muxer siempre en memoria — en prod lo mandamos al blob, en dev lo
 // escribimos al disco nosotros mismos. Simplifica el branching y evita el
@@ -1475,16 +2422,78 @@ function safeName(originalname: string): string {
   return `${base}-${Date.now()}${ext}`;
 }
 
+async function uploadToR2(key: string, body: Buffer, contentType: string): Promise<string> {
+  if (!R2_ENABLED || !R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET || !R2_PUBLIC_BASE_URL) {
+    throw new Error('R2 storage is not configured');
+  }
+  const { PutObjectCommand, S3Client } = await import('@aws-sdk/client-s3');
+  const client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_ACCESS_KEY,
+    },
+  });
+  await client.send(new PutObjectCommand({
+    Bucket: R2_BUCKET,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+    CacheControl: 'public, max-age=31536000, immutable',
+  }));
+  return `${R2_PUBLIC_BASE_URL}/${key}`;
+}
+
+async function uploadToSupabaseStorage(key: string, body: Buffer, contentType: string): Promise<string> {
+  if (!SUPABASE_MEDIA_BUCKET || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Supabase media storage is not configured');
+  }
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+  const upload = await supabase.storage.from(SUPABASE_MEDIA_BUCKET).upload(key, body, {
+    contentType,
+    upsert: true,
+  });
+  if (upload.error) throw upload.error;
+  return supabase.storage.from(SUPABASE_MEDIA_BUCKET).getPublicUrl(key).data.publicUrl;
+}
+
 router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
   try {
     const f = req.file;
     if (!f) return res.status(400).json({ error: 'No file uploaded' });
     const filename = safeName(f.originalname);
+    const key = `uploads/${kindFolder(f.mimetype)}/${filename}`;
 
-    // Prod path: sube al Vercel Blob Store.
-    if (BLOB_TOKEN) {
+    if (R2_ENABLED) {
+      const url = await uploadToR2(key, f.buffer, f.mimetype);
+      return res.json({
+        url,
+        filename,
+        mimetype: f.mimetype,
+        size: f.size,
+        storage: 'r2'
+      });
+    }
+
+    if (SUPABASE_MEDIA_BUCKET) {
+      const url = await uploadToSupabaseStorage(key, f.buffer, f.mimetype);
+      return res.json({
+        url,
+        filename,
+        mimetype: f.mimetype,
+        size: f.size,
+        storage: 'supabase'
+      });
+    }
+
+    // Legacy fallback opt-in: evitar para media viral; Vercel Blob tiene
+    // límite de transfer bajo en Hobby y ya nos dejó URLs públicas en 403.
+    if (BLOB_ENABLED && BLOB_TOKEN) {
       const { put } = await import('@vercel/blob');
-      const key = `uploads/${kindFolder(f.mimetype)}/${filename}`;
       const { url } = await put(key, f.buffer, {
         access: 'public',
         contentType: f.mimetype,
@@ -1498,6 +2507,13 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
         mimetype: f.mimetype,
         size: f.size,
         storage: 'blob'
+      });
+    }
+
+    if (!USE_LOCAL_UPLOADS) {
+      return res.status(500).json({
+        error: 'upload_storage_not_configured',
+        detail: 'Configurá SUPABASE_MEDIA_BUCKET para el modo costo-cero con corte por free tier. R2/Blob requieren MEDIA_ALLOW_USAGE_BILLED_STORAGE=true porque pueden generar overages.'
       });
     }
 
@@ -1536,17 +2552,31 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
  * viewerFull = true cuando el request viene del admin o de un Baloskier
  * autenticado (cookie de sesión). En ese caso no hay redacción.
  */
-const mapMedia = (m: any, viewerFull: boolean = true) => {
+const PUBLIC_FREE_WALLPAPER_LIMIT = 3;
+
+const mapMedia = (m: any, viewerFull: boolean = true, forceLocked: boolean = false) => {
   const publicFromMs = m.publicFrom ? new Date(m.publicFrom).getTime() : null;
   const inEarlyWindow = publicFromMs !== null && publicFromMs > Date.now();
-  const shouldRedact = inEarlyWindow && !viewerFull;
+  const lockedForViewer = Boolean(m.isLocked) || forceLocked || inEarlyWindow;
+  const shouldRedact = lockedForViewer && !viewerFull;
+  const assetUrls = (() => {
+    if (Array.isArray(m.assetUrls)) return m.assetUrls.filter(Boolean);
+    if (!m.assetUrls || typeof m.assetUrls !== 'string') return [];
+    try {
+      const parsed = JSON.parse(m.assetUrls);
+      return Array.isArray(parsed) ? parsed.filter((u) => typeof u === 'string' && u.trim()).map((u) => u.trim()) : [];
+    } catch {
+      return m.assetUrls.split(/\r?\n|,/).map((u: string) => u.trim()).filter(Boolean);
+    }
+  })();
 
   return {
     ...m,
     thumbUrl: m.thumbUrl || null,
-    // Redactamos el archivo jugable/bajable durante la ventana early.
+    // Redactamos el archivo jugable/bajable si el item no está disponible
+    // para este viewer: early/member/paywall siguen mostrando preview.
     mediaUrl: shouldRedact ? null : m.mediaUrl,
-    isLocked: Boolean(m.isLocked) || shouldRedact,
+    isLocked: lockedForViewer,
     isMemberOnly: Boolean(m.isMemberOnly),
     active: Boolean(m.active),
     featured: Boolean(m.featured),
@@ -1558,14 +2588,26 @@ const mapMedia = (m: any, viewerFull: boolean = true) => {
     // for content the admin hasn't touched yet.
     showDescription: m.showDescription === 0 || m.showDescription === false ? false : true,
     showPrompt: m.showPrompt === 0 || m.showPrompt === false ? false : true,
-    showTool: m.showTool === 0 || m.showTool === false ? false : true
+    showTool: m.showTool === 0 || m.showTool === false ? false : true,
+    assetUrls: shouldRedact ? [] : assetUrls
   };
+};
+
+const getPublicFreeWallpaperIds = async () => {
+  const rows: any[] = await db.prepare(`
+    SELECT id
+    FROM media
+    WHERE kind = 'wallpaper' AND active = 1
+    ORDER BY sortOrder ASC, createdAt DESC
+    LIMIT ?
+  `).all(PUBLIC_FREE_WALLPAPER_LIMIT);
+  return new Set(rows.map((r) => String(r.id)));
 };
 
 /* viewerHasFullAccess: admin OR socio del club. Si es true, ve todo
  * (incluido is_member_only y los early drops sin redactar). */
 function viewerHasFullAccess(req: express.Request) {
-  if (req.headers.authorization) return true;
+  if (verifyAdminAuthHeader(req.headers.authorization)) return true;
   return Boolean(readMemberFromCookie(req));
 }
 
@@ -1581,7 +2623,15 @@ router.get('/media', async (req, res) => {
     // no-miembros. Los early drops sí aparecen, pero con la URL redactada.
     const filtered = viewerFull ? rows : rows.filter((r: any) => !r.isMemberOnly);
 
-    res.json(filtered.map((r: any) => mapMedia(r, viewerFull)));
+    let publicWallpaperIndex = 0;
+    res.json(filtered.map((r: any) => {
+      let forceLocked = false;
+      if (!viewerFull && r.kind === 'wallpaper') {
+        publicWallpaperIndex += 1;
+        forceLocked = publicWallpaperIndex > PUBLIC_FREE_WALLPAPER_LIMIT;
+      }
+      return mapMedia(r, viewerFull, forceLocked);
+    }));
   } catch (e) {
     console.error('[GET /media]', e);
     res.status(500).json({ error: 'database error' });
@@ -1596,7 +2646,12 @@ router.get('/media/:id', async (req, res) => {
     if (!viewerFull && row.isMemberOnly) {
       return res.status(404).json({ error: 'Not found' });
     }
-    res.json(mapMedia(row, viewerFull));
+    let forceLocked = false;
+    if (!viewerFull && row.kind === 'wallpaper') {
+      const freeWallpaperIds = await getPublicFreeWallpaperIds();
+      forceLocked = !freeWallpaperIds.has(row.id);
+    }
+    res.json(mapMedia(row, viewerFull, forceLocked));
   } catch (e) {
     console.error('[GET /media/:id]', e);
     res.status(500).json({ error: 'database error' });
@@ -1614,18 +2669,21 @@ router.post('/media', requireAuth, async (req, res) => {
     const showDesc = m.showDescription === false ? 0 : 1;
     const showPrompt = m.showPrompt === false ? 0 : 1;
     const showTool = m.showTool === false ? 0 : 1;
+    const assetUrls = Array.isArray(m.assetUrls)
+      ? JSON.stringify(m.assetUrls.map((u: unknown) => String(u).trim()).filter(Boolean))
+      : JSON.stringify([]);
     // Early drop: aceptamos ISO string o timestamp. Si no parsea, lo ignoramos.
     const publicFrom = m.publicFrom ? (() => {
       const d = new Date(m.publicFrom);
       return isNaN(d.getTime()) ? null : d.toISOString();
     })() : null;
     await db.prepare(`
-      INSERT INTO media (id, kind, title, description, category, mediaUrl, thumbUrl, embedUrl, coverImage, duration, aiTool, aiPrompt, isMemberOnly, aspectRatio, showDescription, showPrompt, showTool, isLocked, active, featured, sortOrder, publicFrom, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO media (id, kind, title, description, category, mediaUrl, thumbUrl, embedUrl, coverImage, duration, aiTool, aiPrompt, assetUrls, isMemberOnly, aspectRatio, showDescription, showPrompt, showTool, isLocked, active, featured, sortOrder, publicFrom, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, m.kind, m.title, m.description || null, m.category || null,
       m.mediaUrl || null, m.thumbUrl || null, m.embedUrl || null, m.coverImage || null, m.duration || null,
-      m.aiTool || null, m.aiPrompt || null,
+      m.aiTool || null, m.aiPrompt || null, assetUrls,
       isMemberOnly, aspectRatio, showDesc, showPrompt, showTool,
       m.isLocked ? 1 : 0,
       m.active === false ? 0 : 1,
@@ -1662,6 +2720,12 @@ router.put('/media/:id', requireAuth, async (req, res) => {
     if (m.duration !== undefined)    cols.push(['duration', m.duration || null]);
     if (m.aiTool !== undefined)      cols.push(['aiTool', m.aiTool || null]);
     if (m.aiPrompt !== undefined)    cols.push(['aiPrompt', m.aiPrompt || null]);
+    if (m.assetUrls !== undefined) {
+      const assetUrls = Array.isArray(m.assetUrls)
+        ? m.assetUrls.map((u: unknown) => String(u).trim()).filter(Boolean)
+        : [];
+      cols.push(['assetUrls', JSON.stringify(assetUrls)]);
+    }
     if (m.isMemberOnly !== undefined) cols.push(['isMemberOnly', m.isMemberOnly ? 1 : 0]);
     if (m.aspectRatio !== undefined) {
       const valid = ['9:16','16:9','1:1'].includes(String(m.aspectRatio));
@@ -1721,12 +2785,215 @@ router.post('/media/:id/play', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/media/resolve-cover
+ *
+ * Dado un URL de track (Spotify, YouTube, Apple Music), devuelve la URL de
+ * la portada que le corresponde. Endpoint liviano — solo parsea/oEmbed,
+ * no guarda nada. El admin lo usa para autocompletar `coverImage` cuando
+ * pegás un link de Suno/Spotify/YT y el cover no se adivinó del ID3.
+ *
+ * Body: { url: string }
+ * Resp: { coverUrl: string | null, platform: 'spotify'|'youtube'|'apple-music'|'unknown' }
+ */
+router.post('/media/resolve-cover', requireAuth, async (req, res) => {
+  try {
+    const raw = String(req.body?.url || '').trim();
+    if (!raw) return res.status(400).json({ error: 'url required' });
+
+    const lower = raw.toLowerCase();
+    let coverUrl: string | null = null;
+    let platform: 'spotify' | 'youtube' | 'apple-music' | 'unknown' = 'unknown';
+
+    // --- YouTube ---
+    // Saca el video ID de youtu.be/ID, /watch?v=ID, /embed/ID, /shorts/ID, etc.
+    // No necesita API key: la CDN de thumbnails es pública.
+    if (lower.includes('youtu')) {
+      platform = 'youtube';
+      try {
+        const u = new URL(raw);
+        let id = u.searchParams.get('v');
+        if (!id && u.hostname.includes('youtu.be')) id = u.pathname.slice(1).split('/')[0];
+        if (!id && u.pathname.startsWith('/embed/')) id = u.pathname.slice(7).split('/')[0];
+        if (!id && u.pathname.startsWith('/shorts/')) id = u.pathname.slice(8).split('/')[0];
+        if (id) {
+          // maxresdefault puede 404ear en videos sin HD; hqdefault siempre existe.
+          coverUrl = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+        }
+      } catch {
+        /* URL inválida — caemos a unknown */
+      }
+    }
+
+    // --- Spotify ---
+    // Usa el oEmbed público (no requiere auth).
+    // https://open.spotify.com/oembed?url=<trackUrl>
+    else if (lower.includes('spotify')) {
+      platform = 'spotify';
+      try {
+        const oembed = await fetch(
+          `https://open.spotify.com/oembed?url=${encodeURIComponent(raw)}`,
+          { headers: { 'User-Agent': 'baloskycom/1.0' } },
+        );
+        if (oembed.ok) {
+          const data: any = await oembed.json();
+          if (data?.thumbnail_url) coverUrl = String(data.thumbnail_url);
+        }
+      } catch (err) {
+        console.warn('[resolve-cover] spotify oembed failed', err);
+      }
+    }
+
+    // --- Apple Music ---
+    // iTunes Lookup API devuelve artworkUrl100. Reemplazamos 100x100 por 600x600
+    // para mejor resolución en la card.
+    else if (lower.includes('music.apple') || lower.includes('apple.co')) {
+      platform = 'apple-music';
+      try {
+        const u = new URL(raw);
+        // El id del track viene en ?i= cuando es un single track dentro de álbum,
+        // o en el path cuando es un álbum/song directo.
+        let id = u.searchParams.get('i');
+        if (!id) {
+          // /album/name/123456789 → 123456789
+          const parts = u.pathname.split('/').filter(Boolean);
+          for (const p of parts.reverse()) {
+            if (/^\d{5,}$/.test(p)) {
+              id = p;
+              break;
+            }
+          }
+        }
+        if (id) {
+          const lookup = await fetch(
+            `https://itunes.apple.com/lookup?id=${encodeURIComponent(id)}`,
+            { headers: { 'User-Agent': 'baloskycom/1.0' } },
+          );
+          if (lookup.ok) {
+            const data: any = await lookup.json();
+            const art = data?.results?.[0]?.artworkUrl100;
+            if (art && typeof art === 'string') {
+              coverUrl = art.replace('100x100bb.jpg', '600x600bb.jpg')
+                             .replace('100x100bb.png', '600x600bb.png');
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[resolve-cover] apple lookup failed', err);
+      }
+    }
+
+    res.json({ coverUrl, platform });
+  } catch (e) {
+    console.error('[POST /media/resolve-cover]', e);
+    res.status(500).json({ error: 'resolve failed' });
+  }
+});
+
+/**
+ * POST /api/media/backfill-covers
+ *
+ * Recorre todas las canciones (`kind='cancion'`) sin `coverImage` y, para
+ * cada una con un URL resolvable (Spotify/YouTube/Apple), autocompleta la
+ * portada usando la misma lógica de `/media/resolve-cover`. Devuelve el
+ * conteo de tracks actualizadas. Pensado para un botón "rellenar covers
+ * faltantes" en el admin.
+ */
+router.post('/media/backfill-covers', requireAuth, async (_req, res) => {
+  try {
+    const rows: any[] = await db.prepare(
+      "SELECT id, title, mediaUrl, embedUrl FROM media WHERE kind = 'cancion' AND (coverImage IS NULL OR coverImage = '')"
+    ).all();
+
+    let updated = 0;
+    const failures: { id: string; title: string; reason: string }[] = [];
+
+    for (const row of rows) {
+      const url = String(row.embedUrl || row.mediaUrl || '').trim();
+      if (!url) {
+        failures.push({ id: row.id, title: row.title, reason: 'sin URL' });
+        continue;
+      }
+
+      // Reusamos la lógica del endpoint haciéndonos un fetch interno simple.
+      // Duplicamos un poco por simplicidad — mantener en sync con resolve-cover.
+      const lower = url.toLowerCase();
+      let coverUrl: string | null = null;
+
+      try {
+        if (lower.includes('youtu')) {
+          const u = new URL(url);
+          let id = u.searchParams.get('v');
+          if (!id && u.hostname.includes('youtu.be')) id = u.pathname.slice(1).split('/')[0];
+          if (!id && u.pathname.startsWith('/embed/')) id = u.pathname.slice(7).split('/')[0];
+          if (!id && u.pathname.startsWith('/shorts/')) id = u.pathname.slice(8).split('/')[0];
+          if (id) coverUrl = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+        } else if (lower.includes('spotify')) {
+          const oembed = await fetch(
+            `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`,
+            { headers: { 'User-Agent': 'baloskycom/1.0' } },
+          );
+          if (oembed.ok) {
+            const data: any = await oembed.json();
+            if (data?.thumbnail_url) coverUrl = String(data.thumbnail_url);
+          }
+        } else if (lower.includes('music.apple') || lower.includes('apple.co')) {
+          const u = new URL(url);
+          let id = u.searchParams.get('i');
+          if (!id) {
+            const parts = u.pathname.split('/').filter(Boolean);
+            for (const p of parts.reverse()) {
+              if (/^\d{5,}$/.test(p)) { id = p; break; }
+            }
+          }
+          if (id) {
+            const lookup = await fetch(
+              `https://itunes.apple.com/lookup?id=${encodeURIComponent(id)}`,
+              { headers: { 'User-Agent': 'baloskycom/1.0' } },
+            );
+            if (lookup.ok) {
+              const data: any = await lookup.json();
+              const art = data?.results?.[0]?.artworkUrl100;
+              if (art && typeof art === 'string') {
+                coverUrl = art.replace('100x100bb.jpg', '600x600bb.jpg')
+                               .replace('100x100bb.png', '600x600bb.png');
+              }
+            }
+          }
+        }
+      } catch (err) {
+        failures.push({
+          id: row.id,
+          title: row.title,
+          reason: err instanceof Error ? err.message : 'error',
+        });
+        continue;
+      }
+
+      if (coverUrl) {
+        await db.prepare('UPDATE media SET coverImage = ? WHERE id = ?').run(coverUrl, row.id);
+        updated++;
+      } else {
+        failures.push({ id: row.id, title: row.title, reason: 'no resolvable' });
+      }
+    }
+
+    res.json({ updated, scanned: rows.length, failures });
+  } catch (e) {
+    console.error('[POST /media/backfill-covers]', e);
+    res.status(500).json({ error: 'backfill failed' });
+  }
+});
+
 // --- SOCIALS ---
 const mapSocial = (s: any) => ({ ...s, active: Boolean(s.active) });
 
-router.get('/socials', async (_req, res) => {
+router.get('/socials', async (req, res) => {
   try {
-    const rows = await db.prepare('SELECT * FROM socials WHERE active = 1 ORDER BY sortOrder ASC').all();
+    const isAdmin = Boolean(verifyAdminAuthHeader(req.headers.authorization));
+    const rows = isAdmin
+      ? await db.prepare('SELECT * FROM socials ORDER BY active DESC, sortOrder ASC').all()
+      : await db.prepare('SELECT * FROM socials WHERE active = 1 ORDER BY sortOrder ASC').all();
     res.json(rows.map(mapSocial));
   } catch (e) {
     console.error('[GET /socials]', e);
@@ -1795,7 +3062,12 @@ router.delete('/socials/:id', requireAuth, async (req, res) => {
 // --- NEWSLETTER ---
 router.post('/newsletter', writePublicLimiter, async (req, res) => {
   try {
-    const { email, source } = req.body;
+    const body = req.body || {};
+    if ((body.website && String(body.website).trim()) || (body.hp_field && String(body.hp_field).trim())) {
+      return res.status(204).end();
+    }
+
+    const { email, source } = body;
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       return res.status(400).json({ error: 'Email inválido' });
     }
@@ -1841,7 +3113,10 @@ router.post('/wallpapers/request', writePublicLimiter, async (req, res) => {
     ).get(wallpaperId);
     if (!wp) return res.status(404).json({ error: 'Wallpaper no encontrado' });
     if (!wp.active) return res.status(404).json({ error: 'Wallpaper no disponible' });
-    if (wp.isLocked) return res.status(402).json({ error: 'Wallpaper parte del pack, necesita compra' });
+    const freeWallpaperIds = await getPublicFreeWallpaperIds();
+    if (wp.isLocked || !freeWallpaperIds.has(wp.id)) {
+      return res.status(402).json({ error: 'Wallpaper parte del pack, necesita compra' });
+    }
     if (!wp.mediaUrl) return res.status(404).json({ error: 'Archivo no disponible' });
 
     await db.prepare(`
@@ -1943,10 +3218,59 @@ router.get('/download/:token', async (req, res) => {
       }
       const ext = (row.mediaUrl.match(/\.([a-z0-9]+)(\?|$)/i) || [, 'jpg'])[1];
       res.setHeader('Content-Disposition', `attachment; filename="balosky-${safeTitle}.${ext}"`);
+      if (sendPublicFileIfLocal(res, row.mediaUrl)) return;
       return res.redirect(302, row.mediaUrl);
     };
 
-    if (finalKind === 'wallpaper' || finalKind === 'pack') {
+    if (finalKind === 'pack') {
+      const fileId = typeof req.query.file === 'string' ? req.query.file.trim() : '';
+      if (fileId) {
+        const row: any = await db.prepare(
+          "SELECT id, mediaUrl, title, active FROM media WHERE id = ? AND kind = 'wallpaper'"
+        ).get(fileId);
+        if (!row || !row.active) return res.status(404).send('Wallpaper no disponible');
+        return deliverMediaRow(row);
+      }
+
+      const rows: any[] = await db.prepare(`
+        SELECT id, title, description, thumbUrl, coverImage, mediaUrl
+        FROM media
+        WHERE kind = 'wallpaper' AND active = 1 AND mediaUrl IS NOT NULL AND mediaUrl != ''
+        ORDER BY sortOrder ASC, createdAt DESC
+      `).all();
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      const list = rows.map((row) => {
+        const href = `/api/download/${encodeURIComponent(token)}?file=${encodeURIComponent(row.id)}`;
+        const thumb = row.thumbUrl || row.coverImage || '';
+        return `<a class="item" href="${href}">
+          ${thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : '<span class="thumb">WP</span>'}
+          <span><strong>${escapeHtml(row.title || 'Wallpaper')}</strong><em>${escapeHtml(row.description || '4K')}</em></span>
+          <b>descargar</b>
+        </a>`;
+      }).join('');
+
+      return res.status(200).send(`<!doctype html>
+        <html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Balosky · Pack wallpapers</title>
+        <style>
+          body{margin:0;background:#0a0908;color:#f3efe6;font-family:Inter,system-ui,sans-serif;padding:32px 18px}
+          main{max-width:760px;margin:0 auto}
+          h1{font-size:clamp(34px,7vw,72px);line-height:.92;letter-spacing:-.05em;margin:0 0 12px;color:#FA5D29}
+          p{color:#bdb5a9;line-height:1.55;margin:0 0 24px}
+          .grid{display:grid;gap:10px}
+          .item{display:grid;grid-template-columns:72px 1fr auto;align-items:center;gap:14px;padding:10px;border:1px solid #2a241f;color:inherit;text-decoration:none;background:#11100e}
+          img,.thumb{width:72px;height:92px;object-fit:cover;background:#1b1714;display:grid;place-items:center;color:#FA5D29;font-weight:900}
+          strong{display:block;font-size:15px}.item em{display:block;color:#8f877d;font-size:12px;font-style:normal;margin-top:4px}.item b{font-size:11px;text-transform:uppercase;color:#FA5D29}
+        </style>
+        <main>
+          <h1>Pack wallpapers</h1>
+          <p>Tu compra está confirmada. Este link es personal y vence automáticamente; bajá los wallpapers desde acá.</p>
+          <div class="grid">${list || '<p>No hay wallpapers disponibles para entregar.</p>'}</div>
+        </main></html>`);
+    }
+
+    if (finalKind === 'wallpaper') {
       if (!finalItemId) return res.status(404).send('Item no encontrado');
       const row: any = await db.prepare(
         "SELECT id, mediaUrl, title, active FROM media WHERE id = ? AND kind = 'wallpaper'"
@@ -1963,9 +3287,10 @@ router.get('/download/:token', async (req, res) => {
       if (!row || !row.active) return res.status(404).send('Producto no disponible');
 
       const delivery = String(row.deliveryType || '').toLowerCase();
-      if (delivery === 'digital' && row.fileUrl) {
+      if ((delivery === 'digital' || delivery === 'file') && row.fileUrl) {
         const ext = (row.fileUrl.match(/\.([a-z0-9]+)(\?|$)/i) || [, 'pdf'])[1];
         res.setHeader('Content-Disposition', `attachment; filename="balosky-${safeTitle}.${ext}"`);
+        if (sendPublicFileIfLocal(res, row.fileUrl)) return;
         return res.redirect(302, row.fileUrl);
       }
       if (row.externalUrl) {
@@ -2309,7 +3634,7 @@ function readMemberFromCookie(req: express.Request): { id: string; email: string
   const match = raw.match(new RegExp(`(?:^|; )${MEMBER_COOKIE}=([^;]+)`));
   if (!match) return null;
   try {
-    const decoded: any = jwt.verify(decodeURIComponent(match[1]), JWT_SECRET);
+    const decoded: any = jwt.verify(decodeURIComponent(match[1]), EFFECTIVE_JWT_SECRET);
     if (decoded?.typ !== 'member' || !decoded?.mid) return null;
     return { id: decoded.mid, email: decoded.email };
   } catch {
@@ -2322,6 +3647,7 @@ const magicLinkLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isDevLocalRequest,
   message: { error: 'Demasiados pedidos. Revisá tu bandeja o esperá unos minutos.' }
 });
 
@@ -2336,7 +3662,7 @@ router.post('/members/request-link', magicLinkLimiter, async (req, res) => {
     if (member) {
       const token = jwt.sign(
         { typ: 'member-verify', mid: member.id, email: member.email },
-        JWT_SECRET,
+        EFFECTIVE_JWT_SECRET,
         { expiresIn: '30m' }
       );
       const baseUrl = getBaseUrl(req);
@@ -2363,7 +3689,7 @@ router.get('/members/verify/:token', async (req, res) => {
     const token = String(req.params.token || '');
     let decoded: any;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
     } catch (e: any) {
       const reason = e?.name === 'TokenExpiredError' ? 'expired' : 'invalid';
       return res.redirect(302, `/club?auth=${reason}`);
@@ -2376,7 +3702,7 @@ router.get('/members/verify/:token', async (req, res) => {
 
     const sessionToken = jwt.sign(
       { typ: 'member', mid: member.id, email: member.email },
-      JWT_SECRET,
+      EFFECTIVE_JWT_SECRET,
       { expiresIn: `${MEMBER_COOKIE_TTL}s` }
     );
     setMemberCookie(res, sessionToken);

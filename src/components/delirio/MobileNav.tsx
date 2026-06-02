@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 /**
@@ -10,8 +9,10 @@ import { Link, useLocation } from 'react-router-dom';
  * tocado scrollea suavemente si ya estás en `/`, o navega a `/` primero
  * si estás en otra ruta (p.ej. /laboratorio).
  *
- * Incluye un contador de "onlines" muy chiquito al final, como sugerencia
- * del brief — ocupa lo mínimo y se integra con el resto de iconos.
+ * **Sin contador de online** (abr 2026): antes teníamos un chip con
+ * "312" al final, pero en iPhones estrechos el divider + número quedaba
+ * cortado visualmente. Santi lo pidió fuera — el top-pill ya muestra el
+ * dot pulsante + contador compacto, así que tener dos era redundante.
  *
  * Sólo se renderiza cuando el viewport es mobile. Evita aparecer en admin
  * (el admin tiene su propia chrome) y en /agenda-publica (full-bleed).
@@ -25,11 +26,17 @@ type NavEntry = {
   matchHome?: boolean;
 };
 
+/**
+ * Nota histórica: antes la primera entry apuntaba a `/#apoya`. Ahora
+ * `#trabajemos` contiene el presupuesto de edición IA y el cafecito queda
+ * como botón de apoyo simple.
+ */
 const ENTRIES: NavEntry[] = [
-  { href: '/#apoya',      label: 'Apoyá',   icon: '♡' },
+  { href: '/btv',        label: 'BTV',     icon: '▣' },
+  { href: '/productora', label: 'Prod',    icon: '►' },
+  { href: '/#trabajemos', label: 'Presu',   icon: '♡' },
   { href: '/#ojo',        label: 'Ojo',     icon: '◉' },
   { href: '/#sonido',     label: 'Sonido',  icon: '♪' },
-  { href: '/#muro',       label: 'Muro',    icon: '✎' },
   { href: '/laboratorio', label: 'Lab',     icon: '◆' },
 ];
 
@@ -37,22 +44,14 @@ const HIDDEN_PATH_PREFIXES = ['/admin', '/agenda-publica', '/checkout'];
 
 export default function MobileNav() {
   const location = useLocation();
-  const [online, setOnline] = useState(312);
-
-  // Rolling "online" — mismo ritmo que el pill del desktop (4.8s).
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setOnline(300 + Math.floor(Math.random() * 40));
-    }, 4800);
-    return () => window.clearInterval(id);
-  }, []);
 
   const hidden = HIDDEN_PATH_PREFIXES.some((p) => location.pathname.startsWith(p));
   if (hidden) return null;
 
   const isLab = location.pathname === '/laboratorio';
+  const isBtv = location.pathname === '/btv' || location.pathname === '/balosflix';
 
-  /* Si estás en / y hacés click en `/#apoya`, el navegador no scrollea
+  /* Si estás en / y hacés click en un anchor, el navegador no scrollea
    * porque la URL sólo cambia el hash. Forzamos el scroll nativo para
    * que funcione consistentemente en iOS Safari (que a veces ignora el
    * anchor jump cuando ya hay ruta actual). */
@@ -75,6 +74,7 @@ export default function MobileNav() {
         {ENTRIES.map((e) => {
           const active =
             (e.href === '/laboratorio' && isLab) ||
+            (e.href === '/btv' && isBtv) ||
             false;
           const content = (
             <span className="mobile-nav__inner">
@@ -103,11 +103,6 @@ export default function MobileNav() {
           );
         })}
       </ul>
-
-      <div className="mobile-nav__online" aria-live="polite">
-        <span className="mobile-nav__online-dot" aria-hidden="true" />
-        <span>{online}</span>
-      </div>
     </nav>
   );
 }

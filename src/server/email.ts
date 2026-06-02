@@ -622,7 +622,7 @@ export async function sendMagicLinkEmail(args: MagicLinkEmailArgs): Promise<Send
  * ------------------------------------------------------------------- */
 
 export type AdminAlertArgs = {
-  kind: 'purchase' | 'subscription' | 'encargo' | 'cafecito';
+  kind: 'purchase' | 'subscription' | 'encargo' | 'cafecito' | 'lead';
   summary: string;
   details?: Record<string, string | number | undefined | null>;
 };

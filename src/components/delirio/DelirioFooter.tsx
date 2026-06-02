@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/services/api';
+import {
+  CAFECITOS_TOTAL_AMOUNT,
+  CAFECITOS_TOTAL_COUNT,
+  CAFECITOS_UNIQUE_SUPPORTERS,
+} from '@/content/cafecitos';
 
 /**
  * Port of the `<footer>` block from delirio.html — same markup and class
@@ -67,11 +72,11 @@ export default function DelirioFooter() {
               lineHeight: 1.6,
             }}
           >
-            Donde termina el feed, empezamos nosotros. Plataforma abierta para sostener lo que
-            hacemos. BA, 2026.
+            Edición visual con IA, archivo creativo y cafecitos para sostener lo que hago.
+            BA, 2026.
           </p>
-          <a className="cta cta-primary" href="/#club">
-            <span>Sumate al Club</span>
+          <a className="cta cta-primary" href="/cafecito">
+            <span>Invitame un cafecito</span>
             <span className="arr">→</span>
           </a>
         </div>
@@ -80,8 +85,7 @@ export default function DelirioFooter() {
           <div />
           <div className="foot-col">
             <h5>Plataforma</h5>
-            <a href="/#apoya">Apoyar</a>
-            <a href="/#club">Club</a>
+            <a href="/#trabajemos">Trabajemos</a>
             <a href="/#vision">Visión</a>
             <a href="/#ojo">Ojo</a>
             <a href="/#sonido">Sonido</a>
@@ -124,8 +128,8 @@ export default function DelirioFooter() {
           <div className="nl-lead">
             <h4>Carta del Delirio</h4>
             <p>
-              Un mail cada tanto. Adelantos, cosas que no subo a redes, drops del Club y lo que
-              esté grabando. Cero spam, prometo.
+              Un mail cada tanto. Adelantos, cosas que no subo a redes y lo que esté grabando.
+              Cero spam, prometo.
             </p>
           </div>
           <div>
@@ -156,8 +160,8 @@ export default function DelirioFooter() {
 
         <div className="fun-stats">
           <div className="fs-item">
-            <div className="fs-label">Aportes · 7 días</div>
-            <div className="fs-val">+47</div>
+            <div className="fs-label">Cafecitos registrados</div>
+            <div className="fs-val">{CAFECITOS_TOTAL_COUNT}</div>
             <svg className="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
               <polyline
                 fill="none"
@@ -170,8 +174,8 @@ export default function DelirioFooter() {
             </svg>
           </div>
           <div className="fs-item">
-            <div className="fs-label">Cafecito más lejano</div>
-            <div className="fs-val">Tokio 🇯🇵</div>
+            <div className="fs-label">Personas únicas</div>
+            <div className="fs-val">{CAFECITOS_UNIQUE_SUPPORTERS}</div>
             <svg className="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
               <polyline
                 fill="none"
@@ -184,8 +188,10 @@ export default function DelirioFooter() {
             </svg>
           </div>
           <div className="fs-item">
-            <div className="fs-label">Minutos escuchados · hoy</div>
-            <div className="fs-val">12.480&apos;</div>
+            <div className="fs-label">Total Cafecito</div>
+            <div className="fs-val">
+              ${(CAFECITOS_TOTAL_AMOUNT / 1_000_000).toFixed(2)}M
+            </div>
             <svg className="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
               <polyline
                 fill="none"
@@ -198,8 +204,8 @@ export default function DelirioFooter() {
             </svg>
           </div>
           <div className="fs-item">
-            <div className="fs-label">Club · crecimiento mensual</div>
-            <div className="fs-val">+18%</div>
+            <div className="fs-label">Mensajes destacados</div>
+            <div className="fs-val">30</div>
             <svg className="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
               <polyline
                 fill="none"

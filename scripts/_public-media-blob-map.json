@@ -1,0 +1,14 @@
+{
+  "video": {
+    "oldUrl": "/uploads/videos/balosky-molinete-conurbano.web.mp4",
+    "localPath": "public/uploads/videos/balosky-molinete-conurbano.web.mp4",
+    "blobKey": "uploads/videos/balosky-molinete-conurbano.web.mp4",
+    "contentType": "video/mp4",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/videos/balosky-molinete-conurbano.web.mp4",
+    "size": 23459384
+  },
+  "updated": {
+    "videoRows": 1,
+    "coverRows": 62
+  }
+}

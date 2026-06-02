@@ -5,11 +5,14 @@ import { api } from '@/services/api';
 import { SiteSettings } from '@/types';
 import { cn } from '@/lib/utils';
 import { normalizeSiteSettings } from '@/content/publicContent';
+import { HOME_SECTION_IDS, HOME_SECTION_LABELS, type HomeSectionId } from '@/pages/HomePreview';
 
 const inputClassName =
-  'w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-violet-500 focus:outline-none';
+  'w-full min-h-12 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm font-medium text-white placeholder:text-zinc-600 focus:border-cyan-300/60 focus:outline-none focus:ring-2 focus:ring-cyan-300/10';
 
 const textareaClassName = `${inputClassName} resize-none`;
+const panelClassName =
+  'rounded-[26px] border border-white/10 bg-zinc-950/72 p-4 shadow-[0_18px_70px_rgba(0,0,0,0.24)] sm:p-6';
 
 export default function AdminSettings() {
   const { settings: contextSettings, refreshData } = useAppContext();
@@ -42,13 +45,40 @@ export default function AdminSettings() {
     }
   }, []);
 
-  if (!formData) return <div>Cargando configuración...</div>;
+  if (!formData) {
+    return (
+      <div className="rounded-[26px] border border-white/10 bg-zinc-950/72 p-8 text-sm font-bold text-zinc-500">
+        Cargando configuración...
+      </div>
+    );
+  }
 
   const handleFieldChange = (
     field: keyof SiteSettings,
     value: string
   ) => {
     setFormData((prev) => (prev ? { ...prev, [field]: value } : null));
+  };
+
+  const handleCafecitoChange = (
+    field: keyof SiteSettings['cafecito'],
+    value: string | number
+  ) => {
+    setFormData((prev) =>
+      prev
+        ? {
+            ...prev,
+            cafecito: {
+              amount: prev.cafecito?.amount || 3000,
+              mercadoPagoLink: prev.cafecito?.mercadoPagoLink || '',
+              paypalLink: prev.cafecito?.paypalLink || '',
+              paypalCurrency: prev.cafecito?.paypalCurrency || 'USD',
+              paypalUnitAmount: prev.cafecito?.paypalUnitAmount || 3,
+              [field]: value,
+            },
+          }
+        : null
+    );
   };
 
   const handleHeroChange = (
@@ -428,6 +458,38 @@ export default function AdminSettings() {
     );
   };
 
+  /**
+   * Toggle de secciones de la home. Guardamos el array `visibleSections`
+   * con los IDs prendidos; la home respeta ese array (ver
+   * `HomePreview.HOME_SECTION_IDS`). Si la lista queda vacía, la home
+   * muestra TODO (fallback para evitar homes rotas).
+   */
+  const isSectionVisible = (id: HomeSectionId): boolean => {
+    if (!formData) return true;
+    const list = formData.visibleSections || [];
+    const validIds = new Set<string>(HOME_SECTION_IDS);
+    const matched = list.filter((x) => validIds.has(x));
+    // Si el array es vacío o todos sus valores son legacy, la home
+    // muestra todo — reflejamos eso acá.
+    if (matched.length === 0) return true;
+    return matched.includes(id);
+  };
+
+  const toggleSection = (id: HomeSectionId) => {
+    setFormData((prev) => {
+      if (!prev) return prev;
+      const validIds = new Set<string>(HOME_SECTION_IDS);
+      const current = (prev.visibleSections || []).filter((x) => validIds.has(x));
+      // Si venimos de "todo visible" (array vacío o legacy), materializamos
+      // la lista completa y sacamos el ID que el usuario desmarca ahora.
+      const base = current.length === 0 ? [...HOME_SECTION_IDS] : current;
+      const next = base.includes(id)
+        ? base.filter((x) => x !== id)
+        : Array.from(new Set([...base, id]));
+      return { ...prev, visibleSections: next };
+    });
+  };
+
   const handleSave = async () => {
     if (!formData) return;
     setIsSaving(true);
@@ -480,21 +542,27 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-white">Configuración del Sitio</h1>
-          <p className="text-sm text-zinc-400 mt-2">
-            Editás el contenido público desde formularios guiados. Los textos se comparten entre todos los templates.
-          </p>
+    <div className="space-y-5 pb-24 lg:pb-0">
+      <div className="overflow-hidden rounded-[30px] border border-white/10 bg-zinc-950/80 shadow-[0_24px_90px_rgba(0,0,0,0.35)]">
+        <div className="relative p-5 sm:p-7">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(34,211,238,.14),transparent_36%),radial-gradient(circle_at_88%_0%,rgba(244,63,94,.14),transparent_34%)]" />
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">Admin · Ajustes</p>
+              <h1 className="mt-2 text-4xl font-black tracking-[-0.08em] text-white sm:text-6xl">Configuración.</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
+                Identidad, home, apoyo, redes y acceso admin en bloques más claros para editar desde celular sin perder contexto.
+              </p>
+            </div>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-cyan-200/30 bg-cyan-300 px-5 text-sm font-black !text-zinc-950 shadow-[0_10px_30px_rgba(34,211,238,0.18)] transition-colors hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              <Save className="w-4 h-4" /> {isSaving ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+          </div>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" /> {isSaving ? 'Guardando...' : 'Guardar Cambios'}
-        </button>
       </div>
 
       {message && (
@@ -509,7 +577,7 @@ export default function AdminSettings() {
         </div>
       )}
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+      <div className={cn(panelClassName, 'space-y-6')}>
         <div className="space-y-2">
           <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Acceso Admin</h2>
           <p className="text-sm text-zinc-400">
@@ -564,14 +632,14 @@ export default function AdminSettings() {
             type="button"
             onClick={handleUpdateAdminCredentials}
             disabled={isUpdatingAdmin}
-            className="px-4 py-2 bg-zinc-100 hover:bg-white text-black rounded-xl font-medium transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black !text-zinc-950 transition-colors hover:bg-zinc-200 disabled:opacity-50 sm:w-auto"
           >
             <Save className="w-4 h-4" /> {isUpdatingAdmin ? 'Actualizando...' : 'Actualizar acceso admin'}
           </button>
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+      <div className={cn(panelClassName, 'space-y-6')}>
         <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Perfil Público</h2>
 
         <div className="grid gap-6 sm:grid-cols-2">
@@ -607,11 +675,124 @@ export default function AdminSettings() {
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-8">
+      <div className={cn(panelClassName, 'space-y-6')}>
         <div className="space-y-2">
-          <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Home</h2>
+          <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Cafecito</h2>
           <p className="text-sm text-zinc-400">
-            Estos bloques se comparten entre todas las variantes de la portada.
+            Este monto alimenta el checkout, el botón rápido y la home. Mercado Pago sigue como pago principal; PayPal aparece en /cafecito cuando completás el link.
+          </p>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-zinc-400">Monto mínimo ARS</label>
+            <input
+              type="number"
+              min={1}
+              step={100}
+              value={formData.cafecito.amount}
+              onChange={(e) => handleCafecitoChange('amount', Number(e.target.value))}
+              className={inputClassName}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-zinc-400">Link manual de Mercado Pago</label>
+            <input
+              type="url"
+              value={formData.cafecito.mercadoPagoLink || ''}
+              onChange={(e) => handleCafecitoChange('mercadoPagoLink', e.target.value)}
+              className={inputClassName}
+              placeholder="https://www.mercadopago.com.ar/..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-zinc-400">Link de PayPal / PayPal.Me</label>
+            <input
+              type="url"
+              value={formData.cafecito.paypalLink || ''}
+              onChange={(e) => handleCafecitoChange('paypalLink', e.target.value)}
+              className={inputClassName}
+              placeholder="https://paypal.me/tuusuario"
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">Moneda PayPal</label>
+              <input
+                type="text"
+                value={formData.cafecito.paypalCurrency || 'USD'}
+                onChange={(e) => handleCafecitoChange('paypalCurrency', e.target.value.toUpperCase())}
+                className={inputClassName}
+                placeholder="USD"
+                maxLength={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400">1 cafecito PayPal</label>
+              <input
+                type="number"
+                min={1}
+                step={0.5}
+                value={formData.cafecito.paypalUnitAmount || 3}
+                onChange={(e) => handleCafecitoChange('paypalUnitAmount', Number(e.target.value))}
+                className={inputClassName}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={cn(panelClassName, 'space-y-6')}>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">
+            Secciones visibles en portadas React
+          </h2>
+          <p className="text-sm text-zinc-400">
+            Afecta `/home-preview` y variantes React. La portada pública actual
+            `/` usa Delirio estático; de ahí se toman cafecito, mensaje fijado,
+            nombre del sitio y datos reales.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {HOME_SECTION_IDS.map((id) => {
+            const checked = isSectionVisible(id);
+            return (
+              <label
+                key={id}
+                className={cn(
+                  'flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors',
+                  checked
+                    ? 'border-violet-500/50 bg-violet-500/10'
+                    : 'border-zinc-800 bg-zinc-950 hover:border-zinc-700',
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleSection(id)}
+                  className="mt-0.5 w-4 h-4 accent-violet-500"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-white">{HOME_SECTION_LABELS[id]}</p>
+                  <p className="text-xs text-zinc-500 font-mono mt-0.5">#{id}</p>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className={cn(panelClassName, 'space-y-8')}>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Home React / preview</h2>
+          <p className="text-sm text-zinc-400">
+            Estos bloques alimentan las variantes React de la portada, no el HTML
+            Delirio que sirve la raíz pública hoy.
           </p>
         </div>
 
@@ -1200,7 +1381,7 @@ export default function AdminSettings() {
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+      <div className={cn(panelClassName, 'space-y-6')}>
         <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Checkout</h2>
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="space-y-2">
@@ -1242,7 +1423,7 @@ export default function AdminSettings() {
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+      <div className={cn(panelClassName, 'space-y-6')}>
         <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Portfolio</h2>
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="space-y-2">
@@ -1293,7 +1474,7 @@ export default function AdminSettings() {
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+      <div className={cn(panelClassName, 'space-y-6')}>
         <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Feed exclusivo</h2>
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="space-y-2">
@@ -1317,7 +1498,7 @@ export default function AdminSettings() {
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+      <div className={cn(panelClassName, 'space-y-6')}>
         <h2 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Integraciones</h2>
 
         <div className="grid gap-6 sm:grid-cols-2">

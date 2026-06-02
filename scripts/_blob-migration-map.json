@@ -1,0 +1,632 @@
+[
+  {
+    "oldUrl": "/uploads/2026/04/harry-potter-argento.mp4",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/2026/04/harry-potter-argento.mp4",
+    "size": 106663599
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Arbol_Otono_Gente.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Arbol_Otono_Gente.webp",
+    "size": 1613946
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Autos_Autopista_Elevada.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Autos_Autopista_Elevada.webp",
+    "size": 450736
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Bandera_USA_Balcon.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Bandera_USA_Balcon.webp",
+    "size": 637260
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Barberia_NYC.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Barberia_NYC.webp",
+    "size": 717862
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Cartel_West_8_Street.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Cartel_West_8_Street.webp",
+    "size": 1002208
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Chinatown_Noche.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Chinatown_Noche.webp",
+    "size": 1119142
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Cisne_PrimerPlano.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Cisne_PrimerPlano.webp",
+    "size": 516664
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Escalera_Graffitis.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Escalera_Graffitis.webp",
+    "size": 766946
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Estatua_Casa_Rosada.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Estatua_Casa_Rosada.webp",
+    "size": 441518
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Estatua_Fachada.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Estatua_Fachada.webp",
+    "size": 161440
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Estatua_Libertad_Atardecer.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Estatua_Libertad_Atardecer.webp",
+    "size": 935974
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Estatua_Libertad_Sol_Atras.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Estatua_Libertad_Sol_Atras.webp",
+    "size": 486982
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Estatua_Piedra_Luz.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Estatua_Piedra_Luz.webp",
+    "size": 246138
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Flor_Azul_Agapanto.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Flor_Azul_Agapanto.webp",
+    "size": 361542
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Flor_Loto_Blanca.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Flor_Loto_Blanca.webp",
+    "size": 2115214
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Flor_Loto_Capullo.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Flor_Loto_Capullo.webp",
+    "size": 301622
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Flores_Loto_Sombras.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Flores_Loto_Sombras.webp",
+    "size": 378364
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Fuente_Angel_CentralPark.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Fuente_Angel_CentralPark.webp",
+    "size": 1469530
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Gallina_Sol_Sombra.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Gallina_Sol_Sombra.webp",
+    "size": 597974
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Halal_Food_Cart.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Halal_Food_Cart.webp",
+    "size": 326578
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Iglesia_Rascacielos.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Iglesia_Rascacielos.webp",
+    "size": 1133784
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Memorial_911.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Memorial_911.webp",
+    "size": 1025668
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Obelisco_BuenosAires.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Obelisco_BuenosAires.webp",
+    "size": 1497756
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Oculus_Escaleras.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Oculus_Escaleras.webp",
+    "size": 212278
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Patinadoras_Hielo.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Patinadoras_Hielo.webp",
+    "size": 298184
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Persona_Espejo_Calle.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Persona_Espejo_Calle.webp",
+    "size": 335996
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Proa_Barco_Antiguo.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Proa_Barco_Antiguo.webp",
+    "size": 896088
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Punks_Escalera_NYC.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Punks_Escalera_NYC.webp",
+    "size": 328280
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Subte_Noche_Q.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Subte_Noche_Q.webp",
+    "size": 789696
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Torre_Monumental.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Torre_Monumental.webp",
+    "size": 286410
+  },
+  {
+    "oldUrl": "/uploads/ojo/Redes_Tren_Noche_Curva.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Tren_Noche_Curva.webp",
+    "size": 1223438
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Arbol_Otono_Gente.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Arbol_Otono_Gente.webp",
+    "size": 148424
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Autos_Autopista_Elevada.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Autos_Autopista_Elevada.webp",
+    "size": 108190
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Bandera_USA_Balcon.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Bandera_USA_Balcon.webp",
+    "size": 107508
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Barberia_NYC.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Barberia_NYC.webp",
+    "size": 150544
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Cartel_West_8_Street.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Cartel_West_8_Street.webp",
+    "size": 82796
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Chinatown_Noche.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Chinatown_Noche.webp",
+    "size": 118690
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Cisne_PrimerPlano.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Cisne_PrimerPlano.webp",
+    "size": 49596
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Escalera_Graffitis.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Escalera_Graffitis.webp",
+    "size": 125998
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Estatua_Casa_Rosada.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Estatua_Casa_Rosada.webp",
+    "size": 96300
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Estatua_Fachada.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Estatua_Fachada.webp",
+    "size": 20362
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Estatua_Libertad_Atardecer.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Estatua_Libertad_Atardecer.webp",
+    "size": 84860
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Estatua_Libertad_Sol_Atras.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Estatua_Libertad_Sol_Atras.webp",
+    "size": 41494
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Estatua_Piedra_Luz.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Estatua_Piedra_Luz.webp",
+    "size": 39788
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Flor_Azul_Agapanto.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Flor_Azul_Agapanto.webp",
+    "size": 74704
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Flor_Loto_Blanca.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Flor_Loto_Blanca.webp",
+    "size": 243620
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Flor_Loto_Capullo.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Flor_Loto_Capullo.webp",
+    "size": 62328
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Flores_Loto_Sombras.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Flores_Loto_Sombras.webp",
+    "size": 42812
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Fuente_Angel_CentralPark.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Fuente_Angel_CentralPark.webp",
+    "size": 191202
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Gallina_Sol_Sombra.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Gallina_Sol_Sombra.webp",
+    "size": 138970
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Halal_Food_Cart.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Halal_Food_Cart.webp",
+    "size": 51954
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Iglesia_Rascacielos.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Iglesia_Rascacielos.webp",
+    "size": 184384
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Memorial_911.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Memorial_911.webp",
+    "size": 128162
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Obelisco_BuenosAires.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Obelisco_BuenosAires.webp",
+    "size": 132990
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Oculus_Escaleras.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Oculus_Escaleras.webp",
+    "size": 31630
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Patinadoras_Hielo.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Patinadoras_Hielo.webp",
+    "size": 34134
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Persona_Espejo_Calle.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Persona_Espejo_Calle.webp",
+    "size": 68390
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Proa_Barco_Antiguo.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Proa_Barco_Antiguo.webp",
+    "size": 134330
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Punks_Escalera_NYC.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Punks_Escalera_NYC.webp",
+    "size": 176220
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Subte_Noche_Q.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Subte_Noche_Q.webp",
+    "size": 114478
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Torre_Monumental.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Torre_Monumental.webp",
+    "size": 12056
+  },
+  {
+    "oldUrl": "/uploads/thumbs/ojo/Redes_Tren_Noche_Curva.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Tren_Noche_Curva.webp",
+    "size": 106372
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Arbol_Contraluz.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Arbol_Contraluz.webp",
+    "size": 80184
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_CCK_Fachada.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_CCK_Fachada.webp",
+    "size": 49284
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Edificio_Amarillo_Negro.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Edificio_Amarillo_Negro.webp",
+    "size": 144426
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Edificio_Antiguo_Luz.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Edificio_Antiguo_Luz.webp",
+    "size": 134814
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Edificio_Beaver_NYC.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Edificio_Beaver_NYC.webp",
+    "size": 152434
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Edificio_Curvo_Perspectiva.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Edificio_Curvo_Perspectiva.webp",
+    "size": 59862
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Edificio_Ladrillo_Moderno.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Edificio_Ladrillo_Moderno.webp",
+    "size": 189836
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Edificio_Moderno_Curvo.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Edificio_Moderno_Curvo.webp",
+    "size": 35680
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Edificios_Conectados.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Edificios_Conectados.webp",
+    "size": 60566
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Empire_State_Atardecer.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Empire_State_Atardecer.webp",
+    "size": 76060
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Estatua_Silueta_Sol.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Estatua_Silueta_Sol.webp",
+    "size": 25690
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Grua_Niebla.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Grua_Niebla.webp",
+    "size": 62066
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Little_Island_Sol.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Little_Island_Sol.webp",
+    "size": 39276
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_NYC_Noche_Edificios.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_NYC_Noche_Edificios.webp",
+    "size": 162172
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_NYC_Noche_EmpireState.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_NYC_Noche_EmpireState.webp",
+    "size": 160238
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Pajaros_Vuelo_Gris.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Pajaros_Vuelo_Gris.webp",
+    "size": 8666
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Postes_Agua_NYC.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Postes_Agua_NYC.webp",
+    "size": 145780
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Puente_Mujer_Detalle.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Puente_Mujer_Detalle.webp",
+    "size": 41438
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Puente_Niebla.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Puente_Niebla.webp",
+    "size": 71552
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Puerto_Madero_Atardecer.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Puerto_Madero_Atardecer.webp",
+    "size": 90552
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Ciudad_Alt.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Ciudad_Alt.webp",
+    "size": 218582
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Ciudad.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Ciudad.webp",
+    "size": 245292
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Clasico.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Clasico.webp",
+    "size": 140690
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Cristal.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Cristal.webp",
+    "size": 29886
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Lineas.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Lineas.webp",
+    "size": 139836
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Muchos_Ventanas.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Muchos_Ventanas.webp",
+    "size": 189994
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Reflejos_Nubes.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Rascacielos_Reflejos_Nubes.webp",
+    "size": 67116
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Silueta_Edificio_Atardecer.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Silueta_Edificio_Atardecer.webp",
+    "size": 35094
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Silueta_Hombre_Escaleras_2.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Silueta_Hombre_Escaleras_2.webp",
+    "size": 55528
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Silueta_Hombre_Escaleras.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Silueta_Hombre_Escaleras.webp",
+    "size": 84528
+  },
+  {
+    "oldUrl": "/uploads/thumbs/wallpapers/Wallpaper_Ventanas_Abstractas.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/wallpapers/Wallpaper_Ventanas_Abstractas.webp",
+    "size": 89604
+  },
+  {
+    "oldUrl": "/uploads/videos/balosky-molinete-conurbano.mp4",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/videos/balosky-molinete-conurbano.mp4",
+    "size": 395350590
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Arbol_Contraluz.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Arbol_Contraluz.webp",
+    "size": 662024
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_CCK_Fachada.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_CCK_Fachada.webp",
+    "size": 280872
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Edificio_Amarillo_Negro.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Edificio_Amarillo_Negro.webp",
+    "size": 767234
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Edificio_Antiguo_Luz.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Edificio_Antiguo_Luz.webp",
+    "size": 892752
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Edificio_Beaver_NYC.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Edificio_Beaver_NYC.webp",
+    "size": 701332
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Edificio_Curvo_Perspectiva.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Edificio_Curvo_Perspectiva.webp",
+    "size": 360738
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Edificio_Ladrillo_Moderno.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Edificio_Ladrillo_Moderno.webp",
+    "size": 1218926
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Edificio_Moderno_Curvo.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Edificio_Moderno_Curvo.webp",
+    "size": 2709442
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Edificios_Conectados.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Edificios_Conectados.webp",
+    "size": 320214
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Empire_State_Atardecer.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Empire_State_Atardecer.webp",
+    "size": 592666
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Estatua_Silueta_Sol.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Estatua_Silueta_Sol.webp",
+    "size": 62062
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Grua_Niebla.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Grua_Niebla.webp",
+    "size": 364084
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Little_Island_Sol.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Little_Island_Sol.webp",
+    "size": 534354
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_NYC_Noche_Edificios.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_NYC_Noche_Edificios.webp",
+    "size": 758192
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_NYC_Noche_EmpireState.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_NYC_Noche_EmpireState.webp",
+    "size": 954318
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Pajaros_Vuelo_Gris.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Pajaros_Vuelo_Gris.webp",
+    "size": 1712906
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Postes_Agua_NYC.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Postes_Agua_NYC.webp",
+    "size": 791462
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Puente_Mujer_Detalle.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Puente_Mujer_Detalle.webp",
+    "size": 370974
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Puente_Niebla.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Puente_Niebla.webp",
+    "size": 627690
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Puerto_Madero_Atardecer.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Puerto_Madero_Atardecer.webp",
+    "size": 448100
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Rascacielos_Ciudad_Alt.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Rascacielos_Ciudad_Alt.webp",
+    "size": 1163920
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Rascacielos_Ciudad.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Rascacielos_Ciudad.webp",
+    "size": 1428648
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Rascacielos_Clasico.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Rascacielos_Clasico.webp",
+    "size": 3953498
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Rascacielos_Cristal.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Rascacielos_Cristal.webp",
+    "size": 142652
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Rascacielos_Lineas.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Rascacielos_Lineas.webp",
+    "size": 964516
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Rascacielos_Muchos_Ventanas.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Rascacielos_Muchos_Ventanas.webp",
+    "size": 701504
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Rascacielos_Reflejos_Nubes.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Rascacielos_Reflejos_Nubes.webp",
+    "size": 378824
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Silueta_Edificio_Atardecer.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Silueta_Edificio_Atardecer.webp",
+    "size": 205622
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Silueta_Hombre_Escaleras_2.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Silueta_Hombre_Escaleras_2.webp",
+    "size": 3084188
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Silueta_Hombre_Escaleras.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Silueta_Hombre_Escaleras.webp",
+    "size": 3316352
+  },
+  {
+    "oldUrl": "/uploads/wallpapers/Wallpaper_Ventanas_Abstractas.webp",
+    "newUrl": "https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/wallpapers/Wallpaper_Ventanas_Abstractas.webp",
+    "size": 578320
+  }
+]

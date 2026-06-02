@@ -357,10 +357,10 @@ export default function HomeMusicSection({
                   <div className="flex items-start justify-between gap-3 border-b px-4 py-3" style={{ borderColor: hexToRgba(styles.neutral, 0.14) }}>
                     <div className="min-w-0">
                       <p className="truncate text-xl font-semibold">
-                        {currentTrack?.title || 'Catalogo en preparacion'}
+                        {currentTrack?.title || 'Pronto, nueva música'}
                       </p>
                       <p className="truncate text-sm opacity-75">
-                        {currentTrack?.artist || 'Publica tus tracks desde admin'}
+                        {currentTrack?.artist || 'Balosky'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

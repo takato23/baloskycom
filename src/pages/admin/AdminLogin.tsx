@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { KeyRound, Lock } from 'lucide-react';
 import { api } from '@/services/api';
+import { useAdminNativeCursor } from '@/hooks/useAdminNativeCursor';
 
 type Mode = 'login' | 'bootstrap';
+const ADMIN_STATUS_TIMEOUT_MS = 3500;
 
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mode, setMode] = useState<Mode>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -15,20 +18,32 @@ export default function AdminLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(true);
 
+  useAdminNativeCursor();
+
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('expired') === '1') {
+      setError('Tu sesión admin venció. Iniciá sesión de nuevo y repetí la subida.');
+    }
+
     const loadStatus = async () => {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), ADMIN_STATUS_TIMEOUT_MS);
+
       try {
-        const status = await api.getAdminAuthStatus();
+        const status = await api.getAdminAuthStatus(controller.signal);
         setMode(status.bootstrapAvailable ? 'bootstrap' : 'login');
       } catch (err) {
-        setError('No se pudo verificar el estado del acceso admin.');
+        setMode('login');
+        setError('No pude verificar el estado admin. Probá ingresar igual; si falla, recargá la página.');
       } finally {
+        window.clearTimeout(timer);
         setIsCheckingStatus(false);
       }
     };
 
     loadStatus();
-  }, []);
+  }, [location.search]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +51,7 @@ export default function AdminLogin() {
     setError('');
 
     try {
-      const res = await api.login(username, password);
+      const res = await api.login(username.trim(), password.trim());
       localStorage.setItem('admin_token', res.token);
       navigate('/admin');
     } catch (err) {

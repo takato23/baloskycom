@@ -109,8 +109,8 @@ const mockPolls: Poll[] = [
 const mockPosts: Post[] = [
   {
     id: '1',
-    title: 'Cómo voy a usar este espacio',
-    content: 'Esta sección queda para publicar avances reales, ideas en proceso, materiales para aportantes y actualizaciones cortas del proyecto. La idea es que no haya promesas raras ni humo: solo cosas que efectivamente estén disponibles acá.',
+    title: 'Arranca el espacio para aportantes',
+    content: 'Acá voy a ir subiendo lo que estoy armando: adelantos de videos, ideas a medio cocinar y data del proyecto antes de que salga a la luz. Suscribite para no perderte los drops.',
     imageUrl: 'https://images.unsplash.com/photo-1579965342575-16428a7c8881?q=80&w=800&auto=format&fit=crop',
     isLocked: true,
     minContributionRequired: 1000,
@@ -124,7 +124,7 @@ const mockPosts: Post[] = [
   {
     id: '2',
     title: 'Espacio para aportantes',
-    content: 'Acá van las publicaciones para la gente que apoya el proyecto. Si más adelante se suman beneficios manuales, menciones o contacto directo, se van a publicar explícitamente cuando estén definidos.',
+    content: 'Si apoyás el proyecto, este es tu lugar: adelantos, sorteos y cosas que no subo a ningún otro lado. Gracias por bancar.',
     isLocked: false,
     minContributionRequired: 0,
     createdAt: new Date(Date.now() - 172800000).toISOString(),
@@ -134,8 +134,8 @@ const mockPosts: Post[] = [
   },
   {
     id: '3',
-    title: 'Espacio reservado para recursos reales',
-    content: 'Cuando haya un archivo, guía o material concreto para compartir, se publica acá con su acceso correspondiente. Hasta entonces conviene mostrar este bloque como contenido reservado, no como una descarga inventada.',
+    title: 'Recursos para descargar',
+    content: 'Acá van a aparecer presets, guías y material para bajar. Estoy preparando los primeros, se vienen pronto.',
     imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=800&auto=format&fit=crop',
     isLocked: true,
     minContributionRequired: 5000,
@@ -146,8 +146,8 @@ const mockPosts: Post[] = [
   },
   {
     id: '4',
-    title: 'Publicación premium de ejemplo',
-    content: 'Este slot queda reservado para una publicación de mayor nivel cuando exista contenido concreto para ese tramo de aporte. Mientras no exista, la plataforma no debería vender humo ni anticipos inventados.',
+    title: 'Contenido premium',
+    content: 'El nivel más alto de aporte desbloquea lo más exclusivo: procesos completos, archivos crudos y adelantos antes que nadie. Se viene.',
     isLocked: true,
     minContributionRequired: 25000,
     createdAt: new Date(Date.now() - 345600000).toISOString(),
@@ -187,20 +187,20 @@ const mockGalleryImages: GalleryImage[] = [
 const mockBlogPosts: BlogPost[] = [
   {
     id: 'b1',
-    title: 'Qué entra hoy en un aporte y qué no',
-    content: 'Esta página sirve para centralizar aportes, recompensas reales y publicaciones para aportantes. Lo importante es que cada beneficio exista de verdad antes de mostrarlo.\n\nSi todavía no hay acceso anticipado, chat directo o menciones garantizadas, no deberían figurar como parte de la propuesta. Cuando algo exista, se publica con alcance, condiciones y tiempos claros.',
+    title: 'Qué desbloqueás cuando aportás',
+    content: 'Cada aporte suma para producir lo próximo: cafecitos, encargos y contenido para la gente que banca. Acceso anticipado, descargas y adelantos, todo en un mismo lugar.\n\nGracias a cada uno que hace posible seguir creando.',
     category: 'Notas del proyecto',
     tags: ['Aportes', 'Recompensas', 'Producto'],
     imageUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=800&auto=format&fit=crop',
     createdAt: new Date(Date.now() - 86400000).toISOString(),
     comments: [
-      { id: 'bc1', author: 'Ana', text: 'Mucho mejor dejar claros los beneficios reales.', createdAt: new Date(Date.now() - 40000000).toISOString() }
+      { id: 'bc1', author: 'Ana', text: 'Me encanta esto, ya me sumo.', createdAt: new Date(Date.now() - 40000000).toISOString() }
     ]
   },
   {
     id: 'b2',
-    title: 'Cómo quiero ordenar encargos, aportes y publicaciones',
-    content: 'Una cosa es el aporte libre, otra los encargos a medida y otra las publicaciones para aportantes. Separar bien esas tres entradas ayuda a que la página no prometa más de lo que realmente entrega.\n\nLa idea es que cada sección tenga una expectativa simple: apoyar, contratar algo puntual o seguir el proyecto.',
+    title: 'Aportes, encargos y contenido exclusivo',
+    content: 'Hay tres formas de sumarte: el aporte libre (un cafecito cuando quieras), los encargos a medida (me pedís algo puntual con IA) y el contenido para aportantes (lo que subo solo acá).\n\nElegí la que más te cierre.',
     category: 'Notas del proyecto',
     tags: ['Encargos', 'Aportes', 'Contenido'],
     imageUrl: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=800&auto=format&fit=crop',

@@ -16,13 +16,17 @@
  *
  * Data source: GET /api/media?kind=video_ia.
  */
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Volume2, VolumeX, X, Copy, Check, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
-import { api } from '@/services/api';
+import { Play, Volume2, VolumeX, X, Copy, Check, Sparkles, ChevronLeft, ChevronRight, Compass } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { Media } from '@/types';
 import { cn } from '@/lib/utils';
+
+// El visor 360 sólo se carga cuando el usuario abre un panorama — así evitamos
+// que el bundle de three.js impacte el first paint de /laboratorio.
+const Panorama360Viewer = lazy(() => import('@/components/Panorama360Viewer'));
 
 type AspectRatio = '9:16' | '16:9' | '1:1';
 
@@ -34,26 +38,91 @@ const ASPECT_CLASS: Record<AspectRatio, string> = {
 
 /** Fallback when no aspectRatio is set on the row. */
 const DEFAULT_ASPECT: AspectRatio = '9:16';
+const MEDIA_FETCH_TIMEOUT_MS = 2600;
+
+const FALLBACK_VIDEOS: Media[] = [{
+  id: 'fallback_molinete_conurbano',
+  kind: 'video_ia',
+  title: 'El molinete del conurbano',
+  description: 'Pieza de archivo para que el Laboratorio siga vivo aunque el feed tarde en responder.',
+  category: 'IDEAS · IA',
+  mediaUrl: '',
+  coverImage: '/uploads/thumbs/balosky-hero-loop-first.png',
+  thumbUrl: '/uploads/thumbs/balosky-hero-loop-first.png',
+  duration: '0:24',
+  aiTool: 'IA',
+  aspectRatio: '16:9',
+  showDescription: true,
+  showPrompt: false,
+  showTool: true,
+  isLocked: false,
+  active: true,
+  featured: true,
+  sortOrder: 0,
+  createdAt: '2026-04-25T00:00:00.000Z',
+}];
 
 /** Whether the public flag is on. Defaults to true so legacy rows keep showing. */
 const isOn = (v: boolean | undefined) => v !== false;
 
+function fetchMediaWithTimeout(kind: Media['kind'], fallback: Media[], label: string): Promise<Media[]> {
+  const controller = new AbortController();
+  let settled = false;
+
+  return new Promise((resolve) => {
+    const finish = (value: Media[]) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      resolve(value);
+    };
+
+    const timer = window.setTimeout(() => {
+      controller.abort();
+      console.warn(`[Laboratorio] ${label} timeout, using fallback`);
+      finish(fallback);
+    }, MEDIA_FETCH_TIMEOUT_MS);
+
+    fetch(`/api/media?kind=${encodeURIComponent(kind)}`, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json() as Promise<Media[]>;
+      })
+      .then((rows) => finish(rows))
+      .catch((error) => {
+        if (!settled && error?.name !== 'AbortError') {
+          console.warn(`[Laboratorio] ${label} failed, using fallback`, error);
+        }
+        finish(fallback);
+      });
+  });
+}
+
 export default function Laboratorio() {
   const [items, setItems] = useState<Media[]>([]);
+  const [panoramas, setPanoramas] = useState<Media[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTool, setActiveTool] = useState<string>('all');
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openPanoramaIndex, setOpenPanoramaIndex] = useState<number | null>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     let mounted = true;
-    api
-      .getMedia('video_ia')
-      .then((rows) => {
+    // Traemos videos y panoramas en paralelo. Si la API tarda, abortamos las
+    // requests para no bloquear la carga perezosa del visor 360.
+    Promise.all([
+      fetchMediaWithTimeout('video_ia', FALLBACK_VIDEOS, 'video_ia fetch'),
+      fetchMediaWithTimeout('panorama_360', [], 'panorama_360 fetch'),
+    ])
+      .then(([videoRows, panoRows]) => {
         if (!mounted) return;
-        setItems(rows.filter((r) => r.active !== false));
+        const activeVideos = videoRows.filter((r) => r.active !== false);
+        const activePanoramas = panoRows.filter((r) => r.active !== false && (r.mediaUrl || r.coverImage));
+
+        setItems(activeVideos.length ? activeVideos : FALLBACK_VIDEOS);
+        setPanoramas(activePanoramas);
       })
-      .catch((e) => console.error('[Laboratorio] getMedia failed', e))
       .finally(() => mounted && setLoading(false));
     return () => {
       mounted = false;
@@ -86,6 +155,27 @@ export default function Laboratorio() {
     return Array.from(ratios)[0] || DEFAULT_ASPECT;
   }, [filtered]);
 
+  const labSections = useMemo(() => ([
+    {
+      href: '#panoramas',
+      label: 'Panoramas 360',
+      value: panoramas.length,
+      meta: panoramas.length ? 'mirar alrededor' : 'pendiente',
+    },
+    {
+      href: '#videos-ia',
+      label: 'Videos IA',
+      value: items.length,
+      meta: 'clips + storyboard',
+    },
+    {
+      href: '#herramientas',
+      label: 'Herramientas',
+      value: tools.length || 1,
+      meta: 'Sora · Veo · Runway',
+    },
+  ]), [items.length, panoramas.length, tools.length]);
+
   const closeModal = useCallback(() => setOpenIndex(null), []);
   const goPrev = useCallback(() => {
     setOpenIndex((cur) => (cur === null ? null : (cur - 1 + filtered.length) % filtered.length));
@@ -94,27 +184,73 @@ export default function Laboratorio() {
     setOpenIndex((cur) => (cur === null ? null : (cur + 1) % filtered.length));
   }, [filtered.length]);
 
+  const blockAssetMenu = useCallback((event: React.SyntheticEvent) => {
+    event.preventDefault();
+  }, []);
+
   return (
-    <div className="theme-page theme-adapt pb-32 sm:pb-16">
+    <div
+      className="theme-page theme-adapt min-h-screen w-full overflow-x-clip pb-32 sm:pb-16"
+      onContextMenu={blockAssetMenu}
+    >
       {/* Hero */}
-      <section className="px-[clamp(20px,4vw,80px)] pt-12 sm:pt-20 pb-10 sm:pb-16 max-w-[1400px] mx-auto w-full">
+      <section className="relative mx-auto w-full max-w-[1440px] overflow-hidden !px-[clamp(16px,4vw,80px)] !pt-[clamp(86px,9vw,116px)] !pb-0 sm:!pb-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.52, 0, 0, 1] }}
-          className="space-y-6"
+          className="relative overflow-hidden rounded-[28px] border border-[var(--border)] bg-[linear-gradient(122deg,rgba(250,93,41,0.12),rgba(240,46,101,0.08)_30%,rgba(24,210,196,0.12)_68%,rgba(255,184,61,0.08))] p-4 shadow-[0_28px_90px_-70px_rgba(10,9,8,0.9)] sm:rounded-[36px] sm:p-7 lg:p-9"
         >
-          <div className="t-eyebrow text-[var(--muted)] flex items-center gap-3">
-            <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />
-            <span>LABORATORIO · VIDEO · IA</span>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-[18%] -top-[44%] h-[84%] w-[58%] rounded-full bg-[radial-gradient(circle,rgba(24,210,196,0.22),transparent_66%)] blur-2xl"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-[36%] -left-[18%] h-[64%] w-[50%] rounded-full bg-[radial-gradient(circle,rgba(240,46,101,0.14),transparent_70%)] blur-2xl"
+          />
+          <div className="relative grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(340px,0.7fr)] lg:items-end">
+            <div className="min-w-0">
+              <div className="t-eyebrow text-[var(--muted)] flex items-center gap-3">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-[rgba(24,210,196,0.42)] bg-[rgba(24,210,196,0.10)] text-[#18d2c4]">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </span>
+                <span>LABORATORIO · VIDEO · IA</span>
+              </div>
+              <h1 className="t-hero mt-5 max-w-[9.7ch] text-[clamp(48px,14vw,154px)] text-[var(--black)] leading-[0.8] sm:mt-7 sm:max-w-none sm:text-[clamp(58px,10.5vw,154px)] sm:leading-[0.78]">
+                Laboratorio<span className="bg-gradient-to-r from-[var(--accent)] via-[#f02e65] to-[#18d2c4] bg-clip-text text-transparent">.</span>
+              </h1>
+              <p className="t-body mt-4 max-w-[46ch] text-base leading-relaxed sm:mt-5 sm:text-lg">
+                Panoramas 360, videos generados con IA y piezas de proceso. Cada
+                cosa entra como capítulo, no como galería suelta.
+              </p>
+            </div>
+            <nav
+              aria-label="Secciones del laboratorio"
+              className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1"
+            >
+              {labSections.map((section) => (
+                <a
+                  key={section.href}
+                  href={section.href}
+                  className="group grid min-h-[74px] grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-3 rounded-[18px] border border-[var(--border)] bg-[rgba(255,255,255,0.36)] px-3 py-3 text-left backdrop-blur-sm transition-[background,border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-[#18d2c4]/70 hover:bg-white/60 sm:px-4"
+                >
+                  <span className="font-['Inter_Tight'] text-3xl font-black leading-none text-[var(--black)] sm:text-4xl">
+                    {section.value}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="t-eyebrow block truncate text-[10px] text-[var(--muted)]">
+                      {section.label}
+                    </span>
+                    <span className="mt-1 block truncate text-[11px] font-semibold leading-tight text-[var(--muted)] transition-colors group-hover:text-[var(--black)]">
+                      {section.meta}
+                    </span>
+                  </span>
+                  <span className="mb-1 h-2 w-2 rounded-full bg-[#18d2c4] opacity-60 transition-opacity group-hover:opacity-100" />
+                </a>
+              ))}
+            </nav>
           </div>
-          <h1 className="t-hero text-[clamp(48px,9vw,160px)] text-[var(--black)] leading-[0.9]">
-            Laboratorio<span className="text-[var(--accent)]">.</span>
-          </h1>
-          <p className="t-body max-w-2xl text-base sm:text-lg">
-            Videos generados con IA. Experimentos, sátiras y delirios varios —
-            con el prompt exacto y la herramienta que usé para hacerlos.
-          </p>
         </motion.div>
 
         {/* Tool filter — only when there's more than one tool to choose from */}
@@ -123,7 +259,7 @@ export default function Laboratorio() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="mt-10 flex flex-wrap gap-2"
+            className="mt-5 flex flex-wrap gap-2 sm:mt-7"
           >
             <FilterChip
               label="Todo"
@@ -144,14 +280,28 @@ export default function Laboratorio() {
         )}
       </section>
 
-      {/* Grid */}
-      <section className="px-[clamp(20px,4vw,80px)] max-w-[1400px] mx-auto w-full">
+      {/* Sección 360° — aparece antes del grid para que el Laboratorio tenga una pieza interactiva real aun cuando el feed tarde. */}
+      <Panorama360Section
+        panoramas={panoramas}
+        onOpen={(i) => setOpenPanoramaIndex(i)}
+      />
+
+      {/* Videos */}
+      <section
+        id="videos-ia"
+        className="mx-auto w-full max-w-[1440px] scroll-mt-28 !px-[clamp(16px,4vw,80px)] !pt-10 !pb-16 sm:!pt-14 sm:!pb-20"
+      >
+        <SectionLead
+          eyebrow="LABORATORIO · VIDEO · IA"
+          title="Videos con proceso."
+          copy="Cada pieza puede abrirse como expediente: video, prompt y frames del storyboard que muestran cómo nació."
+        />
         {loading ? (
           <LoadingGrid aspect={gridAspect} />
         ) : filtered.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
             {filtered.map((item, i) => (
               <VideoCard
                 key={item.id}
@@ -164,6 +314,29 @@ export default function Laboratorio() {
             ))}
           </div>
         )}
+      </section>
+
+      <section
+        id="herramientas"
+        className="mx-auto w-full max-w-[1440px] scroll-mt-28 !px-[clamp(16px,4vw,80px)] !pt-0 !pb-16 sm:!pt-2 sm:!pb-20"
+      >
+        <SectionLead
+          eyebrow="LABORATORIO · HERRAMIENTAS"
+          title="Aplicaciones."
+          copy="El mapa de máquinas que van apareciendo en las piezas: modelos de video, generación, edición y experimentos."
+        />
+        <div className="flex flex-wrap gap-2">
+          {(tools.length ? tools : ['IA']).map((tool) => (
+            <button
+              key={tool}
+              type="button"
+              onClick={() => setActiveTool(tool === 'IA' && tools.length === 0 ? 'all' : tool)}
+              className="min-h-11 rounded-full border border-[var(--border)] bg-[rgba(255,255,255,0.42)] px-5 text-sm font-black text-[var(--black)] transition-colors hover:border-[#18d2c4]/70 hover:bg-white"
+            >
+              {tool}
+            </button>
+          ))}
+        </div>
       </section>
 
       <AnimatePresence>
@@ -182,6 +355,13 @@ export default function Laboratorio() {
               onNext={goNext}
             />
           )
+        )}
+        {openPanoramaIndex !== null && panoramas[openPanoramaIndex] && (
+          <Panorama360Modal
+            panoramas={panoramas}
+            startIndex={openPanoramaIndex}
+            onClose={() => setOpenPanoramaIndex(null)}
+          />
         )}
       </AnimatePresence>
     </div>
@@ -224,6 +404,7 @@ function VideoCard({
   }, [hovering, isMobile]);
 
   const isEmbed = !!item.embedUrl;
+  const storyboardCount = item.assetUrls?.filter(Boolean).length || 0;
   // The card's aspect comes from the grid (for layout uniformity); we use the
   // item's own aspectRatio only inside the modal where everything is fluid.
 
@@ -241,7 +422,7 @@ function VideoCard({
       className={cn(
         'group relative block w-full overflow-hidden',
         'bg-[var(--grey)] border border-[var(--border)]',
-        'text-left',
+        'text-left transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-[rgba(24,210,196,0.55)] hover:shadow-[0_20px_60px_-34px_rgba(24,210,196,0.95)]',
         ASPECT_CLASS[aspect],
       )}
     >
@@ -264,12 +445,16 @@ function VideoCard({
         <div
           className={cn(
             'absolute inset-0 w-full h-full',
-            'bg-[radial-gradient(ellipse_at_30%_40%,#222,#0a0a0a)]',
+            'bg-[linear-gradient(135deg,#111_0%,#2a114e_42%,#064f54_72%,#fa5d29_100%)]',
             'transition-opacity duration-300',
             hovering && !isMobile && !isEmbed ? 'opacity-0' : 'opacity-100',
           )}
           aria-hidden="true"
-        />
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_22%,rgba(255,255,255,0.28),transparent_34%),radial-gradient(circle_at_72%_68%,rgba(240,46,101,0.36),transparent_38%)]" />
+          <div className="absolute left-4 top-4 h-14 w-14 rounded-full border border-white/30 bg-white/10 backdrop-blur-sm" />
+          <div className="absolute bottom-16 right-5 h-24 w-24 rounded-full border border-[#18d2c4]/50" />
+        </div>
       )}
 
       {/* Hover-to-play preview — mounted on first hover so non-hovered cards
@@ -305,7 +490,7 @@ function VideoCard({
       {/* AI tool chip — respects showTool flag */}
       {item.aiTool && isOn(item.showTool) && (
         <div className="absolute top-3 left-3">
-          <div className="t-eyebrow text-[10px] bg-[var(--accent)] text-white px-2 py-1 border border-[var(--accent)]">
+          <div className="t-eyebrow text-[10px] bg-gradient-to-r from-[var(--accent)] via-[#f02e65] to-[#18d2c4] text-white px-2 py-1 border border-white/20">
             {item.aiTool}
           </div>
         </div>
@@ -313,12 +498,18 @@ function VideoCard({
 
       {/* Footer metadata */}
       <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4 text-white">
+        <div className="mb-2 inline-flex rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-white/75 backdrop-blur">
+          expediente · {storyboardCount ? `${storyboardCount} frames` : 'storyboard pendiente'}
+        </div>
         <h3 className="font-bold text-sm sm:text-base leading-tight line-clamp-2">
           {item.title}
         </h3>
         {item.duration && (
           <div className="t-eyebrow text-[10px] opacity-80 mt-1">{item.duration}</div>
         )}
+        <div className="mt-3 hidden min-h-10 items-center rounded-full bg-white px-4 text-xs font-black text-black shadow-[0_16px_36px_-28px_rgba(0,0,0,0.75)] transition-transform group-hover:translate-x-1 sm:inline-flex">
+          abrir expediente →
+        </div>
       </div>
     </motion.button>
   );
@@ -393,7 +584,7 @@ function DesktopVideoModal({
   // don't get squished into a 9:16 frame.
   const itemAspect = (item.aspectRatio || DEFAULT_ASPECT) as AspectRatio;
 
-  return (
+  const modal = (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -423,7 +614,7 @@ function DesktopVideoModal({
                 poster={item.coverImage || undefined}
                 controls
                 playsInline
-                preload="auto"
+                preload="metadata"
                 className="absolute inset-0 w-full h-full object-contain"
               />
             )}
@@ -478,9 +669,10 @@ function DesktopVideoModal({
           </button>
         </div>
 
-        {/* Metadata side — respects per-item flags */}
-        <aside className="w-full lg:w-[420px] lg:border-l border-white/10 bg-black/60 p-6 sm:p-8 overflow-y-auto text-white">
+        {/* Metadata side — expediente de proceso */}
+        <aside className="w-full lg:w-[440px] lg:border-l border-white/10 bg-black/60 p-6 sm:p-8 overflow-y-auto text-white">
           <div className="space-y-6">
+            <div className="t-eyebrow text-white/40 text-[10px]">Expediente de pieza</div>
             {item.aiTool && isOn(item.showTool) && (
               <div className="t-eyebrow text-[var(--accent)] text-[10px]">
                 {item.aiTool}
@@ -511,6 +703,8 @@ function DesktopVideoModal({
               </div>
             )}
 
+            <AssetWall urls={item.assetUrls} />
+
             {item.duration && (
               <div className="t-eyebrow text-white/40 text-[10px]">
                 Duración · {item.duration}
@@ -526,6 +720,8 @@ function DesktopVideoModal({
       </motion.div>
     </motion.div>
   );
+
+  return createPortal(modal, document.body);
 }
 
 // ————————————————————————————————————————————————————————————————————————
@@ -586,7 +782,7 @@ function MobileFeedModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  return (
+  const modal = (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -622,6 +818,8 @@ function MobileFeedModal({
       </div>
     </motion.div>
   );
+
+  return createPortal(modal, document.body);
 }
 
 function MobileFeedSlide({ item, isActive }: { item: Media; isActive: boolean }) {
@@ -666,24 +864,42 @@ function MobileFeedSlide({ item, isActive }: { item: Media; isActive: boolean })
       className="h-full w-full snap-start relative bg-black flex items-center justify-center"
       style={{ scrollSnapAlign: 'start' }}
     >
-      {item.mediaUrl && !item.embedUrl && (
+      {item.mediaUrl && !item.embedUrl && isActive && (
         <video
           ref={videoRef}
           src={item.mediaUrl}
           poster={item.coverImage || undefined}
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
           className="absolute inset-0 w-full h-full object-contain"
           onClick={toggleMute}
         />
       )}
-      {item.embedUrl && (
+      {item.mediaUrl && !item.embedUrl && !isActive && item.coverImage && (
+        <img
+          src={item.coverImage}
+          alt={item.title}
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-contain"
+        />
+      )}
+      {item.embedUrl && isActive && (
         <iframe
           src={item.embedUrl}
           className="absolute inset-0 w-full h-full"
           allow="autoplay; encrypted-media; fullscreen"
           allowFullScreen
+        />
+      )}
+      {item.embedUrl && !isActive && item.coverImage && (
+        <img
+          src={item.coverImage}
+          alt={item.title}
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-contain"
         />
       )}
 
@@ -722,6 +938,7 @@ function MobileFeedSlide({ item, isActive }: { item: Media; isActive: boolean })
             </details>
           </div>
         )}
+        <AssetWall urls={item.assetUrls} mobile />
       </div>
 
       {/* Mute indicator — top-right of slide content area */}
@@ -731,6 +948,84 @@ function MobileFeedSlide({ item, isActive }: { item: Media; isActive: boolean })
         </div>
       )}
     </section>
+  );
+}
+
+function AssetWall({ urls, mobile = false }: { urls?: string[] | null; mobile?: boolean }) {
+  const clean = (urls || []).filter(Boolean);
+  if (clean.length === 0) {
+    return (
+      <div className={mobile ? 'mt-4 pointer-events-auto' : 'space-y-3'}>
+        <div className={mobile ? 't-eyebrow text-[10px] text-white/65 mb-2' : 't-eyebrow text-white/45 text-[10px]'}>
+          Storyboard · frames / referencias
+        </div>
+        <div className={cn(
+          'grid gap-2',
+          mobile ? 'grid-cols-3' : 'grid-cols-3',
+        )}>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className={cn(
+                'relative overflow-hidden border border-dashed border-white/12 bg-white/[0.04]',
+                mobile ? 'aspect-square rounded-lg' : 'aspect-[4/5]',
+              )}
+            >
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_30%,rgba(24,210,196,0.16),transparent_42%),radial-gradient(circle_at_72%_75%,rgba(250,93,41,0.12),transparent_40%)]" />
+              <div className="absolute bottom-2 left-2 font-['Inter_Tight'] text-xl font-black leading-none text-white/20">
+                {String(i + 1).padStart(2, '0')}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className={cn('max-w-[34ch] text-xs leading-relaxed', mobile ? 'text-white/60' : 'text-white/45')}>
+          Todavía no hay frames para esta pieza. Pronto se suma el storyboard.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={mobile ? 'mt-4 pointer-events-auto' : 'space-y-3'}>
+      <div className={mobile ? 't-eyebrow text-[10px] text-white/65 mb-2' : 't-eyebrow text-white/45 text-[10px]'}>
+        Storyboard · frames / referencias
+      </div>
+      <div
+        className={cn(
+          mobile
+            ? 'flex snap-x gap-2 overflow-x-auto pb-1'
+            : 'grid grid-cols-2 gap-2',
+        )}
+      >
+        {clean.map((url, i) => (
+          <a
+            key={`${url}-${i}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'group relative overflow-hidden border border-white/10 bg-white/5',
+              mobile ? 'h-28 min-w-[44vw] snap-start rounded-xl' : 'aspect-[4/5]',
+            )}
+            aria-label={`Abrir asset ${i + 1}`}
+          >
+            <img
+              src={url}
+              alt={`Asset usado ${i + 1}`}
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/70 to-transparent p-2">
+              <span className="font-['Inter_Tight'] text-xl font-black leading-none text-white/90">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <span className="t-eyebrow text-[8px] text-white/60">frame</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -788,5 +1083,355 @@ function EmptyState() {
         Pronto vas a encontrar acá todos los experimentos con IA.
       </p>
     </div>
+  );
+}
+
+function SectionLead({
+  eyebrow,
+  title,
+  copy,
+}: {
+  eyebrow: string;
+  title: string;
+  copy: string;
+}) {
+  return (
+    <motion.header
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.25 }}
+      transition={{ duration: 0.45, ease: [0.52, 0, 0, 1] }}
+      className="mb-5 grid gap-4 border-t border-[var(--border)] pt-4 sm:mb-8 sm:grid-cols-[minmax(0,0.7fr)_minmax(280px,0.3fr)] sm:items-end sm:pt-5"
+    >
+      <div>
+        <div className="t-eyebrow mb-3 flex items-center gap-3 text-[var(--muted)]">
+          <Compass className="h-3.5 w-3.5 text-[var(--accent)]" />
+          <span>{eyebrow}</span>
+        </div>
+        <h2 className="t-section max-w-[10ch] text-[clamp(36px,12vw,84px)] leading-[0.9] text-[var(--black)] sm:text-[clamp(42px,6.5vw,84px)]">
+          {title}
+        </h2>
+      </div>
+      <p className="t-body max-w-[35ch] text-sm leading-relaxed sm:text-base">
+        {copy}
+      </p>
+    </motion.header>
+  );
+}
+
+// ————————————————————————————————————————————————————————————————————————
+// Panorama 360 — sección aparte debajo del grid de videos. Cada card abre
+// un modal fullscreen con el visor 3D.
+// ————————————————————————————————————————————————————————————————————————
+function Panorama360Section({
+  panoramas,
+  onOpen,
+}: {
+  panoramas: Media[];
+  onOpen: (i: number) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const featured = panoramas.find((p) => p.featured) || panoramas[0];
+  const ordered = featured
+    ? [featured, ...panoramas.filter((p) => p.id !== featured.id)]
+    : panoramas;
+  const rest = ordered.slice(1);
+  const visibleRest = showAll ? rest.slice(0, 24) : rest.slice(0, 6);
+  const hiddenCount = Math.max(0, rest.length - visibleRest.length);
+  const featuredIndex = featured ? panoramas.findIndex((p) => p.id === featured.id) : 0;
+  const getOriginalIndex = (id: string) => panoramas.findIndex((p) => p.id === id);
+
+  return (
+    <section
+      id="panoramas"
+      className="mx-auto w-full max-w-[1440px] scroll-mt-28 select-none !px-[clamp(16px,4vw,80px)] !pt-5 !pb-14 sm:!pt-8 sm:!pb-16"
+    >
+      <SectionLead
+        eyebrow="LABORATORIO · 360°"
+        title="Panoramas."
+        copy="Fotos equirectangulares para entrar y mirar alrededor. En mobile: arrastrás, hacés pinch o activás sensores."
+      />
+
+      {!featured && <EmptyPanoramaShelf />}
+
+      {featured && (
+      <div className="grid gap-3 sm:gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+        {featured && (
+          <Panorama360Card
+            panorama={featured}
+            index={0}
+            featured
+            onOpen={() => onOpen(featuredIndex >= 0 ? featuredIndex : 0)}
+          />
+        )}
+        <div className="min-w-0 space-y-3">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+            <div>
+              <div className="t-eyebrow text-[10px] text-[var(--muted)]">RECORRIDOS</div>
+              <div className="mt-1 text-sm font-semibold text-[var(--black)]">
+                {panoramas.length} escena{panoramas.length === 1 ? '' : 's'} 360 disponible{panoramas.length === 1 ? '' : 's'}
+              </div>
+            </div>
+            {rest.length > 6 && (
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                className="min-h-10 shrink-0 rounded-full border border-[var(--border)] bg-white/50 px-4 text-xs font-black uppercase tracking-[0.08em] text-[var(--black)] hover:border-[#18d2c4]/70"
+              >
+                {showAll ? 'ver menos' : `ver ${hiddenCount} más`}
+              </button>
+            )}
+          </div>
+
+          {rest.length > 0 ? (
+            <div className="flex snap-x gap-3 overflow-x-auto pb-3 lg:grid lg:max-h-[520px] lg:grid-cols-2 lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
+              {visibleRest.map((p, i) => (
+                <Panorama360Card
+                  key={p.id}
+                  panorama={p}
+                  index={i + 1}
+                  compact
+                  onOpen={() => {
+                    const originalIndex = getOriginalIndex(p.id);
+                    onOpen(originalIndex >= 0 ? originalIndex : i + 1);
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-[220px] flex-col justify-end border border-dashed border-[var(--border)] bg-[rgba(255,255,255,0.28)] p-4">
+              <div className="t-eyebrow text-[10px] text-[var(--muted)]">PRÓXIMAS ESCENAS · 360°</div>
+              <p className="mt-3 max-w-[28ch] text-sm leading-snug text-[var(--muted)]">
+                Nuevas habitaciones, viajes y escenas raras van a entrar en este rail.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+      )}
+    </section>
+  );
+}
+
+function EmptyPanoramaShelf() {
+  return (
+    <div className="grid gap-3 sm:gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+      <div className="relative min-h-[260px] overflow-hidden border border-dashed border-[var(--border)] bg-[linear-gradient(135deg,rgba(24,210,196,0.10),rgba(250,93,41,0.08)_45%,rgba(255,255,255,0.35))] p-5 sm:min-h-[360px] sm:p-7">
+        <div className="absolute inset-8 rounded-full border border-[rgba(24,210,196,0.24)]" />
+        <div className="absolute right-[-14%] top-[-30%] h-[72%] w-[72%] rounded-full border border-[rgba(240,46,101,0.22)]" />
+        <div className="relative z-10 flex h-full flex-col justify-end">
+          <div className="t-eyebrow text-[10px] text-[var(--muted)]">360° · SIN PUBLICAR</div>
+          <h3 className="mt-3 max-w-[10ch] font-['Inter_Tight'] text-4xl font-black leading-[0.9] text-[var(--black)] sm:text-6xl">
+            próximos recorridos.
+          </h3>
+        </div>
+      </div>
+      <div className="flex min-h-[180px] flex-col justify-end border border-[var(--border)] bg-[rgba(255,255,255,0.34)] p-5">
+        <div className="t-eyebrow text-[10px] text-[var(--muted)]">CARGA DESDE ADMIN</div>
+        <p className="mt-3 max-w-[34ch] text-sm leading-relaxed text-[var(--muted)]">
+          Cuando publiques panoramas 2:1, acá aparece uno grande y el resto queda en un rail compacto.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Panorama360Card({
+  panorama,
+  index,
+  featured = false,
+  compact = false,
+  onOpen,
+}: {
+  panorama: Media;
+  index: number;
+  featured?: boolean;
+  compact?: boolean;
+  onOpen: () => void;
+}) {
+  // En panoramas el archivo jugable puede ser pesado; la grilla siempre debe
+  // intentar usar una miniatura antes de caer al equirectangular completo.
+  const thumb = panorama.thumbUrl || panorama.coverImage || panorama.mediaUrl || '';
+  return (
+    <motion.button
+      type="button"
+      onClick={onOpen}
+      data-hover
+      data-cursor-label="360°"
+      onContextMenu={(event) => event.preventDefault()}
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ delay: Math.min(index * 0.05, 0.4), duration: 0.5, ease: [0.52, 0, 0, 1] }}
+      className={cn(
+        'group relative block w-full overflow-hidden bg-[var(--grey)] border border-[var(--border)] text-left transition-[border-color,transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:border-[#18d2c4]/70 hover:shadow-[0_24px_70px_-46px_rgba(24,210,196,0.9)]',
+        featured
+          ? 'min-h-[320px] aspect-[4/3] sm:aspect-[16/9] lg:min-h-[520px]'
+          : compact
+            ? 'min-h-[170px] min-w-[72vw] snap-start aspect-[4/3] sm:min-w-[320px] lg:min-w-0'
+            : 'aspect-[2/1] min-h-[180px]',
+      )}
+    >
+      {thumb ? (
+        <img
+          src={thumb}
+          alt={panorama.title}
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,#222,#0a0a0a)]" aria-hidden="true" />
+      )}
+
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+
+      {/* Chip 360° arriba-izquierda */}
+      <div className="absolute top-3 left-3">
+        <div className="t-eyebrow text-[10px] bg-black/60 backdrop-blur text-white border border-white/20 px-2 py-1 flex items-center gap-1.5">
+          <Compass className="w-3 h-3" /> 360°
+        </div>
+      </div>
+
+      {/* Botón play circular */}
+      <div className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 text-white flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+        <Play className="w-4 h-4 fill-white" />
+      </div>
+
+      <div className={cn('absolute inset-x-0 bottom-0 text-white', featured ? 'p-5 sm:p-7' : 'p-3 sm:p-4')}>
+        <h3 className={cn('font-bold leading-tight line-clamp-2', featured ? 'max-w-[11ch] text-4xl sm:text-6xl' : compact ? 'text-lg' : 'text-base sm:text-lg')}>
+          {panorama.title}
+        </h3>
+        {panorama.category && (
+          <div className="t-eyebrow text-[10px] opacity-70 mt-1">{panorama.category}</div>
+        )}
+        {featured && (
+          <div className="mt-5 inline-flex min-h-11 items-center rounded-full bg-white px-5 text-sm font-black text-black shadow-[0_18px_40px_-24px_rgba(0,0,0,0.8)]">
+            abrir visor 360 →
+          </div>
+        )}
+      </div>
+    </motion.button>
+  );
+}
+
+function Panorama360Modal({
+  panoramas,
+  startIndex,
+  onClose,
+}: {
+  panoramas: Media[];
+  startIndex: number;
+  onClose: () => void;
+}) {
+  const [idx, setIdx] = useState(startIndex);
+  const current = panoramas[idx];
+
+  const goPrev = useCallback(() => setIdx((i) => (i - 1 + panoramas.length) % panoramas.length), [panoramas.length]);
+  const goNext = useCallback(() => setIdx((i) => (i + 1) % panoramas.length), [panoramas.length]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') goPrev();
+      if (e.key === 'ArrowRight') goNext();
+    };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.classList.add('panorama-modal-open');
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+      document.body.classList.remove('panorama-modal-open');
+    };
+  }, [onClose, goPrev, goNext]);
+
+  if (!current) return null;
+
+  // Preferimos el mediaUrl (panorama en alta); si no existe caemos al cover
+  // (mejor algo que nada).
+  const panoramaUrl = current.mediaUrl || current.coverImage || '';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[10020] select-none bg-black"
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <div className="relative w-full h-full">
+        <Suspense
+          fallback={
+            <div className="absolute inset-0 flex items-center justify-center text-white/70 text-sm">
+              Cargando visor…
+            </div>
+          }
+        >
+          {panoramaUrl ? (
+            <Panorama360Viewer key={current.id} imageUrl={panoramaUrl} />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-white/70 text-sm">
+              Este panorama todavía no tiene imagen.
+            </div>
+          )}
+        </Suspense>
+
+        {/* Top overlay — título + contador */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-3 bg-gradient-to-b from-black/72 to-transparent p-3 pt-[calc(env(safe-area-inset-top,0px)+12px)] sm:p-6">
+          <div className="min-w-0 rounded-2xl border border-white/10 bg-black/38 px-3 py-2 backdrop-blur-xl sm:bg-transparent sm:p-0 sm:backdrop-blur-none sm:border-0">
+            <div className="t-eyebrow text-[10px] text-white/60 mb-1 flex items-center gap-2">
+              <Compass className="w-3 h-3 text-[var(--accent)]" />
+              360° · {idx + 1} / {panoramas.length}
+            </div>
+            <h3 className="text-white font-bold text-lg sm:text-xl leading-tight truncate">
+              {current.title}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            data-hover
+            aria-label="Cerrar"
+            className="pointer-events-auto grid min-h-12 min-w-12 place-items-center rounded-full border border-white/14 bg-black/62 text-white/86 shadow-[0_18px_44px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-colors hover:bg-white hover:text-black"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Navegación prev/next — sólo si hay más de un panorama */}
+        {panoramas.length > 1 && (
+          <>
+            <button
+              onClick={goPrev}
+              data-hover
+              aria-label="Anterior"
+              className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/35 hover:bg-black/60 rounded-full backdrop-blur border border-white/10 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={goNext}
+              data-hover
+              aria-label="Siguiente"
+              className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/35 hover:bg-black/60 rounded-full backdrop-blur border border-white/10 transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </>
+        )}
+
+        {/* Descripción inferior — opcional */}
+        {current.description && (
+          <div className="pointer-events-none absolute bottom-0 inset-x-0 p-4 sm:p-6 bg-gradient-to-t from-black/70 to-transparent">
+            <p className="text-white/85 text-sm sm:text-base max-w-2xl leading-relaxed line-clamp-3">
+              {current.description}
+            </p>
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 }

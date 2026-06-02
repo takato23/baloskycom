@@ -9,9 +9,9 @@ import { PORTFOLIO_CATEGORIES, PORTFOLIO_PROJECTS, type PortfolioProject } from 
 import InnerPageNav from '@/components/InnerPageNav';
 
 const testimonials = [
-  { name: 'Carlos M.', role: 'Emprendedor', text: 'Santi nos armó una webapp increíble. La calidad del código y el diseño brutalista superaron nuestras expectativas.' },
-  { name: 'Laura G.', role: 'Creadora de Contenido', text: 'Las ediciones con IA son de otro planeta. Entendió perfectamente la visión de la marca y el proceso de iteración fue excelente.' },
-  { name: 'Agencia XYZ', role: 'Marketing', text: 'Colaborar con Santi en nuestra campaña visual fue la mejor decisión. Su creatividad y la calidad final del trabajo nos dejaron sin palabras.' }
+  { name: 'Carlos M.', role: 'Emprendedor', text: 'Le pedí una web y me la dejó andando en una semana. Quedó mejor de lo que tenía en la cabeza.' },
+  { name: 'Laura G.', role: 'Creadora de Contenido', text: 'Las ediciones con IA me volaron la cabeza. Captó el tono de la marca al toque.' },
+  { name: 'Nico P.', role: 'Marketing', text: 'Trabajar con Santi en la campaña fue un golazo. Le tiré una idea suelta y la convirtió en algo que la rompió.' }
 ];
 
 const faqs = [

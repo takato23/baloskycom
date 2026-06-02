@@ -1,82 +1,54 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CAFECITOS_FEED, CAFECITOS_TOP } from '@/content/cafecitos';
 
 /**
  * Port of `<section id="muro">` — live wall.
  *
- * Faithful markup port. The leaderboard + feed are still static; the public
- * post form mirrors the static home (`#muroForm` in delirio.html / wired in
- * `public/delirio-wire.js`). Submits to `POST /api/messages` with a hidden
- * honeypot (`website`) — server returns 204 if a bot fills it in, so the UI
- * shows "ok" either way to avoid leaking the heuristic. A full realtime
- * websocket + pin-message hookup plus admin wiring are follow-up work.
+ * TOP + FEED antes eran mockup (Florencia M., Camila V. aportó $15k al
+ * disco…). Santi pidió sacar lo inventado y poner gente que realmente le
+ * mandó cafecitos. Ahora TOP y FEED se hidratan desde
+ * `@/content/cafecitos` (generado con `scripts/_build-cafecitos.mjs` desde
+ * data/cafecitos.csv, export real de cafecito.app).
+ *
+ * Pulso en vivo: rotamos el feed cada 6s para dar la sensación de "algo
+ * está pasando", aunque los datos sean históricos reales. Cuando
+ * `/api/messages` devuelva los mensajes nuevos vía websocket, este feed
+ * deja de rotar y va a mostrar los reales en tiempo real.
+ *
+ * El form debajo sigue posteando a `POST /api/messages` con honeypot.
  */
 
 type Row = { rank: string; name: string; amt: string; kind: string };
 type FeedPart = { text: string; strong?: boolean };
 type Entry = { id: string; mk: string; parts: FeedPart[]; time: string };
 
-const TOP: Row[] = [
-  { rank: '01', name: 'Florencia M.', amt: '$180k', kind: 'ÓRBITA' },
-  { rank: '02', name: 'JuanK (Rosario)', amt: '$145k', kind: 'ENCARGO' },
-  { rank: '03', name: 'Luz R.', amt: '$96k', kind: 'DISCO' },
-  { rank: '04', name: 'Matías B.', amt: '$82k', kind: 'ÓRBITA' },
-  { rank: '05', name: 'Camila V.', amt: '$75k', kind: 'ENCARGO' },
-  { rank: '06', name: 'Lucho P.', amt: '$64k', kind: 'CAFECITO' },
-  { rank: '07', name: 'Nico (Cba)', amt: '$58k', kind: 'DISCO' },
-  { rank: '08', name: 'Romi G.', amt: '$42k', kind: 'BASE' },
-  { rank: '09', name: 'Axel T.', amt: '$38k', kind: 'CAFECITO' },
-  { rank: '10', name: 'Sofi L.', amt: '$34k', kind: 'DISCO' },
-];
+// Los 5 "mark colors" del feed (naranja/teal/violeta/gris/magenta) siguen
+// rotando para que cada entry tenga su punto distinto y no parezca un spam
+// de colores iguales.
+const MK_COLORS = ['o', 't', 'v', 'g', 'm'] as const;
 
-const FEED: Entry[] = [
-  {
-    id: 'm1',
-    mk: 'o',
+function formatARS(n: number): string {
+  return `$${n.toLocaleString('es-AR')}`;
+}
+
+function entryFromCafecito(
+  c: (typeof CAFECITOS_FEED)[number],
+  index: number,
+): Entry {
+  return {
+    id: c.id,
+    mk: MK_COLORS[index % MK_COLORS.length],
     parts: [
-      { text: 'Camila V.', strong: true },
-      { text: ' aportó ' },
-      { text: '$15k', strong: true },
-      { text: ' al disco' },
+      { text: c.name, strong: true },
+      { text: ' · ' },
+      { text: formatARS(c.amount), strong: true },
+      { text: ` — "${c.message}"` },
     ],
-    time: 'Hace 2 seg',
-  },
-  {
-    id: 'm2',
-    mk: 't',
-    parts: [
-      { text: 'Nico (Cba)', strong: true },
-      { text: ' se sumó a Órbita' },
-    ],
-    time: 'Hace 18 seg',
-  },
-  {
-    id: 'm3',
-    mk: 'v',
-    parts: [
-      { text: 'Flor M.', strong: true },
-      { text: ' dejó un mensaje: "Vamos con todo"' },
-    ],
-    time: 'Hace 45 seg',
-  },
-  {
-    id: 'm4',
-    mk: 'g',
-    parts: [
-      { text: 'Matías', strong: true },
-      { text: ' escuchó "Nadie escucha" 3 veces seguidas' },
-    ],
-    time: 'Hace 1 min',
-  },
-  {
-    id: 'm5',
-    mk: 'm',
-    parts: [
-      { text: 'Romi G.', strong: true },
-      { text: ' pidió encargo: dedicatoria' },
-    ],
-    time: 'Hace 2 min',
-  },
-];
+    time: c.ago,
+  };
+}
+
+const TOP: Row[] = CAFECITOS_TOP;
 
 type FormStatus = { text: string; tone: '' | 'ok' | 'err' };
 
@@ -93,6 +65,30 @@ export default function MuroSection() {
     }, 4200);
     return () => window.clearInterval(id);
   }, []);
+
+  // Rotamos la ventana de 5 mensajes visibles dentro de los 30 del CSV real,
+  // corriendo el offset 1 por tick cada 6s. Sensación de "pulso en vivo"
+  // sin inventar datos: todos los mensajes son de gente que realmente
+  // mandó cafecito.
+  const [feedOffset, setFeedOffset] = useState(0);
+  useEffect(() => {
+    if (CAFECITOS_FEED.length <= 5) return;
+    const id = window.setInterval(() => {
+      setFeedOffset((o) => (o + 1) % CAFECITOS_FEED.length);
+    }, 6000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const feedVisible = useMemo<Entry[]>(() => {
+    if (CAFECITOS_FEED.length === 0) return [];
+    const out: Entry[] = [];
+    const windowSize = Math.min(5, CAFECITOS_FEED.length);
+    for (let i = 0; i < windowSize; i++) {
+      const src = CAFECITOS_FEED[(feedOffset + i) % CAFECITOS_FEED.length];
+      out.push(entryFromCafecito(src, i));
+    }
+    return out;
+  }, [feedOffset]);
 
   // ── Post form state ────────────────────────────────────────────────────
   const [name, setName] = useState('');
@@ -192,8 +188,8 @@ export default function MuroSection() {
             <h2>lo que pasa<br /><em>ahora mismo</em>.</h2>
           </div>
           <p>
-            Apoyos, mensajes y reproducciones en tiempo real. El Top 10 se reacomoda solo. El feed
-            de la derecha muestra cada aporte apenas entra.
+            Cafecitos, mensajes y reproducciones en tiempo real. El Top 10 se reacomoda solo. El feed
+            de la derecha muestra cada cafecito apenas entra.
           </p>
         </div>
 
@@ -216,9 +212,9 @@ export default function MuroSection() {
                   letterSpacing: '-0.03em',
                 }}
               >
-                Top del mes
+                Top cafecitos
               </h3>
-              <div className="t-eyebrow">Actualiza cada 5s</div>
+              <div className="t-eyebrow">En vivo · cafecito</div>
               <div
                 className="scrawl marker"
                 style={{ position: 'absolute', top: -42, left: 180, transform: 'rotate(-6deg)' }}
@@ -257,7 +253,7 @@ export default function MuroSection() {
               </span>
             </div>
             <div className="feed-stream">
-              {FEED.map((e) => (
+              {feedVisible.map((e) => (
                 <div key={e.id} className="feed-entry" data-id={e.id}>
                   <span className={`mk ${e.mk}`} />
                   <div className="body">

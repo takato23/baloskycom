@@ -2,17 +2,20 @@ import {
   PublicContentSettings,
   SiteSettings,
 } from '../types/index.js';
+
+const DEFAULT_CAFECITO_AMOUNT = 3000;
+
 export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
   home: {
     hero: {
-      eyebrow: 'pasen y vean',
-      title: 'si me bancás\nalgo te llevás',
+      eyebrow: 'estudio creativo · IA · música',
+      title: 'fábrica de\ndelirios con IA',
       subtitle:
-        'Stickers, wallpapers y los delirios que vas a querer mandar al grupo.',
-      primaryCtaLabel: 'Elegir pack',
-      primaryCtaHref: '/checkout',
-      secondaryCtaLabel: 'Qué hay adentro',
-      secondaryCtaHref: '/vip',
+        'Música, imágenes, video y webs hechas con IA. Más los delirios que vas a querer mandar al grupo.',
+      primaryCtaLabel: 'Ver el laburo',
+      primaryCtaHref: '/portfolio',
+      secondaryCtaLabel: 'Bancá el proyecto',
+      secondaryCtaHref: '/checkout',
     },
     supportOffer: {
       eyebrow: 'tres formas de entrar',
@@ -21,7 +24,7 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
         'Cada nivel desbloquea packs distintos. Sin vueltas.',
       items: [
         {
-          amount: 1000,
+          amount: 3000,
           label: 'Morerial',
           benefit: 'entrás al ecosistema y te llevás los packs de entrada',
         },
@@ -50,7 +53,7 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
         description:
           'Si te gusta lo que hago y querés que siga saliendo contenido, esto me da una mano enorme.',
         ctaLabel: 'Aportar ahora',
-        href: '/checkout',
+        href: '/cafecito',
       },
       {
         eyebrow: 'Encargo IA',
@@ -77,7 +80,7 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
       },
       {
         title: 'Feed exclusivo',
-        description: 'Publicaciones para aportantes, encuestas y materiales que estén cargados de verdad.',
+        description: 'Posteos solo para los que bancan: encuestas, adelantos y cosas que no subo a redes.',
         href: '/vip',
       },
       {
@@ -92,10 +95,10 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
       },
     ],
     sections: {
-      supportEyebrow: 'por dónde entrar',
+      supportEyebrow: 'si te copó, bancá',
       supportTitle: 'tres formas de bancar',
       supportSubtitle:
-        'Sumás, te llevás o chusmeás. Elegís vos.',
+        '¿Te gustó lo que viste? Esto le pone combustible. Sumás, te llevás algo o chusmeás. Elegís vos.',
       rewardsEyebrow: 'qué te llevás',
       rewardsTitle: 'niveles de cómplice',
       rewardsSubtitle:
@@ -109,13 +112,13 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
       eyebrow: 'se viene',
       title: 'Cursos de IA',
       subtitle:
-        'Talleres, clases y formatos donde voy a compartir lo que vengo aprendiendo con herramientas y flujos de IA.',
+        'Talleres y clases para mostrarte cómo laburo con IA: lo que fui aprendiendo a los golpes.',
       items: [
         {
           badge: 'Próximamente',
           status: 'lista de espera',
           title: 'IA para crear mejor',
-          description: 'Una guía para bajar ideas, prompts y flujos a cosas concretas y publicables.',
+          description: 'Una guía para pasar de la idea y el prompt a algo que de verdad puedas publicar.',
           href: '#',
           ctaLabel: 'Avisame',
         },
@@ -123,7 +126,7 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
           badge: 'Próximamente',
           status: 'próximamente',
           title: 'Imágenes, video y experimentos',
-          description: 'Procesos para mezclar herramientas, corregir resultados y salir con algo usable.',
+          description: 'Cómo combinar herramientas, arreglar lo que sale mal y terminar con algo que sirva.',
           href: '#',
           ctaLabel: 'Ver más',
         },
@@ -131,7 +134,7 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
           badge: 'Próximamente',
           status: 'próximamente',
           title: 'Internet, identidad y obra',
-          description: 'Cómo convertir herramientas nuevas en una voz propia en vez de hacer ruido genérico.',
+          description: 'Cómo usar todo esto para sonar a vos y no a un molde más.',
           href: '#',
           ctaLabel: 'Ver más',
         },
@@ -143,9 +146,9 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
       subtitle:
         'Canciones, pruebas, videos y cosas que fui sacando o armando con ayuda de herramientas como SUNO.',
       featuredText:
-        'Subí tus audios a una URL pública o cargalos desde admin. El player tiene visualizador en vivo y también te deja probar MP3 locales en el momento.',
-      spotifyUrl: 'https://open.spotify.com/artist/balosky',
-      appleMusicUrl: 'https://music.apple.com/artist/balosky',
+        'Dale play y escuchá lo último. El player tiene visualizador en vivo mientras suena.',
+      spotifyUrl: '',
+      appleMusicUrl: '',
       youtubeChannelUrl: 'https://youtube.com/@santiagobalosky',
       tracks: [
         {
@@ -199,7 +202,7 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
     copy: {
       heroTitle: 'Mi Portfolio',
       heroSubtitle:
-        'No solo creo contenido: también hago proyectos, piezas visuales y experimentos digitales.',
+        'No hago solo contenido: también armo proyectos, piezas visuales y cosas raras que se me ocurren.',
       ctaTitle: '¿Trabajamos juntos?',
       ctaBody:
         'Si tenés una idea para una web, algo con IA o querés sumar una colaboración, hablemos.',
@@ -210,7 +213,7 @@ export const DEFAULT_PUBLIC_CONTENT: PublicContentSettings = {
     copy: {
       title: 'Publicaciones para aportantes',
       subtitle:
-        'Este espacio muestra publicaciones, recursos y actualizaciones que realmente estén disponibles para quienes apoyan el proyecto.',
+        'Acá te dejo posteos, recursos y novedades para los que bancan el proyecto.',
     },
   },
 };
@@ -308,7 +311,50 @@ export const normalizePublicContent = (
   },
 });
 
-export const normalizeSiteSettings = (settings: SiteSettings): SiteSettings => ({
-  ...settings,
-  content: normalizePublicContent(settings.content),
-});
+function normalizeCafecitoAmount(value: unknown): number {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 1
+    ? Math.round(amount)
+    : DEFAULT_CAFECITO_AMOUNT;
+}
+
+function normalizePaypalCurrency(value: unknown): string {
+  const currency = String(value || 'USD').trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(currency) ? currency : 'USD';
+}
+
+function normalizePaypalUnitAmount(value: unknown): number {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0
+    ? Math.round(amount * 100) / 100
+    : 3;
+}
+
+export const normalizeSiteSettings = (settings: SiteSettings): SiteSettings => {
+  const cafecitoAmount = normalizeCafecitoAmount(settings.cafecito?.amount);
+  const supportAmountsSuggested = Array.from(
+    new Set([
+      cafecitoAmount,
+      ...((settings.supportAmountsSuggested || [])
+        .map((amount) => Math.round(Number(amount)))
+        .filter((amount) => Number.isFinite(amount) && amount >= cafecitoAmount)),
+    ]),
+  );
+
+  return {
+    ...settings,
+    supportAmountsSuggested,
+    cafecito: {
+      amount: cafecitoAmount,
+      mercadoPagoLink: typeof settings.cafecito?.mercadoPagoLink === 'string'
+        ? settings.cafecito.mercadoPagoLink.trim()
+        : '',
+      paypalLink: typeof settings.cafecito?.paypalLink === 'string'
+        ? settings.cafecito.paypalLink.trim()
+        : '',
+      paypalCurrency: normalizePaypalCurrency(settings.cafecito?.paypalCurrency),
+      paypalUnitAmount: normalizePaypalUnitAmount(settings.cafecito?.paypalUnitAmount),
+    },
+    content: normalizePublicContent(settings.content),
+  };
+};

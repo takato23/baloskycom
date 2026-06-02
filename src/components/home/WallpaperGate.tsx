@@ -106,7 +106,7 @@ export default function WallpaperGate({ wallpaper, onClose }: Props) {
           const head = await fetch(url, { method: 'HEAD' });
           if (!head.ok) {
             setStatus('err');
-            setMsg('El wallpaper todavía no está subido. Te avisamos cuando esté listo.');
+            setMsg('El wallpaper todavía no está disponible. Te avisamos cuando esté listo.');
             return;
           }
         } catch {

@@ -117,12 +117,12 @@ export default function WallpaperPreview({ wallpaper, onClose, onRequestGate, is
     }
     const url = wallpaper.mediaUrl;
     if (!url) {
-      setToast('Este wallpaper todavía no está subido. Volvé en un ratito.');
+      setToast('Este wallpaper todavía no está disponible. Volvé en un ratito.');
       window.setTimeout(() => setToast(null), 3500);
       return;
     }
     if (preflightStatus === 'missing') {
-      setToast('Este wallpaper todavía no está subido. Volvé en un ratito.');
+      setToast('Este wallpaper todavía no está disponible. Volvé en un ratito.');
       window.setTimeout(() => setToast(null), 3500);
       return;
     }
@@ -218,10 +218,10 @@ export default function WallpaperPreview({ wallpaper, onClose, onRequestGate, is
         <div className="wpp-right">
           <div>
             <div className="wpp-eyebrow">
-              {isLocked ? 'Wallpaper · Baloskier' : 'Wallpaper · Gratis'}
+              {isLocked ? 'Wallpaper · por mail' : 'Wallpaper · Gratis'}
             </div>
             <div className="wpp-heading">
-              {isLocked ? 'Abrí el pack completo' : 'Así te queda puesto'}
+              {isLocked ? 'Te mando el link' : 'Así te queda puesto'}
             </div>
             <div className="wpp-sub">
               {isLocked
@@ -287,7 +287,7 @@ export default function WallpaperPreview({ wallpaper, onClose, onRequestGate, is
               onClick={triggerDownload}
               data-cursor={isLocked ? 'DESBLOQUEAR' : 'BAJAR'}
             >
-              {isLocked ? 'Desbloquear' : 'Bajar'}
+              {isLocked ? 'Recibir link' : 'Bajar'}
             </button>
             {mobile && canShare && !isLocked && (
               <button

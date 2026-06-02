@@ -2,19 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { MusicPlayerProvider } from '@/context/MusicPlayerContext';
 import MusicPlayerDock from '@/components/music/MusicPlayerDock';
 import KonamiEasterEgg from '@/components/effects/KonamiEasterEgg';
 import ModoHomerEasterEgg from '@/components/effects/ModoHomerEasterEgg';
-import MascotCompanion from '@/components/effects/MascotCompanion';
+// import MascotCompanion from '@/components/effects/MascotCompanion'; // Desactivado: distraía y no sumaba. Si querés volver a probar, descomentá esto y el render abajo.
 import DelirioHeader from '@/components/delirio/DelirioHeader';
 import DelirioFooter from '@/components/delirio/DelirioFooter';
 import DelirioCursor from '@/components/delirio/DelirioCursor';
 import MobileNav from '@/components/delirio/MobileNav';
 import ThemeFab from '@/components/delirio/ThemeFab';
 import CafecitoBadge from '@/components/CafecitoBadge';
+import LiquidChrome from '@/components/effects/LiquidChrome';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useAdminNativeCursor } from '@/hooks/useAdminNativeCursor';
 
 /**
  * Layout wraps every React-rendered route (everything that isn't the static
@@ -31,6 +34,9 @@ export default function Layout() {
   const isAgendaPublica = location.pathname === '/agenda-publica';
   const isAdmin = location.pathname.startsWith('/admin');
   const isCheckout = location.pathname.startsWith('/checkout');
+  const isBtv = location.pathname === '/btv' || location.pathname === '/balosflix';
+  const isProductora = location.pathname === '/productora';
+  const isLaboratorio = location.pathname === '/laboratorio';
   // `/` y `/home-preview` renderizan el mismo HomePreview (Delirio home).
   // Ambos necesitan full-bleed para que el hero + secciones de media
   // lleguen a los bordes. Cuando se migró `/` de estático a React se
@@ -42,14 +48,21 @@ export default function Layout() {
   // full-bleed: tiene su propio fondo oscuro `#0a0908` que necesita
   // llegar a los bordes en mobile (sino se ven tiras claras a los
   // costados — bug que se notaba como "se ve igual que desktop").
-  const isFullBleed = isAgendaPublica || isHome || isCheckout;
+  const isFullBleed = isAgendaPublica || isHome || isCheckout || isBtv || isProductora || isLaboratorio;
   const { settings } = useAppContext();
 
   const reducedMotion = usePrefersReducedMotion();
+  const isMobileViewport = useIsMobile(761);
 
   const [scrolledPast, setScrolledPast] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const liquidChromeEnabled =
+    !isAdmin &&
+    !isCheckout &&
+    !isAgendaPublica &&
+    !isMobileViewport &&
+    !reducedMotion;
 
   useEffect(() => {
     setTransitioning(true);
@@ -66,7 +79,7 @@ export default function Layout() {
   // Single consolidated scroll listener: scrolledPast flag + desktop skew
   useEffect(() => {
     const isDesktop = window.innerWidth >= 769;
-    const skewEnabled = isDesktop && !reducedMotion;
+    const skewEnabled = isDesktop && !reducedMotion && !isLaboratorio && !isAdmin;
 
     let lastY = window.scrollY;
     let rafPending = false;
@@ -121,7 +134,7 @@ export default function Layout() {
       cancelAnimationFrame(skewRaf);
       if (contentRef.current) contentRef.current.style.transform = '';
     };
-  }, [reducedMotion]);
+  }, [reducedMotion, isLaboratorio, isAdmin]);
 
   // Scroll to anchor targets — the fixed Delirio header is ~72px tall.
   useEffect(() => {
@@ -139,15 +152,7 @@ export default function Layout() {
     });
   }, [location.hash, location.pathname]);
 
-  // Admin: restore native cursor + remove the `cursor: none` global so admins
-  // can actually see where they're typing. Cleanup restores on unmount.
-  useEffect(() => {
-    if (!isAdmin) return;
-    document.body.style.cursor = 'auto';
-    return () => {
-      document.body.style.cursor = '';
-    };
-  }, [isAdmin]);
+  useAdminNativeCursor(isAdmin);
 
   return (
     <MusicPlayerProvider content={settings?.content.home.music}>
@@ -164,6 +169,8 @@ export default function Layout() {
 
         <DelirioHeader />
 
+        <LiquidChrome enabled={liquidChromeEnabled} />
+
         {/* Main Content — .nav is position:fixed, so push content down by its
             height on non-full-bleed pages. Full-bleed (home-preview, agenda)
             pages handle their own top spacing (e.g. .hero has padding-top). */}
@@ -178,15 +185,17 @@ export default function Layout() {
             isFullBleed ? 'pb-0' : 'max-w-6xl mx-auto px-4 sm:px-6 pb-8',
           )}
         >
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Outlet />
-          </motion.div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reducedMotion ? undefined : { opacity: 0, y: -10 }}
+              transition={{ duration: reducedMotion ? 0 : 0.28, ease: [0.52, 0, 0, 1] }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
 
         <DelirioFooter />
@@ -203,17 +212,18 @@ export default function Layout() {
             · Se esconde automáticamente si hay un modal/lightbox abierto
               (lo detecta el propio badge vía MutationObserver sobre body). */}
         {isHome && !isAdmin && !isCheckout && (
-          <CafecitoBadge floating hideAfterScroll={typeof window !== 'undefined' ? window.innerHeight * 1.6 : 1200} />
+          <CafecitoBadge floating showAfterScroll={isMobileViewport ? 520 : 640} />
         )}
 
         <KonamiEasterEgg />
         <ModoHomerEasterEgg />
-        <MascotCompanion />
+        {/* Mascotita desactivada — distraía. Para reactivar, descomentá el import arriba y la línea de abajo. */}
+        {/* {!isHome && !isBtv && <MascotCompanion />} */}
 
         {/* Delirio chrome — hide cursor + theme fab inside admin. */}
         {!isAdmin && <DelirioCursor />}
-        {!isAdmin && <ThemeFab />}
-        {!isAdmin && <MobileNav />}
+        {!isAdmin && !isHome && !isProductora && <ThemeFab />}
+        {!isAdmin && !isHome && !isProductora && <MobileNav />}
       </div>
     </MusicPlayerProvider>
   );

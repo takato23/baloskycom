@@ -10,6 +10,7 @@ coverage/
 
 # data (SQLite local)
 data/
+backups/
 
 # plataformas / herramientas
 .vercel
@@ -59,3 +60,27 @@ design-mockups/
 AGENTS.md
 CODEX_BRIEF.md
 __smoke.mjs
+HANDOFF_PREVIEW_FULL.md
+PLACEHOLDERS.md
+preview-full-mockups.html
+_commit-productora.sh
+
+# scratch / research / prototypes (no son parte de la app)
+tmp/
+research/
+prototypes/
+.playwright-cli/
+
+# backups y dumps locales (pesados, no van a git)
+*.zip
+*.tar
+*.tgz
+*.gz
+
+# scan crudo de Luma (~79MB) — solo se usa la versión liviana balosky-luma-scan.ply
+public/uploads/3d/*-raw.ply
+
+# planets: los -src.glb son los Meshy originales (~420MB total) que
+# NO van a git — los comprimidos planet-0X.glb (el archivo sin -src) sí.
+# Borralos a mano desde Finder cuando quieras: Documents/baloskycom/public/models/planets/
+public/models/planets/*-src.glb

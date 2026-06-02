@@ -4,9 +4,11 @@ import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import apiRouter from './src/server/routes/api.js';
+import db from './src/server/db.js';
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
+const isVercel = Boolean(process.env.VERCEL);
 const configuredAppUrl = process.env.APP_URL?.trim();
 const allowedOrigins = new Set<string>();
 
@@ -48,10 +50,9 @@ app.get('/api/health', (req, res) => {
 app.use('/api', apiRouter);
 
 // ────────────────────────────────────────────────────────────────────────────
-// Balosky public home is now served by the React SPA (HomePreview at `/`).
-// The legacy static landing remains available at `/delirio` as a backup —
-// flip the index back to `serveDelirio` here (and the `/` route in App.tsx)
-// if we ever need to revert.
+// Balosky public home: serve the original static Delirio landing at `/`.
+// The React home experiments remain available from SPA routes such as
+// `/home-preview`, but the public index starts from the live balosky.com base.
 // These routes must be registered before the Vite middleware so the raw HTML
 // wins over the SPA shell in development.
 // ────────────────────────────────────────────────────────────────────────────
@@ -70,7 +71,11 @@ const serveDelirio = (_req: express.Request, res: express.Response) => {
   });
 };
 
-app.get('/delirio', serveDelirio);
+if (!isVercel) {
+  app.get('/', serveDelirio);
+  app.get('/delirio', serveDelirio);
+  app.get('/balosflix', (_req, res) => res.redirect(308, '/btv'));
+}
 
 // Post-checkout pages (served as static HTML in dev via express.static; in prod
 // we need explicit routes because app.get('*') falls through to dist/index.html).
@@ -83,10 +88,65 @@ const servePage = (file: string) => (_req: express.Request, res: express.Respons
     }
   });
 };
-app.get('/pago-exitoso', servePage('pago-exitoso.html'));
-app.get('/pago-pendiente', servePage('pago-pendiente.html'));
-app.get('/pago-fallido', servePage('pago-fallido.html'));
-app.get('/club', servePage('club.html'));
+if (!isVercel) {
+  app.get('/pago-exitoso', servePage('pago-exitoso.html'));
+  app.get('/pago-pendiente', servePage('pago-pendiente.html'));
+  app.get('/pago-fallido', servePage('pago-fallido.html'));
+  app.get('/club', servePage('club.html'));
+  app.get('/privacidad', servePage('privacidad.html'));
+  app.get('/terminos', servePage('terminos.html'));
+}
+
+const isPotentialPaidAssetPath = (pathname: string) =>
+  pathname.startsWith('/uploads/') || pathname.startsWith('/audio/') || pathname.startsWith('/videos/');
+
+const shouldBlockDirectAsset = async (pathname: string) => {
+  if (!isPotentialPaidAssetPath(pathname)) return false;
+
+  const protectedMedia: any = await db.prepare(`
+    SELECT id, isLocked, isMemberOnly, publicFrom
+    FROM media
+    WHERE mediaUrl = ?
+    LIMIT 1
+  `).get(pathname);
+
+  if (protectedMedia) {
+    const publicFromMs = protectedMedia.publicFrom ? new Date(protectedMedia.publicFrom).getTime() : null;
+    const earlyOnly = publicFromMs !== null && publicFromMs > Date.now();
+    if (protectedMedia.isLocked || protectedMedia.isMemberOnly || earlyOnly) return true;
+  }
+
+  const paidProduct: any = await db.prepare(`
+    SELECT id
+    FROM products
+    WHERE fileUrl = ? AND active = 1
+    LIMIT 1
+  `).get(pathname);
+
+  return Boolean(paidProduct);
+};
+
+const protectedAssetGuard: express.RequestHandler = async (req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+
+  try {
+    const pathname = decodeURIComponent(req.path);
+    if (await shouldBlockDirectAsset(pathname)) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(403).json({
+        error: 'protected_asset',
+        detail: 'Usá el link de descarga firmado.'
+      });
+    }
+  } catch (error) {
+    console.error('[protected-assets] guard error:', error);
+    return res.status(500).json({ error: 'asset_guard_error' });
+  }
+
+  return next();
+};
+
+app.use(protectedAssetGuard);
 
 // Expose the wire-up script and other /public files directly in dev.
 // (In production, Vite copies /public into /dist, so the dist static handler
@@ -130,7 +190,7 @@ app.use((req, res, next) => {
 });
 
 // For production, serve static files
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && !isVercel) {
   const distPath = path.join(process.cwd(), 'dist');
   app.use(express.static(distPath));
   app.get('*', (req, res) => {

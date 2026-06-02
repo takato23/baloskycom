@@ -258,13 +258,24 @@
   }, true);
 
   async function fetchJSON(url){
+    var controller = null;
+    var timeout = null;
     try {
-      var r = await fetch(url, { credentials: 'same-origin' });
+      if (window.AbortController) {
+        controller = new AbortController();
+        timeout = setTimeout(function(){ try { controller.abort(); } catch (_) {} }, 2400);
+      }
+      var r = await fetch(url, {
+        credentials: 'same-origin',
+        signal: controller ? controller.signal : undefined
+      });
       if (!r.ok) return null;
       return await r.json();
     } catch (e) {
       console.warn('[wire]', url, e && e.message);
       return null;
+    } finally {
+      if (timeout) clearTimeout(timeout);
     }
   }
 
@@ -316,6 +327,15 @@
       suffix.textContent = suffixText;
       el.appendChild(suffix);
     }
+  }
+
+  function getCafecitoSettings(settings){
+    var raw = settings && settings.cafecito ? Number(settings.cafecito.amount) : 0;
+    var amount = Number.isFinite(raw) && raw > 0 ? Math.round(raw) : 3000;
+    var link = settings && settings.cafecito && typeof settings.cafecito.mercadoPagoLink === 'string'
+      ? settings.cafecito.mercadoPagoLink.trim()
+      : '';
+    return { amount: amount, mercadoPagoLink: /^https?:\/\//i.test(link) ? link : '' };
   }
 
   function setMembershipPrice(el, amount, billingPeriod){
@@ -385,6 +405,9 @@
       var amtStrong = document.createElement('b');
       amtStrong.textContent = '$' + fmtK(m.amount) + 'k';
       msg.appendChild(amtStrong);
+      if (m.message) {
+        msg.appendChild(document.createTextNode(' — "' + String(m.message).substring(0, 140) + '"'));
+      }
     } else if (m.message) {
       msg.appendChild(document.createTextNode(': "' + String(m.message).substring(0, 140) + '"'));
     } else {
@@ -393,7 +416,7 @@
 
     var time = document.createElement('div');
     time.className = 'time';
-    time.textContent = fmtTime(m.createdAt);
+    time.textContent = m.ago || fmtTime(m.createdAt);
 
     body.appendChild(msg);
     body.appendChild(time);
@@ -463,11 +486,50 @@
     return entry;
   }
 
-  function trackPlausible(eventName, props){
-    if (typeof window.plausible !== 'function') return;
+  function analyticsSessionId(){
     try {
-      if (props && Object.keys(props).length) window.plausible(eventName, { props: props });
-      else window.plausible(eventName);
+      var key = 'balosky_sid';
+      var existing = sessionStorage.getItem(key);
+      if (existing) return existing;
+      var id = 'sid_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+      sessionStorage.setItem(key, id);
+      return id;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function trackPlausible(eventName, props){
+    var apiEventName = ({
+      checkout_open: 'checkout_start',
+      subscription_created: 'checkout_created',
+      muro_sent: 'media_open',
+      photo_open: 'media_open',
+      wallpaper_preview_open: 'media_open',
+      wallpaper_download: 'media_open',
+      song_play: 'media_open',
+      konami_triggered: 'media_open'
+    })[eventName] || eventName;
+    try {
+      if (typeof window.plausible === 'function') {
+        if (props && Object.keys(props).length) window.plausible(eventName, { props: props });
+        else window.plausible(eventName);
+      }
+    } catch (_) {}
+    try {
+      if (!window.fetch) return;
+      window.fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          eventName: apiEventName,
+          path: location.pathname + location.hash,
+          target: props && (props.target || props.href || props.title || props.id || props.type || ''),
+          sessionId: analyticsSessionId(),
+          metadata: props || {}
+        })
+      }).catch(function(){});
     } catch (_) {}
   }
 
@@ -480,23 +542,37 @@
       var method = (init && init.method) || (typeof input !== 'string' && input && input.method) || 'GET';
       return originalFetch(input, init).then(function(response){
         if (response && response.ok && String(method).toUpperCase() === 'POST' && /\/api\/messages(?:\?|$)/.test(url)) {
-          trackPlausible('muro_sent');
+          trackPlausible('media_open', { target: 'muro_sent' });
         }
         return response;
       });
     };
   })();
 
+  trackPlausible('page_view', {
+    target: location.pathname || '/',
+    perf: document.documentElement.classList.contains('perf-low') ? 'low' : 'full'
+  });
+
   document.addEventListener('click', function(e){
     var target = e.target;
     if (!(target instanceof Element)) return;
+    var social = target.closest('#redes a[href], footer a[href*="instagram"], footer a[href*="spotify"], footer a[href*="youtube"], footer a[href*="tiktok"], footer a[href*="music.apple"]');
+    if (social) {
+      trackPlausible('social_click', { href: social.getAttribute('href') || '', target: social.textContent || 'social' });
+    }
+    var cta = target.closest('.cta, .mini-btn, .cafe-fab, .stk-cta');
+    if (cta) {
+      trackPlausible('cta_click', { href: cta.getAttribute('href') || '', target: cta.textContent || cta.getAttribute('aria-label') || 'cta' });
+    }
     var link = target.closest('a[href*="/checkout"]');
     if (!link) return;
-    trackPlausible('checkout_start', { href: link.getAttribute('href') || '/checkout' });
+    var href = link.getAttribute('href') || '/checkout';
+    trackPlausible('checkout_start', { href: href });
   }, true);
 
   /* -----------------------------------------------------------------------
-   * SYNC: enganchar todos los botones de Apoyá y Club al checkout ANTES de
+   * SYNC: enganchar todos los botones de Apoyá al checkout ANTES de
    * cualquier fetch. Así aunque el backend tarde o falle, los botones ya
    * tienen href y son clickeables desde el primer frame.
    *
@@ -509,16 +585,6 @@
       document.querySelectorAll('#apoya a.mini-btn').forEach(function(btn){
         if (!btn.getAttribute('href')) btn.setAttribute('href', '/checkout/c3');
         btn.setAttribute('draggable', 'false');
-        /* Default: aporte a la campaña catch-all 'c3' con monto editable. Los
-           hijos específicos (producto, featured, pack) sobreescriben después. */
-        if (!btn.hasAttribute('data-checkout-type')) {
-          btn.setAttribute('data-checkout-type', 'campaign');
-          btn.setAttribute('data-checkout-itemid', 'c3');
-          btn.setAttribute('data-checkout-editable', '1');
-          btn.setAttribute('data-checkout-title', 'Apoyá con un cafecito');
-          btn.setAttribute('data-checkout-eyebrow', 'Cafecito');
-          btn.setAttribute('data-checkout-desc', 'Elegí el monto que quieras aportar. Te lleva al pago seguro de Mercado Pago.');
-        }
       });
       document.querySelectorAll('[draggable="true"] a, [draggable="true"] button').forEach(function(el){
         el.setAttribute('draggable', 'false');
@@ -549,31 +615,6 @@
           }
         });
       });
-      /* Fallback sync para los <button class="tier-btn"> del Club en caso de
-         que el fetch de memberships no llegue: abrimos modal genérico de
-         aporte libre. El interceptor global lo maneja por data-attrs. */
-      document.querySelectorAll('#club .tier-btn').forEach(function(btn){
-        if (btn.getAttribute('data-wired') === '1') return;
-        if (!btn.hasAttribute('data-checkout-type')) {
-          btn.setAttribute('data-checkout-type', 'campaign');
-          btn.setAttribute('data-checkout-itemid', 'c3');
-          btn.setAttribute('data-checkout-editable', '1');
-          btn.setAttribute('data-checkout-title', 'Sumarte al Club');
-          btn.setAttribute('data-checkout-eyebrow', 'Club Balosky');
-          btn.setAttribute('data-checkout-desc', 'Estamos terminando la suscripción recurrente. Dejá el monto que te cierra y te activo el acceso.');
-        }
-      });
-      /* También toda la .tier del Club: click en cualquier parte → sumarse. */
-      document.querySelectorAll('#club .tier').forEach(function(tier){
-        tier.style.cursor = 'pointer';
-        tier.addEventListener('click', function(ev){
-          var t = ev.target;
-          if (!(t instanceof Element)) return;
-          if (t.closest('a, button, input, textarea, select, label')) return;
-          var btn = tier.querySelector('.tier-btn');
-          if (btn) btn.click();
-        });
-      });
     } catch (e) { console.warn('[wire] sync defaults', e); }
   }
 
@@ -583,29 +624,36 @@
     try { attachNewsletterForm(); } catch(e) { console.warn('[wire] newsletter (early)', e); }
     var results = await Promise.all([
       fetchJSON('/api/campaigns'),
-      fetchJSON('/api/memberships'),
       fetchJSON('/api/messages?limit=10'),
       fetchJSON('/api/products'),
-      fetchJSON('/api/settings')
+      fetchJSON('/api/settings'),
+      fetchJSON('/cafecitos.json')
     ]);
     var campaigns   = Array.isArray(results[0]) ? results[0] : [];
-    var memberships = Array.isArray(results[1]) ? results[1] : [];
-    var messages    = Array.isArray(results[2]) ? results[2] : [];
-    var products    = Array.isArray(results[3]) ? results[3] : [];
-    var settings    = results[4] || null;
+    var messages    = Array.isArray(results[1]) ? results[1] : [];
+    var products    = Array.isArray(results[2]) ? results[2] : [];
+    var settings    = results[3] || null;
+    var cafecitos   = results[4] || null;
+    var cafecitoSettings = getCafecitoSettings(settings);
 
     /* ---------- HERO STATS (4 counters) ---------- */
     try {
       var activeCamps  = campaigns.filter(function(c){ return c.status === 'active'; });
-      var totalRaised  = campaigns.reduce(function(a,c){ return a + (Number(c.currentAmount)||0); }, 0);
-      var approvedMsgs = messages.filter(function(m){ return m.isApproved; }).length || messages.length;
+      var totalRaised  = cafecitos && cafecitos.totalAmount
+        ? Number(cafecitos.totalAmount)
+        : campaigns.reduce(function(a,c){ return a + (Number(c.currentAmount)||0); }, 0);
+      var approvedMsgs = cafecitos && cafecitos.totalCount
+        ? Number(cafecitos.totalCount)
+        : (messages.filter(function(m){ return m.isApproved; }).length || messages.length);
+      var uniqueSupporters = cafecitos && cafecitos.uniqueSupporters ? Number(cafecitos.uniqueSupporters) : 0;
+      var feedCount = cafecitos && Array.isArray(cafecitos.feed) ? cafecitos.feed.length : messages.length;
 
       var counts = document.querySelectorAll('.live-strip .count');
       var values = [
-        approvedMsgs || 0,     /* Apoyos · mes */
+        approvedMsgs || 0,     /* Cafecitos reales */
         fmtK(totalRaised),     /* Recaudado · ARS (thousands) */
-        memberships.length,    /* Miembros Club (tier count, stand-in) */
-        activeCamps.length     /* Campañas activas */
+        uniqueSupporters || 0,
+        feedCount || activeCamps.length
       ];
       counts.forEach(function(el, i){
         if (values[i] != null) {
@@ -613,45 +661,29 @@
           el.textContent = Number(values[i]).toLocaleString('es-AR');
         }
       });
+      var headerMetric = document.getElementById('online');
+      if (headerMetric && cafecitos && cafecitos.totalCount) {
+        headerMetric.textContent = Number(cafecitos.totalCount).toLocaleString('es-AR') + ' cafecitos';
+      }
+      var headerAmount = document.getElementById('liveCountdown');
+      if (headerAmount && cafecitos && cafecitos.totalAmount) {
+        headerAmount.textContent = '$' + (Number(cafecitos.totalAmount) / 1000000).toFixed(2) + 'M reales';
+      }
+      var feedMetric = document.getElementById('feedOnline');
+      if (feedMetric && cafecitos && cafecitos.totalCount) {
+        feedMetric.textContent = Number(cafecitos.totalCount).toLocaleString('es-AR') + ' reales';
+      }
     } catch (e) { console.warn('[wire] hero stats', e); }
 
-    /* ---------- FEATURED CAMPAIGN ---------- */
     try {
-      var featured = campaigns.find(function(c){ return c.isFeatured && c.status === 'active'; })
-                  || campaigns.find(function(c){ return c.status === 'active'; })
-                  || campaigns[0];
-      if (featured) {
-        var card = document.querySelector('#apoya .card.c-hero');
-        if (card) {
-          var h3 = card.querySelector('h3');
-          if (h3 && featured.title) {
-            setMultilineHeading(h3, featured.title, featured.shortDescription || '');
-          }
-          var goal   = Number(featured.targetAmount) || 0;
-          var raised = Number(featured.currentAmount) || 0;
-          var pct    = goal > 0 ? Math.min(100, Math.round((raised/goal)*100)) : 0;
-          var days   = 18; /* no deadline in schema; keep placeholder */
-          var sticker = card.querySelector('.tag-sticker');
-          if (sticker) sticker.textContent = 'DESTACADA · ' + pct + '% · ' + days + ' DÍAS';
-          var fill = card.querySelector('.progress .fill');
-          if (fill) fill.style.width = pct + '%';
-          var footAmount = card.querySelector('.foot > div');
-          if (footAmount) {
-            setAmountSummary(footAmount, raised, goal);
-          }
-          var aportarBtn = card.querySelector('.foot a.mini-btn');
-          if (aportarBtn) {
-            aportarBtn.setAttribute('href', '/checkout/' + encodeURIComponent(featured.id || featured.slug || ''));
-            aportarBtn.setAttribute('data-checkout-type', 'campaign');
-            aportarBtn.setAttribute('data-checkout-itemid', featured.id || 'c3');
-            aportarBtn.setAttribute('data-checkout-editable', '1');
-            aportarBtn.setAttribute('data-checkout-title', 'Apoyá a ' + (featured.title || 'esta campaña'));
-            aportarBtn.setAttribute('data-checkout-eyebrow', 'Campaña destacada');
-            aportarBtn.setAttribute('data-checkout-desc', 'Elegí el monto. Tu aporte suma al objetivo y aparece en el muro.');
-          }
-        }
-      }
-    } catch (e) { console.warn('[wire] featured', e); }
+      document.querySelectorAll('[data-cafecito-price]').forEach(function(el){
+        setPriceMarkup(el, cafecitoSettings.amount, 'span', 'k+');
+      });
+      document.querySelectorAll('[data-cafecito-link]').forEach(function(link){
+        var target = cafecitoSettings.mercadoPagoLink || '/cafecito';
+        link.setAttribute('href', target);
+      });
+    } catch (e) { console.warn('[wire] cafecito settings', e); }
 
     /* ---------- PRODUCTS (Cafecito / Encargo / Sesión) ---------- */
     try {
@@ -659,6 +691,7 @@
       products.slice(0, cards.length).forEach(function(p, i){
         var card = cards[i];
         if (!card) return;
+        if (card.classList.contains('c-cafe')) return;
         var title = card.querySelector('h3, h4');
         if (title) title.textContent = p.title || title.textContent;
         var desc = card.querySelector('p');
@@ -699,49 +732,11 @@
       });
     } catch (e) { console.warn('[wire] mini-btn fallback', e); }
 
-    /* ---------- MEMBERSHIPS (3 tiers) ---------- */
-    try {
-      var tiers = document.querySelectorAll('#club .tier');
-      memberships.slice(0, tiers.length).forEach(function(m, i){
-        var tier = tiers[i];
-        if (!tier) return;
-        var name = tier.querySelector('.name');
-        if (name) name.textContent = (m.name || '').toLowerCase() + ' · ' + (m.billingPeriod || 'mensual');
-        var price = tier.querySelector('.price');
-        if (price) setMembershipPrice(price, m.price, m.billingPeriod);
-        var ul = tier.querySelector('ul');
-        if (ul && Array.isArray(m.benefits) && m.benefits.length) {
-          renderListItems(ul, m.benefits);
-        }
-      });
-      /* Convert the <button class="tier-btn"> into real links that hit checkout
-         with the tier's price. (Checkout actual procesa aporte único; la
-         suscripción recurrente la podemos migrar después.) */
-      document.querySelectorAll('#club .tier').forEach(function(tier, i){
-        var btn = tier.querySelector('.tier-btn');
-        if (!btn) return;
-        var m = memberships[i];
-        var price = m && m.price ? m.price : null;
-        /* Limpio el onclick legacy y dejo que el interceptor global maneje el click. */
-        btn.onclick = null;
-        btn.setAttribute('data-membership-id', m && m.id ? m.id : '');
-        btn.setAttribute('data-wired', '1');
-        if (m && m.id) {
-          /* MVP: aporte único equivalente al primer ciclo. La suscripción
-             recurrente real (Preapprovals MP) la trae el Epic 3. */
-          btn.setAttribute('data-checkout-type', 'membership');
-          btn.setAttribute('data-checkout-itemid', m.id);
-          if (price) btn.setAttribute('data-checkout-amount', String(price));
-          btn.removeAttribute('data-checkout-editable');
-          btn.setAttribute('data-checkout-title', 'Sumarte al Club · ' + (m.name || 'tier'));
-          btn.setAttribute('data-checkout-eyebrow', 'Club Balosky');
-          btn.setAttribute('data-checkout-desc', 'Activá tu acceso al Club. Por ahora cobramos el primer ciclo; en la próxima vuelta lo convertimos en recurrente automático.');
-        }
-      });
-    } catch (e) { console.warn('[wire] memberships', e); }
-
     /* ---------- LIVE FEED (right column of muro) ---------- */
-    try { renderFeedEntries(messages || [], settings); } catch (e) { console.warn('[wire] feed', e); }
+    try {
+      var realCafeFeed = cafecitos && Array.isArray(cafecitos.feed) ? cafecitos.feed : null;
+      renderFeedEntries(realCafeFeed || messages || [], settings);
+    } catch (e) { console.warn('[wire] feed', e); }
     /* Cableamos form + auto-refresh una sola vez */
     try { attachMuroForm(); } catch (e) { console.warn('[wire] muroForm', e); }
     try { startMuroRefresh(); } catch (e) { console.warn('[wire] muroRefresh', e); }
@@ -750,23 +745,19 @@
     try {
       var board = document.getElementById('leaderList');
       if (board) {
-        /* Aggregate by supporter from messages (proxy for top supporters).
-           When /api/purchases is authenticated-only, messages gives us the public view. */
-        var tally = {};
-        messages.forEach(function(m){
-          if (!m.supporterName || m.isAnonymous) return;
-          var key = m.supporterName;
-          tally[key] = (tally[key] || 0) + (Number(m.amount) || 0);
-        });
-        var ranked = Object.keys(tally).map(function(n){ return { name: n, amt: tally[n] }; })
-                          .filter(function(x){ return x.amt > 0; })
-                          .sort(function(a,b){ return b.amt - a.amt; })
-                          .slice(0, 10);
-        if (ranked.length) {
-          var kinds = ['ÓRBITA','ENCARGO','DISCO','ÓRBITA','ENCARGO','CAFECITO','DISCO','BASE','CAFECITO','DISCO'];
+        var cafeTop = cafecitos && Array.isArray(cafecitos.top) ? cafecitos.top : null;
+        if (cafeTop && cafeTop.length) {
           clearChildren(board);
-          ranked.forEach(function(r, i){
-            board.appendChild(createLeaderRow((i+1).toString().padStart(2, '0'), r.name, r.amt, kinds[i], false));
+          cafeTop.forEach(function(r){
+            var row = document.createElement('div');
+            row.className = 'leader-row';
+            [['rank', r.rank], ['name', r.name], ['amt', r.amt], ['kind', r.kind]].forEach(function(part){
+              var span = document.createElement('span');
+              span.className = part[0];
+              span.textContent = part[1];
+              row.appendChild(span);
+            });
+            board.appendChild(row);
           });
         } else {
           /* Sin aportes todavía: mensaje en estado vacío */
@@ -788,8 +779,12 @@
     try { await wireFotos();    } catch(e) { console.warn('[wire] fotos', e); }
     try { await wireWallpapers(); } catch(e) { console.warn('[wire] wallpapers', e); }
     try { await wireCanciones(); } catch(e) { console.warn('[wire] canciones', e); }
+    try { await wireArchivo(); } catch(e) { console.warn('[wire] archivo', e); }
     try { await wireSocials();   } catch(e) { console.warn('[wire] socials', e); }
     try { attachNewsletterForm(); } catch(e) { console.warn('[wire] newsletter', e); }
+    try {
+      scheduleHashRealign();
+    } catch(e) { console.warn('[wire] hash align', e); }
   }
 
   /* =====================================================================
@@ -1079,11 +1074,112 @@
     });
   }
 
-  function emptyState(msg){
-    return '<div class="empty-state" style="grid-column:1/-1;width:100%;padding:60px 24px;text-align:center;border:1px dashed rgba(255,255,255,0.16);border-radius:14px;color:rgba(255,255,255,0.55);font-family:\'Inter Tight\',sans-serif;font-weight:600;letter-spacing:-0.01em;font-size:15px;line-height:1.5;">'
-         + esc(msg)
-         + '<div style="margin-top:6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,255,255,0.35);">se carga desde el panel</div>'
-         + '</div>';
+  function hideSectionById(id){
+    var section = document.getElementById(id);
+    if (section) section.hidden = true;
+  }
+
+  var hashRealignTimers = [];
+  var hashRealignInterrupted = false;
+
+  function clearHashRealignTimers(){
+    hashRealignTimers.forEach(function(id){ window.clearTimeout(id); });
+    hashRealignTimers = [];
+  }
+
+  function interruptHashRealign(){
+    hashRealignInterrupted = true;
+    clearHashRealignTimers();
+  }
+
+  ['wheel', 'touchstart', 'pointerdown', 'keydown'].forEach(function(evt){
+    window.addEventListener(evt, interruptHashRealign, { passive: true });
+  });
+
+  function realignHashAfterDynamicContent(){
+    if (hashRealignInterrupted) return;
+    var raw = (window.location.hash || '').replace(/^#/, '').split('/')[0];
+    if (!raw) return;
+    var id = decodeURIComponent(raw);
+    var section = document.getElementById(id);
+    if (!section || section.hidden) return;
+    var offset = id === 'apoya'
+      ? 0
+      : (window.matchMedia && window.matchMedia('(max-width: 760px)').matches ? 64 : 94);
+    var top = section.getBoundingClientRect().top + window.pageYOffset - offset;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+  }
+
+  function scheduleHashRealign(){
+    if (!window.location.hash) return;
+    clearHashRealignTimers();
+    hashRealignInterrupted = false;
+    [0, 80, 240, 700, 1400, 2600, 5200, 8200].forEach(function(delay){
+      hashRealignTimers.push(window.setTimeout(realignHashAfterDynamicContent, delay));
+    });
+  }
+
+  window.addEventListener('hashchange', scheduleHashRealign);
+  window.addEventListener('load', scheduleHashRealign);
+
+  /* =====================================================================
+   * MEDIA · ARCHIVO (section #archivo)
+   * =================================================================== */
+  function _archiveHref(m){
+    if (!m) return '/';
+    if (m.kind === 'video_ia' || m.kind === 'panorama_360') return '/laboratorio';
+    if (m.kind === 'foto') return '#ojo';
+    if (m.kind === 'wallpaper') return '#pixel';
+    if (m.kind === 'cancion') return '#sonido';
+    return m.embedUrl || m.mediaUrl || '/';
+  }
+
+  function _archiveKindLabel(kind){
+    return {
+      video_ia: 'VIDEO IA',
+      foto: 'FOTO',
+      wallpaper: 'WALLPAPER',
+      cancion: 'CANCIÓN',
+      panorama_360: '360'
+    }[kind] || 'ARCHIVO';
+  }
+
+  async function wireArchivo(){
+    var rail = document.getElementById('rail');
+    if (!rail) return;
+    var items = await fetchJSON('/api/media');
+    if (!Array.isArray(items)) items = [];
+    items = items.filter(function(m){ return m && m.active !== false; });
+    items.sort(function(a, b){
+      if (!!a.featured !== !!b.featured) return a.featured ? -1 : 1;
+      var order = (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0);
+      if (order !== 0) return order;
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
+    items = items.slice(0, 14);
+
+    var intro = ''
+      + '<div class="scrawl-arrow" style="position:absolute; top:-18px; left:30px; transform:rotate(60deg); color:var(--teal); z-index:5;">↘</div>'
+      + '<div class="scrawl" style="position:absolute; top:-50px; left:70px; color:var(--teal); z-index:5;">agarrá y arrastrá</div>';
+
+    if (!items.length) {
+      hideSectionById('archivo');
+      return;
+    }
+
+    rail.innerHTML = intro + items.map(function(m, i){
+      var n = String(i + 1).padStart(2, '0');
+      var cls = 'g' + ((i % 5) + 1);
+      var title = esc(m.title || 'Sin título');
+      var cat = esc([_archiveKindLabel(m.kind), m.category].filter(Boolean).join(' · '));
+      var desc = esc(m.description || m.duration || (m.aiTool ? 'Hecho con ' + m.aiTool : 'Cargado desde el archivo real.'));
+      var href = esc(_archiveHref(m));
+      var img = esc(m.thumbUrl || m.coverImage || ((m.kind === 'foto' || m.kind === 'wallpaper') ? m.mediaUrl : '') || '');
+      return '<a data-cursor="ABRIR" class="rail-card ' + cls + '" href="' + href + '">'
+        + '<div class="art">' + (img ? '<img src="' + img + '" alt="" loading="lazy" draggable="false"/>' : n) + '</div>'
+        + '<div class="info"><div class="cat">' + cat + '</div><h4>' + title + '</h4><p>' + desc + '</p></div>'
+        + '</a>';
+    }).join('');
   }
 
   /* =====================================================================
@@ -1094,21 +1190,28 @@
     if (!grid) return;
     var items = await fetchJSON('/api/media?kind=video_ia');
     if (!Array.isArray(items) || !items.length) {
-      grid.innerHTML = emptyState('Todavía no hay videos IA subidos.');
-      return;
+      items = [{
+        title: 'El molinete del conurbano',
+        category: 'IDEAS · IA',
+        mediaUrl: 'https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/videos/balosky-molinete-conurbano.web.mp4',
+        coverImage: '',
+        featured: true,
+        duration: ''
+      }];
     }
 
     /* Responsive span layout: 1 big (8), 1 side (4), then 4-col blocks, last is full 12. */
     var spans = ['span-8','span-4','span-4','span-4','span-4','span-12'];
     var html = items.map(function(m, i){
-      var span = spans[i % spans.length];
-      var poster = esc(m.coverImage || '');
+      var span = items.length === 1 ? 'span-12' : spans[i % spans.length];
+      var poster = esc(m.coverImage || m.thumbUrl || '');
       var videoSrc = esc(m.mediaUrl || '');
+      var srcAttr = (!poster && videoSrc) ? ' src="' + videoSrc + '"' : '';
       var title = esc(m.title || '');
       var cat = esc((m.category || 'VIDEO') + (m.featured ? ' · DESTACADO' : ''));
       var dur = esc(m.duration || '');
       return '<div class="vi-tile ' + span + '" data-cursor="REPRODUCIR" data-video="' + videoSrc + '">'
-        +   '<video muted loop playsinline preload="metadata" poster="' + poster + '"></video>'
+        +   '<video muted loop playsinline preload="metadata"' + srcAttr + (poster ? ' poster="' + poster + '"' : '') + '></video>'
         +   '<div class="vi-overlay"></div>'
         +   (dur ? '<span class="vi-dur">' + dur + '</span>' : '')
         +   '<div class="vi-play">&#9654;</div>'
@@ -1156,8 +1259,16 @@
     try {
       var items = await fetchJSON('/api/media?kind=foto');
       if (!Array.isArray(items) || !items.length) {
-        feed.innerHTML = emptyState('Todavía no hay fotos subidas.');
-        return;
+        items = [
+          ['med_fo_arbol-otono-gente','Arbol Otono Gente','Flora & fauna','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Arbol_Otono_Gente.webp','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Arbol_Otono_Gente.webp'],
+          ['med_fo_autos-autopista-elevada','Autos Autopista Elevada','Calle','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Autos_Autopista_Elevada.webp','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Autos_Autopista_Elevada.webp'],
+          ['med_fo_chinatown-noche','Chinatown Noche','Calle','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Chinatown_Noche.webp','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Chinatown_Noche.webp'],
+          ['med_fo_estatua-libertad-atardecer','Estatua Libertad Atardecer','Estatuas','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Estatua_Libertad_Atardecer.webp','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Estatua_Libertad_Atardecer.webp'],
+          ['med_fo_flor-azul-agapanto','Flor Azul Agapanto','Flora & fauna','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Flor_Azul_Agapanto.webp','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Flor_Azul_Agapanto.webp'],
+          ['med_fo_obelisco-buenosaires','Obelisco Buenos Aires','Estatuas','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/ojo/Redes_Obelisco_BuenosAires.webp','https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/thumbs/ojo/Redes_Obelisco_BuenosAires.webp']
+        ].map(function(f, i){
+          return { id: f[0], title: f[1], category: f[2], mediaUrl: f[3], coverImage: f[4], thumbUrl: f[4], active: true, sortOrder: i };
+        });
       }
 
       _fotoAllItems = items.slice();
@@ -1189,7 +1300,6 @@
       attachPhotoLightbox(feed);
     } catch(err) {
       console.error('[wireFotos]', err);
-      feed.innerHTML = '<div class="empty-state">Error cargando las fotos · <button type="button" onclick="location.reload()" style="color:var(--accent);text-decoration:underline;cursor:pointer;background:none;border:none;">reintentar</button></div>';
     }
   }
 
@@ -1283,7 +1393,6 @@
       var cta = grid.querySelector('.wall-cta');
       _wallCtaHtml = cta ? cta.outerHTML : '';
       if (!Array.isArray(items) || !items.length) {
-        grid.innerHTML = emptyState('Todavía no hay wallpapers subidos.') + _wallCtaHtml;
         return;
       }
 
@@ -1314,7 +1423,6 @@
       attachWallpaperFilters();
     } catch(err) {
       console.error('[wireWallpapers]', err);
-      grid.innerHTML = '<div class="empty-state">Error cargando los wallpapers · <button type="button" onclick="location.reload()" style="color:var(--accent);text-decoration:underline;cursor:pointer;background:none;border:none;">reintentar</button></div>' + _wallCtaHtml;
     }
   }
 
@@ -1328,27 +1436,24 @@
   function _renderWallGrid(grid){
     var list = _wallFiltered();
     var shown = list.slice(0, _wallVisibleCount);
-    var html = shown.map(function(m){
+    var html = shown.map(function(m, idx){
       var thumb = esc(m.thumbUrl || m.coverImage || m.mediaUrl || '');
       var full = esc(m.mediaUrl || m.coverImage || '');
       var name = esc(m.title || 'Wallpaper');
       var res = esc(m.description || '4K · 2160×3840');
       var cat = esc((m.category || '').toLowerCase());
+      var eagerAttr = idx < 8 ? ' loading="eager" fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"';
       if (m.isLocked) {
-        return '<a class="wall locked no-steal steal-watermark" data-cat="' + cat + '" data-cursor="PACK" href="/checkout/c3?amount=3500" data-wall-locked="1"'
-          + ' data-checkout-type="pack" data-checkout-itemid="' + esc(m.id) + '"'
-          + ' data-checkout-amount="3500"'
-          + ' data-checkout-title="Pack · ' + name + '"'
-          + ' data-checkout-eyebrow="Pack de wallpapers"'
-          + ' data-checkout-desc="Dejá tu mail para que te llegue el link (válido 48 h post-pago). Pago seguro por Mercado Pago.">'
-          + '<img src="' + thumb + '" alt="' + name + '" loading="lazy" draggable="false"/>'
+        return '<div class="wall locked no-steal steal-watermark" data-cat="' + cat + '" data-cursor="MAIL" data-wall-locked="1" role="button" tabindex="0"'
+          + ' data-wall-id="' + esc(m.id) + '" data-wall-thumb="' + thumb + '" data-wall-full="' + full + '" data-wall-title="' + name + '">'
+          + '<img src="' + thumb + '" alt="' + name + '"' + eagerAttr + ' draggable="false"/>'
           + '<div class="w-overlay"></div>'
-          + '<span class="w-btn">pack 10 &rarr;</span>'
+          + '<span class="w-btn">ver &rarr;</span>'
           + '<div class="w-meta"><span class="w-name">' + name + '</span><span class="w-res">' + res + '</span></div>'
-          + '</a>';
+          + '</div>';
       }
       return '<div class="wall no-steal steal-watermark" data-cat="' + cat + '" data-cursor="BAJAR" data-wall-id="' + esc(m.id) + '" data-wall-thumb="' + thumb + '" data-wall-full="' + full + '" data-wall-title="' + name + '">'
-        + '<img src="' + thumb + '" alt="' + name + '" loading="lazy" draggable="false"/>'
+        + '<img src="' + thumb + '" alt="' + name + '"' + eagerAttr + ' draggable="false"/>'
         + '<div class="w-overlay"></div>'
         + '<span class="w-btn">&darr; bajar</span>'
         + '<div class="w-meta"><span class="w-name">' + name + '</span><span class="w-res">' + res + '</span></div>'
@@ -1482,8 +1587,38 @@
     if (!wrap) return;
     var items = await fetchJSON('/api/media?kind=cancion');
     if (!Array.isArray(items) || !items.length) {
-      wrap.innerHTML = emptyState('Todavía no hay canciones SUNO subidas.');
-      return;
+      items = [
+        {
+          id: 'med_ca_1776453374762',
+          title: 'Robaron a Balosky',
+          category: 'Temas Propios',
+          mediaUrl: 'https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/2026/04/robaron-a-a-balosky-1776453374494.mp3',
+          coverImage: 'https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/2026/04/robaron-a-a-balosky-cover-1776453374692.jpg',
+          duration: '3:43',
+          sortOrder: 1,
+          active: true
+        },
+        {
+          id: 'med_ca_1776453374767',
+          title: 'Tin Cup Anthem (v2)',
+          category: 'Temas Propios',
+          mediaUrl: 'https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/2026/04/tin-cup-anthem-2--1776453374495.mp3',
+          coverImage: 'https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/2026/04/tin-cup-anthem-2-cover-1776453374606.jpg',
+          duration: '3:18',
+          sortOrder: 2,
+          active: true
+        },
+        {
+          id: 'med_ca_1776453375592',
+          title: 'Ai, ai, ai, ai',
+          category: 'Temas Propios',
+          mediaUrl: 'https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/2026/04/ai-ai-ai-ai--1776453375528.mp3',
+          coverImage: 'https://uxry85cxugshfbr5.public.blob.vercel-storage.com/uploads/2026/04/ai-ai-ai-ai-cover-1776453375563.jpg',
+          duration: '2:37',
+          sortOrder: 5,
+          active: true
+        }
+      ];
     }
 
     /* Filter soft-deleted, keep original order as baseline */
@@ -1507,10 +1642,24 @@
     });
 
     var allCount = items.length;
+    var playableCount = items.filter(function(m){ return Boolean(m.mediaUrl || m.embedUrl); }).length;
     var chipsHtml = '<button type="button" class="suno-chip is-active" data-filter="__all">Todas <b>' + allCount + '</b></button>'
       + cats.map(function(c){
           return '<button type="button" class="suno-chip" data-filter="' + esc(c) + '">' + esc(c) + ' <b>' + groups[c].length + '</b></button>';
         }).join('');
+
+    var availabilityHtml = ''
+      + '<div class="suno-availability" aria-live="polite">'
+        + '<div class="suno-availability__copy">'
+          + '<span class="suno-availability__kicker">catálogo disponible</span>'
+          + '<strong>' + playableCount + ' de ' + allCount + ' canciones listas para escuchar</strong>'
+          + '<small>MP3 propios y links oficiales, ordenados desde el admin.</small>'
+        + '</div>'
+        + '<div class="suno-availability__actions">'
+          + '<button type="button" class="suno-availability__btn" data-suno-action="first" data-cursor="PLAY">Escuchar ahora</button>'
+          + '<button type="button" class="suno-availability__btn suno-availability__btn--ghost" data-suno-action="shuffle" data-cursor="RANDOM">Random</button>'
+        + '</div>'
+      + '</div>';
 
     var sortHtml = ''
       + '<div class="suno-sort" role="group" aria-label="Ordenar canciones">'
@@ -1522,6 +1671,7 @@
       + '</div>';
 
     wrap.innerHTML = ''
+      + availabilityHtml
       + '<div class="suno-controls">'
         + '<div class="suno-chipbar" role="tablist" aria-label="Filtrar canciones">' + chipsHtml + '</div>'
         + sortHtml
@@ -1643,22 +1793,43 @@
     if (!container) return;
     var items = await fetchJSON('/api/socials');
     if (!Array.isArray(items) || !items.length) {
-      container.innerHTML = emptyState('Todavía no hay redes sociales cargadas.');
+      hideSectionById('redes');
       return;
+    }
+
+    function socialClass(platform){
+      var p = String(platform || '').toLowerCase();
+      if (p.includes('insta')) return 'is-instagram';
+      if (p.includes('tiktok')) return 'is-tiktok';
+      if (p.includes('spotify')) return 'is-spotify';
+      if (p.includes('apple')) return 'is-apple';
+      if (p.includes('youtube') || p === 'yt') return 'is-youtube';
+      return 'is-link';
+    }
+
+    function normalizedUrl(value){
+      var raw = String(value || '').trim();
+      if (!raw) return '#';
+      if (/^(https?:|mailto:|tel:|\/|#)/i.test(raw)) return raw;
+      return 'https://' + raw;
     }
 
     var html = items.map(function(s){
       var icon = esc(s.icon || (s.platform || '?').substring(0,2).toUpperCase());
       var name = esc(s.name || s.platform || '');
       var handle = esc(s.handle || '');
-      var url = esc(s.url || '#');
+      var urlRaw = normalizedUrl(s.url);
+      var url = esc(urlRaw);
       var cursor = esc((s.platform || 'LINK').toUpperCase());
+      var cls = socialClass(s.platform || s.name);
       var style = '';
       if (s.colorFrom && s.colorTo) {
         style = ' style="--red-from:' + esc(s.colorFrom) + ';--red-to:' + esc(s.colorTo) + ';"';
       }
-      var target = /^https?:\/\//i.test(s.url || '') ? ' target="_blank" rel="noopener"' : '';
-      return '<a class="red-card" href="' + url + '"' + target + ' data-cursor="' + cursor + '"' + style + '>'
+      var target = /^https?:\/\//i.test(urlRaw) ? ' target="_blank" rel="noopener"' : '';
+      return '<a class="red-card ' + cls + '" href="' + url + '"' + target + ' data-cursor="' + cursor + '" aria-label="' + name + ' ' + handle + '"' + style + '>'
+        + '<span class="r-asset" aria-hidden="true"><span></span></span>'
+        + '<span class="r-glass" aria-hidden="true"></span>'
         + '<div class="r-icon">' + icon + '</div>'
         + '<div><div class="r-name">' + name + '</div><div class="r-handle">' + handle + '</div></div>'
         + '<span class="r-arrow">&#8599;</span>'
@@ -1681,6 +1852,7 @@
       modal.classList.add('open');
       document.body.style.overflow = 'hidden';
       _syncTouchWatermarkBoost();
+      trackPlausible('media_open', { target: 'video_ia' });
     }
 
     if (!modal.dataset.touchBoostWired) {
@@ -1875,6 +2047,23 @@
   }
 
   function attachWallpaperDownloads(grid){
+    grid.querySelectorAll('.wall.locked').forEach(function(w){
+      function openLocked(){
+        var id = w.getAttribute('data-wall-id');
+        var thumb = w.getAttribute('data-wall-thumb') || '';
+        var full = w.getAttribute('data-wall-full') || thumb;
+        var title = w.getAttribute('data-wall-title') || 'Wallpaper';
+        if (!id) return;
+        openWallpaperGate({ id: id, thumb: thumb, full: full, title: title });
+      }
+      w.addEventListener('click', openLocked);
+      w.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openLocked();
+        }
+      });
+    });
     grid.querySelectorAll('.wall:not(.locked)').forEach(function(w){
       w.addEventListener('click', function(){
         var id = w.getAttribute('data-wall-id');
@@ -2149,6 +2338,17 @@
   function attachSunoPlayer(wrap){
     /* Filter chips: show only cards matching selected category (and re-sort) */
     wrap.addEventListener('click', function(e){
+      var action = e.target.closest('[data-suno-action]');
+      if (action && wrap.contains(action)){
+        var kind = action.getAttribute('data-suno-action');
+        var cards = Array.prototype.slice.call(wrap.querySelectorAll('.suno-card'));
+        if (!cards.length) return;
+        var pick = kind === 'shuffle'
+          ? cards[Math.floor(Math.random() * cards.length)]
+          : cards[0];
+        _openSunoModal(pick, { shuffle: kind === 'shuffle' });
+        return;
+      }
       var chip = e.target.closest('.suno-chip');
       if (chip && wrap.contains(chip)){
         wrap.querySelectorAll('.suno-chip').forEach(function(c){ c.classList.remove('is-active'); });
@@ -2611,7 +2811,7 @@
       lyricsPre.textContent = description;
       lyricsPre.classList.remove('is-empty');
     } else {
-      lyricsPre.textContent = 'Todavía no hay letra ni prompt cargados para este tema.';
+      lyricsPre.textContent = 'Sin letra ni prompt público para este tema.';
       lyricsPre.classList.add('is-empty');
     }
 
@@ -2661,7 +2861,7 @@
       /* Log the play once per open after a slight delay (only if it actually plays) */
       setTimeout(function(){ _logSunoPlay(card.getAttribute('data-id')); }, 1500);
     } else {
-      player.innerHTML = '<p class="suno-modal__empty">Este tema todavía no tiene reproductor.</p>';
+      player.innerHTML = '<p class="suno-modal__empty">Este tema no tiene reproductor público.</p>';
     }
 
     if (extUrl){
@@ -2872,20 +3072,27 @@
 
   function _startSunoViz(canvas){
     if (!canvas) return;
+    var perf = window.BaloskyPerf;
     var ctx = canvas.getContext('2d');
     var freq = null, time = null;
     var start = performance.now();
+    var last = 0;
 
     function loop(){
       _sunoRAF = requestAnimationFrame(loop);
-      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (perf && !perf.active()) return;
+      var now = performance.now();
+      var min = 1000 / (perf && perf.state.low ? 12 : 24);
+      if (now - last < min) return;
+      last = now;
+      var dpr = Math.min(window.devicePixelRatio || 1, perf && perf.state.low ? 1 : 1.5);
       var w = canvas.clientWidth * dpr;
       var h = canvas.clientHeight * dpr;
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
       ctx.clearRect(0, 0, w, h);
 
-      var t = (performance.now() - start) / 1000;
+      var t = (now - start) / 1000;
 
       if (_sunoAnalyser){
         if (!freq) freq = new Uint8Array(_sunoAnalyser.frequencyBinCount);

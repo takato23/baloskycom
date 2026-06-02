@@ -94,8 +94,8 @@ export function MusicPlayerProvider({
   const [isMuted, setIsMuted] = useState(false);
   const [statusMessage, setStatusMessage] = useState(
     allTracks.length
-      ? 'Tu catalogo ya tiene temas cargados.'
-      : 'Todavia no hay temas cargados en este catalogo.'
+      ? 'Elegí un tema para escuchar.'
+      : 'Pronto, nueva música.'
   );
 
   useEffect(() => {
@@ -117,7 +117,7 @@ export function MusicPlayerProvider({
   useEffect(() => {
     if (!allTracks.length) {
       setCurrentTrackId(null);
-      setStatusMessage('Todavia no hay temas cargados en este catalogo.');
+      setStatusMessage('Pronto, nueva música.');
       return;
     }
 
@@ -201,7 +201,7 @@ export function MusicPlayerProvider({
     } catch (error) {
       console.error('No se pudo reproducir el track', error);
       setIsPlaying(false);
-      setStatusMessage('No se pudo reproducir el audio. Revisa la URL publica del track.');
+      setStatusMessage('No se pudo reproducir el audio. Probá de nuevo en un rato.');
     }
   }, [currentTrack, ensureAnalyser]);
 
@@ -225,8 +225,8 @@ export function MusicPlayerProvider({
       audio.load();
       setStatusMessage(
         playlist.length
-          ? 'Selecciona un track para reproducir.'
-          : 'No hay temas cargados en esta categoria todavia.'
+          ? 'Elegí un tema para reproducir.'
+          : 'Todavía no hay temas en esta categoría.'
       );
       return;
     }
@@ -260,7 +260,7 @@ export function MusicPlayerProvider({
     };
     const handleError = () => {
       setIsPlaying(false);
-      setStatusMessage('El audio no cargo bien. Revisa la URL publica del track en admin.');
+      setStatusMessage('No se pudo reproducir el audio. Probá de nuevo en un rato.');
     };
     const handlePause = () => setIsPlaying(false);
     const handlePlay = () => setIsPlaying(true);
@@ -321,7 +321,7 @@ export function MusicPlayerProvider({
 
   const playPause = useCallback(async () => {
     if (!currentTrack) {
-      setStatusMessage('No hay tracks publicados en esta categoria.');
+      setStatusMessage('Todavía no hay temas en esta categoría.');
       return;
     }
 

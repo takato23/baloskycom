@@ -4,6 +4,7 @@ import type { Media } from '@/types';
 import MediaLightbox from './MediaLightbox';
 import EarlyDropBadge from './EarlyDropBadge';
 import { getMediaPlaceholder } from '@/lib/mediaPlaceholder';
+import EditorialSectionLead from './EditorialSectionLead';
 
 /**
  * Port of `<section id="ojo">` — photo portfolio (`@fotobalosky`).
@@ -79,10 +80,20 @@ export default function OjoSection() {
             <h2>lo que veo<br /><em>con cámara</em>.</h2>
           </div>
           <p>
-            Fotos de <b>@fotobalosky</b> — mi cuenta de foto. Cámara analógica y digital, Buenos
-            Aires y el sur. Click para abrir en grande.
+            Fotos de <b>@fotobalosky</b>. Retratos, calles y momentos que después
+            caen a la grilla completa.
           </p>
         </div>
+
+        <EditorialSectionLead
+          label="Entrada editorial"
+          title="El archivo empieza en la calle."
+          body="Una primera mirada del universo foto antes de bajar a la grilla completa."
+          imageSrc="/images/home-editorial/ojo-poster-h.jpg"
+          imageAlt="Escena nocturna de Buenos Aires con reflejos naranjas y violetas."
+          tone="violet"
+          meta={['buenos aires', 'retrato', 'noche']}
+        />
 
         {categories.length > 0 && (
           <div className="ojo-filters reveal">

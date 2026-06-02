@@ -238,15 +238,46 @@ export default function SunoModal({ items, index, onClose, onNavigate }: Props) 
               key={item.id}
               controls
               src={item.mediaUrl}
+              preload="metadata"
               onError={() => setAudioError(true)}
+              onPlay={(e) => {
+                // Media Session API — muestra título/cover/artista en el
+                // lock screen de iOS/Android + controles en notification.
+                // Así el audio se puede manejar con la app minimizada
+                // (play/pause/next/prev desde el sistema), que es lo que
+                // Santi llama "persistencia escuchar si minimizamos".
+                if ('mediaSession' in navigator) {
+                  try {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                      title: item.title,
+                      artist: 'Balosky',
+                      album: item.category || 'Canciones',
+                      artwork: item.coverImage
+                        ? [
+                            { src: item.coverImage, sizes: '512x512', type: 'image/jpeg' },
+                            { src: item.coverImage, sizes: '256x256', type: 'image/jpeg' },
+                          ]
+                        : [],
+                    });
+                    const audioEl = e.currentTarget;
+                    navigator.mediaSession.setActionHandler('play', () => audioEl.play());
+                    navigator.mediaSession.setActionHandler('pause', () => audioEl.pause());
+                    navigator.mediaSession.setActionHandler('previoustrack',
+                      () => index! > 0 && onNavigate(index! - 1));
+                    navigator.mediaSession.setActionHandler('nexttrack',
+                      () => index! < items.length - 1 && onNavigate(index! + 1));
+                  } catch {
+                    /* API no soportada — seguimos con audio normal */
+                  }
+                }
+              }}
             >
               Tu navegador no puede reproducir audio.
             </audio>
           )}
           {platform === 'mp3' && audioError && (
             <p className="suno-modal__empty">
-              El archivo de audio no está disponible. Probablemente se movió o
-              todavía no se subió.
+              El audio no está disponible por ahora.
             </p>
           )}
           {platform === 'none' && (

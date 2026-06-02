@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Balosky — plataforma abierta del creador</title>
+    <title>Balosky — edición IA con mirada propia</title>
     <meta
       name="description"
-      content="Donde termina el feed, empezamos nosotros. Aportá, sumate al Club, descargá wallpapers, mirá videos IA y escuchá canciones. BA, 2026."
+      content="Balosky: edición IA con mirada propia, archivo intervenido y encargos visuales."
     />
     <meta name="theme-color" content="#FA5D29" />
     <meta name="author" content="Santiago Balosky" />
@@ -14,15 +14,36 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Balosky" />
-    <meta property="og:title" content="Balosky — plataforma abierta del creador" />
+    <meta property="og:title" content="Balosky — edición IA con mirada propia" />
     <meta
       property="og:description"
-      content="Donde termina el feed, empezamos nosotros. Aportá, sumate al Club, descargá wallpapers, mirá videos IA y escuchá canciones."
+      content="Archivo intervenido, escenas raras y encargos visuales con IA."
     />
     <meta property="og:url" content="https://balosky.com" />
+    <meta property="og:image" content="https://balosky.com/og-card.jpg" />
+    <meta property="og:image:alt" content="Balosky — edición IA con mirada propia" />
     <meta property="og:locale" content="es_AR" />
 
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Balosky — edición IA con mirada propia" />
+    <meta name="twitter:description" content="Archivo intervenido, escenas raras y encargos visuales con IA." />
+    <meta name="twitter:image" content="https://balosky.com/og-card.jpg" />
+    <meta name="twitter:site" content="@santiagobalosky" />
+    <meta name="twitter:creator" content="@santiagobalosky" />
+
+    <link rel="icon" type="image/png" href="/favicon-32.png" />
+
+    <!-- PWA manifest + iOS/Android app icons. Con esto el sitio es
+         instalable como app (Add to Home Screen) y el Service Worker
+         mantiene el shell cacheado para abrir rápido / funcionar sin
+         red. El audio de SonidoSection sigue sonando aunque minimicen
+         la app gracias al Media Session API del SunoModal. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Balosky" />
+    <meta name="mobile-web-app-capable" content="yes" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

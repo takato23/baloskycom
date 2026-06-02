@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Sticker flotante "cafecito" — 1 tap → Mercado Pago.
+ * Sticker flotante "cafecito" — 1 tap → selector rápido de cantidad.
  *
- * Usa el endpoint backend `/api/checkout/quick?mode=cafecito` que hace 302
- * directo a MP, sin página intermedia ni JS. El monto está hardcodeado en
- * server/routes/api.ts (QUICK_CHECKOUT_MODES.cafecito = $2000).
+ * Lleva al flujo rápido de cafecito sin pedir email ni mensaje previo,
+ * sin ocupar espacio en la sección principal.
  *
  * Estética: variante "sticker orgánico" del mockup — wobble suave, anillo
  * punteado giratorio, peel highlight.
@@ -103,10 +102,10 @@ export default function CafecitoBadge({
 
   return (
     <a
-      href="/api/checkout/quick?mode=cafecito"
+      href="/cafecito"
       data-cursor="CAFECITO"
       data-mascot-ignore
-      aria-label="Invitame un cafecito — pagar $2.000 con Mercado Pago"
+      aria-label="Invitame un cafecito"
       className={[
         'cafecito-badge',
         floating ? 'cafecito-badge--fab' : 'cafecito-badge--inline',
@@ -139,7 +138,7 @@ export default function CafecitoBadge({
 
         {/* labels */}
         <span className="cb-lbl-top">Cafecito</span>
-        <span className="cb-lbl-bot">$2.000</span>
+        <span className="cb-lbl-bot">elegir</span>
       </span>
     </a>
   );

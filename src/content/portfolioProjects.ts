@@ -22,7 +22,7 @@ export const PORTFOLIO_PROJECTS: PortfolioProject[] = [
     link: '#',
     demoUrl: 'https://example.com/demo',
     longDescription:
-      'Una plataforma integral diseñada para creadores de contenido, permitiendo monetización directa, gestión de comunidad y recompensas exclusivas. Construida con React, Node.js y Tailwind CSS para un rendimiento óptimo.',
+      'Una plataforma para creadores: cobrás directo, manejás tu comunidad y das recompensas a los que bancan. La armé con React, Node y Tailwind.',
     rating: 4.8,
     ratingCount: 12,
   },

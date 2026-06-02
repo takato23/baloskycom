@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -824,6 +824,15 @@ img {
 @media (min-width: 640px) {
   .cafecito-badge--fab { width: 156px; height: 156px; right: 26px; bottom: 26px; }
 }
+@media (max-width: 720px) {
+  .cafecito-badge--fab {
+    width: 92px;
+    height: 92px;
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    z-index: 92;
+  }
+}
 
 /* Anillo punteado exterior */
 .cafecito-badge .cb-ring {
@@ -978,4 +987,92 @@ img {
 @media (prefers-reduced-motion: reduce) {
   .cafecito-badge { animation: none; transform: rotate(-6deg); }
   .cafecito-badge .cb-ring { animation: none; }
+}
+
+/* Admin friendly skin.
+   Scoped to AdminLayout so the public Delirio site keeps its own palette. */
+.admin-friendly {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(250, 93, 41, 0.12), transparent 30rem),
+    linear-gradient(180deg, #fff8ed 0%, #f3eadf 48%, #eee3d7 100%);
+  color: #221b15;
+}
+
+.admin-friendly [class*="bg-zinc-950"],
+.admin-friendly [class*="bg-zinc-900"],
+.admin-friendly [class*="bg-black/"],
+.admin-friendly [class*="bg-[#0"],
+.admin-friendly [class*="bg-[#1"] {
+  background-color: rgba(255, 252, 246, 0.92) !important;
+}
+
+.admin-friendly [class*="border-white/10"],
+.admin-friendly [class*="border-white/15"],
+.admin-friendly [class*="border-zinc-800"] {
+  border-color: rgba(86, 67, 47, 0.14) !important;
+}
+
+.admin-friendly [class*="text-white"],
+.admin-friendly [class*="text-zinc-100"],
+.admin-friendly [class*="text-zinc-200"] {
+  color: #231c16 !important;
+}
+
+.admin-friendly [class*="text-zinc-300"],
+.admin-friendly [class*="text-zinc-400"],
+.admin-friendly [class*="text-zinc-500"],
+.admin-friendly [class*="text-zinc-600"] {
+  color: #7b7067 !important;
+}
+
+.admin-friendly input,
+.admin-friendly textarea,
+.admin-friendly select {
+  background-color: rgba(255, 255, 255, 0.86) !important;
+  border-color: rgba(86, 67, 47, 0.16) !important;
+  color: #231c16 !important;
+}
+
+.admin-friendly input::placeholder,
+.admin-friendly textarea::placeholder {
+  color: #a69a90 !important;
+}
+
+.admin-friendly button[class*="bg-violet"],
+.admin-friendly a[class*="bg-violet"],
+.admin-friendly button[class*="bg-zinc-900"],
+.admin-friendly a[class*="bg-zinc-900"] {
+  background-color: #fa6b3b !important;
+  color: #24160f !important;
+}
+
+.admin-friendly,
+.admin-friendly * {
+  cursor: auto;
+}
+
+.admin-friendly a,
+.admin-friendly button,
+.admin-friendly [role="button"],
+.admin-friendly input[type="checkbox"],
+.admin-friendly input[type="radio"],
+.admin-friendly input[type="color"],
+.admin-friendly select,
+.admin-friendly label {
+  cursor: pointer;
+}
+
+.admin-friendly input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.admin-friendly textarea {
+  cursor: text;
+}
+
+.admin-friendly button:disabled,
+.admin-friendly [aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.admin-friendly [class*="shadow-[0_18px_70px"],
+.admin-friendly [class*="shadow-[0_24px_90px"] {
+  box-shadow: 0 18px 55px rgba(78, 58, 38, 0.12) !important;
 }

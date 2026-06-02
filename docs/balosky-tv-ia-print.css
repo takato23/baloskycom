@@ -1,0 +1,109 @@
+@page {
+  size: A4;
+  margin: 18mm 16mm;
+}
+
+:root {
+  --bg: #050505;
+  --ink: #f7efe6;
+  --muted: #a8a09a;
+  --hot: #fa5d29;
+  --aqua: #18d2c4;
+  --line: rgba(247, 239, 230, 0.22);
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.45;
+}
+
+body {
+  padding: 0;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 10pt;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+}
+
+h1 {
+  color: var(--ink);
+  font-size: 44pt;
+  text-transform: uppercase;
+}
+
+h2 {
+  color: var(--ink);
+  font-size: 24pt;
+  text-transform: uppercase;
+}
+
+h3 {
+  color: var(--hot);
+  font-size: 16pt;
+  text-transform: uppercase;
+}
+
+p {
+  margin: 0 0 9pt;
+}
+
+ul,
+ol {
+  margin: 0 0 12pt 18pt;
+  padding: 0;
+}
+
+li {
+  margin: 0 0 4pt;
+}
+
+strong {
+  color: var(--ink);
+}
+
+em {
+  color: var(--aqua);
+  font-style: normal;
+}
+
+hr {
+  break-after: page;
+  margin: 0;
+  border: 0;
+}
+
+section {
+  min-height: 238mm;
+  box-sizing: border-box;
+  padding: 8mm 0 0;
+  border-top: 1px solid var(--line);
+}
+
+section:first-of-type {
+  border-top: 0;
+}
+
+blockquote {
+  margin: 18pt 0;
+  padding: 12pt 14pt;
+  border-left: 4pt solid var(--hot);
+  background: rgba(250, 93, 41, 0.12);
+}
+
+a {
+  color: var(--aqua);
+}
+
+code {
+  color: var(--aqua);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

@@ -1,25 +1,82 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Plus, Edit2, Trash2, Upload, Star, StarOff, Eye, EyeOff, Lock, Unlock, Download,
   LayoutGrid, List, X, CheckSquare, Square, UploadCloud, Loader2, Check, Tag,
-  ArrowUp, ArrowDown
+  ArrowUp, ArrowDown, Camera, Film, Image as ImageIcon, Mail, Music, Share2, Sparkles
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { api } from '@/services/api';
 import { Media, MediaKind, Social, NewsletterSubscriber } from '@/types';
 import { Modal } from '@/components/Modal';
 import { parseMp3Metadata, readAudioDuration, formatDuration } from '@/lib/mp3Metadata';
 import { parseEmbedUrl } from '@/lib/songEmbed';
 
-type TabKey = 'video_ia' | 'foto' | 'wallpaper' | 'cancion' | 'socials' | 'newsletter';
+type TabKey = 'video_ia' | 'foto' | 'wallpaper' | 'cancion' | 'panorama_360' | 'socials' | 'newsletter';
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'video_ia',   label: 'Videos IA' },
-  { key: 'foto',       label: 'Fotos' },
-  { key: 'wallpaper',  label: 'Wallpapers' },
-  { key: 'cancion',    label: 'Canciones SUNO' },
-  { key: 'socials',    label: 'Redes Sociales' },
-  { key: 'newsletter', label: 'Newsletter' },
+const TABS: { key: TabKey; label: string; short: string; hint: string; icon: LucideIcon }[] = [
+  { key: 'video_ia',     label: 'Videos IA',      short: 'Video',      hint: 'clips, posters y storyboard', icon: Film },
+  { key: 'panorama_360', label: 'Panoramas 360°', short: '360',        hint: 'recorridos equirectangulares', icon: Sparkles },
+  { key: 'foto',         label: 'Fotos',          short: 'Foto',       hint: 'series y archivo visual', icon: Camera },
+  { key: 'wallpaper',    label: 'Wallpapers',     short: 'Pixel',      hint: 'descargas y previews', icon: ImageIcon },
+  { key: 'cancion',      label: 'Canciones SUNO', short: 'Sonido',     hint: 'covers, audios y embeds', icon: Music },
+  { key: 'socials',      label: 'Redes Sociales', short: 'Redes',      hint: 'links públicos', icon: Share2 },
+  { key: 'newsletter',   label: 'Newsletter',     short: 'Mail',       hint: 'suscriptores', icon: Mail },
 ];
+
+const mediaTabPath: Record<TabKey, string> = {
+  video_ia: '/admin/media/videos',
+  panorama_360: '/admin/media/panoramas',
+  foto: '/admin/media/fotos',
+  wallpaper: '/admin/media/wallpapers',
+  cancion: '/admin/media/canciones',
+  socials: '/admin/media/socials',
+  newsletter: '/admin/media/newsletter',
+};
+
+const MEDIA_META: Record<MediaKind, {
+  title: string;
+  eyebrow: string;
+  cta: string;
+  description: string;
+  accent: string;
+}> = {
+  video_ia: {
+    title: 'Videos IA',
+    eyebrow: 'clips + storyboard',
+    cta: 'Subir video',
+    description: 'Cargá el video, poster, prompt y frames de proceso para que cada pieza tenga contexto.',
+    accent: 'from-violet-500/28 to-cyan-400/14',
+  },
+  panorama_360: {
+    title: 'Panoramas 360',
+    eyebrow: 'mirar alrededor',
+    cta: 'Subir panorama 360',
+    description: 'Usá imágenes equirectangulares 2:1. Podés destacarlas, ordenarlas, activarlas u ocultarlas sin tocar código.',
+    accent: 'from-cyan-400/28 to-emerald-300/14',
+  },
+  foto: {
+    title: 'Fotos',
+    eyebrow: 'ojo + archivo',
+    cta: 'Subir foto',
+    description: 'Series visuales, backstage, cámaras y material que después aparece en el laboratorio público.',
+    accent: 'from-orange-400/24 to-pink-400/14',
+  },
+  wallpaper: {
+    title: 'Wallpapers',
+    eyebrow: 'pixel + descarga',
+    cta: 'Subir wallpaper',
+    description: 'Piezas visuales de alta resolución, con thumbnail, estado activo y bloqueo si hace falta.',
+    accent: 'from-pink-500/24 to-violet-500/14',
+  },
+  cancion: {
+    title: 'Canciones',
+    eyebrow: 'suno + sonido',
+    cta: 'Subir canción',
+    description: 'Subí MP3, pegá embeds, completá covers y mantené ordenada la biblioteca musical.',
+    accent: 'from-amber-300/24 to-red-400/14',
+  },
+};
 
 type KindConfig = {
   mediaUrlLabel: string;
@@ -36,10 +93,11 @@ type KindConfig = {
 };
 
 const KIND_FIELDS: Record<MediaKind, KindConfig> = {
-  video_ia:  { mediaUrlLabel: 'Video (URL o subir .mp4)',   accept: 'video/*', coverLabel: 'Poster / thumbnail',       coverAccept: 'image/*', categoryLabel: 'Categoría (ej. FILM · 2026)', supportsDuration: true,  supportsLock: false, defaultView: 'list', primaryIsImage: false },
-  foto:      { mediaUrlLabel: '—',                           accept: '',        coverLabel: 'Foto (URL o subir)',       coverAccept: 'image/*', categoryLabel: 'Categoría / filtro (ej. ba, sur)', supportsDuration: false, supportsLock: false, defaultView: 'grid', primaryIsImage: true  },
-  wallpaper: { mediaUrlLabel: 'Archivo alta-res (4K)',       accept: 'image/*', coverLabel: 'Thumbnail (preview)',      coverAccept: 'image/*', categoryLabel: 'Categoría',                   supportsDuration: false, supportsLock: true,  defaultView: 'grid', primaryIsImage: true  },
-  cancion:   { mediaUrlLabel: 'Audio (URL o subir .mp3)',    accept: 'audio/*', coverLabel: 'Cover del track (opcional)', coverAccept: 'image/*', categoryLabel: 'Género / shelf (ej. Electrónico)', supportsDuration: true,  supportsLock: false, defaultView: 'list', primaryIsImage: false },
+  video_ia:     { mediaUrlLabel: 'Video (URL o subir .mp4)',             accept: 'video/*', coverLabel: 'Poster / thumbnail',           coverAccept: 'image/*', categoryLabel: 'Categoría (ej. FILM · 2026)',       supportsDuration: true,  supportsLock: false, defaultView: 'list', primaryIsImage: false },
+  foto:         { mediaUrlLabel: '—',                                     accept: '',        coverLabel: 'Foto (URL o subir)',           coverAccept: 'image/*', categoryLabel: 'Categoría / filtro (ej. ba, sur)',  supportsDuration: false, supportsLock: false, defaultView: 'grid', primaryIsImage: true  },
+  wallpaper:    { mediaUrlLabel: 'Archivo alta-res (4K)',                 accept: 'image/*', coverLabel: 'Thumbnail (preview)',          coverAccept: 'image/*', categoryLabel: 'Categoría',                         supportsDuration: false, supportsLock: true,  defaultView: 'grid', primaryIsImage: true  },
+  cancion:      { mediaUrlLabel: 'Audio (URL o subir .mp3)',              accept: 'audio/*', coverLabel: 'Cover del track (opcional)',   coverAccept: 'image/*', categoryLabel: 'Género / shelf (ej. Electrónico)',  supportsDuration: true,  supportsLock: false, defaultView: 'list', primaryIsImage: false },
+  panorama_360: { mediaUrlLabel: 'Panorama 360 equirectangular 2:1 (JPG/PNG)', accept: 'image/*', coverLabel: 'Thumbnail / vista previa',    coverAccept: 'image/*', categoryLabel: 'Categoría (ej. estudio, viaje)',    supportsDuration: false, supportsLock: false, defaultView: 'grid', primaryIsImage: true  },
 };
 
 function emptyMedia(kind: MediaKind): Partial<Media> {
@@ -57,12 +115,24 @@ function emptyMedia(kind: MediaKind): Partial<Media> {
     showDescription: true,
     showPrompt: true,
     showTool: true,
+    assetUrls: [],
     isLocked: false,
     active: true,
     featured: false,
     sortOrder: 0,
     publicFrom: null,
   };
+}
+
+function assetUrlsToText(urls?: string[] | null): string {
+  return Array.isArray(urls) ? urls.join('\n') : '';
+}
+
+function textToAssetUrls(value: string): string[] {
+  return value
+    .split(/\r?\n|,/)
+    .map((url) => url.trim())
+    .filter(Boolean);
 }
 
 function emptySocial(): Partial<Social> {
@@ -122,42 +192,107 @@ async function readImageDimensions(file: File): Promise<{ w: number; h: number }
   });
 }
 
+function readVideoMetadata(file: File): Promise<{ w: number; h: number; durationSec: number | null } | null> {
+  if (!file.type.startsWith('video/')) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    const url = URL.createObjectURL(file);
+    let settled = false;
+    const done = (value: { w: number; h: number; durationSec: number | null } | null) => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      resolve(value);
+    };
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      const w = video.videoWidth || 0;
+      const h = video.videoHeight || 0;
+      const durationSec = Number.isFinite(video.duration) && video.duration > 0
+        ? video.duration
+        : null;
+      done(w && h ? { w, h, durationSec } : null);
+    };
+    video.onerror = () => done(null);
+    video.src = url;
+  });
+}
+
+function aspectRatioFromDimensions(w: number, h: number): Media['aspectRatio'] {
+  if (!w || !h) return null;
+  const ratio = w / h;
+  if (Math.abs(ratio - (9 / 16)) < 0.12) return '9:16';
+  if (Math.abs(ratio - (16 / 9)) < 0.18) return '16:9';
+  if (Math.abs(ratio - 1) < 0.16) return '1:1';
+  return ratio < 1 ? '9:16' : '16:9';
+}
+
 export default function AdminMedia({ defaultTab = 'video_ia' }: { defaultTab?: TabKey }) {
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
   useEffect(() => { setActiveTab(defaultTab); }, [defaultTab]);
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-display font-bold text-white">Contenido & Redes</h2>
-      <p className="text-sm text-zinc-400 max-w-3xl">
-        Subí videos IA, fotos, wallpapers y canciones SUNO. Todo aparece automáticamente en la home <code className="text-zinc-300">/delirio</code>.
-        Las redes se muestran en la sección REDES del sitio.
-      </p>
+    <div className="space-y-5 pb-24 lg:pb-0">
+      <section className="overflow-hidden rounded-[30px] border border-white/10 bg-zinc-950/80 shadow-[0_24px_90px_rgba(0,0,0,0.35)]">
+        <div className="relative p-5 sm:p-7">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_10%,rgba(34,211,238,.16),transparent_36%),radial-gradient(circle_at_80%_0%,rgba(168,85,247,.16),transparent_34%)]" />
+          <div className="relative grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)] lg:items-end">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">Admin · Laboratorio</p>
+              <h2 className="mt-2 text-4xl font-black tracking-[-0.08em] text-white sm:text-6xl">Carga y archivo.</h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
+                Subí videos IA, panoramas 360, fotos, wallpapers y canciones sin pelearte con una tabla vieja. Todo queda listo para mostrarse como capítulo del sitio.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+              <a href="/laboratorio" className="flex min-h-14 items-center justify-center rounded-2xl border border-white/10 bg-white text-sm font-black !text-zinc-950">
+                Ver público
+              </a>
+              <Link
+                to={mediaTabPath.panorama_360}
+                className="flex min-h-14 items-center justify-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-sm font-black text-cyan-100"
+              >
+                + Panorama 360
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* Tab bar */}
-      <div className="flex flex-wrap gap-2 border-b border-zinc-800 pb-0">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={
-              'px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ' +
-              (activeTab === t.key
-                ? 'text-violet-400 border-violet-500 bg-violet-600/10'
-                : 'text-zinc-400 border-transparent hover:text-zinc-200 hover:bg-zinc-900')
-            }
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-7">
+        {TABS.map(t => {
+          const Icon = t.icon;
+          return (
+            <Link
+              key={t.key}
+              to={mediaTabPath[t.key]}
+              className={
+                'group flex min-h-24 flex-col justify-between rounded-[22px] border p-3 text-left transition-colors ' +
+                (activeTab === t.key
+                ? 'border-white bg-white !text-zinc-950 shadow-[0_18px_60px_rgba(255,255,255,0.09)]'
+                  : 'border-white/10 bg-zinc-950/70 text-zinc-300 hover:border-white/20 hover:bg-zinc-900')
+              }
+            >
+              <span className="flex items-center justify-between gap-2">
+                <Icon className="h-4 w-4" />
+                <span className="text-[10px] font-black uppercase tracking-[0.18em] opacity-60">{t.short}</span>
+              </span>
+              <span>
+                <span className="block text-sm font-black leading-tight">{t.label}</span>
+                <span className="mt-1 block text-[11px] font-medium leading-tight opacity-60">{t.hint}</span>
+              </span>
+            </Link>
+          );
+        })}
       </div>
 
-      {activeTab === 'video_ia'   && <MediaPanel kind="video_ia" />}
-      {activeTab === 'foto'       && <MediaPanel kind="foto" />}
-      {activeTab === 'wallpaper'  && <MediaPanel kind="wallpaper" />}
-      {activeTab === 'cancion'    && <MediaPanel kind="cancion" />}
-      {activeTab === 'socials'    && <SocialsPanel />}
-      {activeTab === 'newsletter' && <NewsletterPanel />}
+      {activeTab === 'video_ia'     && <MediaPanel kind="video_ia" />}
+      {activeTab === 'foto'         && <MediaPanel kind="foto" />}
+      {activeTab === 'wallpaper'    && <MediaPanel kind="wallpaper" />}
+      {activeTab === 'cancion'      && <MediaPanel kind="cancion" />}
+      {activeTab === 'panorama_360' && <MediaPanel kind="panorama_360" />}
+      {activeTab === 'socials'      && <SocialsPanel />}
+      {activeTab === 'newsletter'   && <NewsletterPanel />}
     </div>
   );
 }
@@ -172,6 +307,7 @@ function UploadField({
   value,
   onChange,
   onDims,
+  onVideoMeta,
   hint,
 }: {
   label: string;
@@ -179,10 +315,12 @@ function UploadField({
   value: string;
   onChange: (url: string) => void;
   onDims?: (dims: { w: number; h: number } | null) => void;
+  onVideoMeta?: (meta: { w: number; h: number; durationSec: number | null } | null) => void;
   hint?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [storage, setStorage] = useState<string>('');
   const [err, setErr] = useState('');
 
   const handleFile = async (file: File) => {
@@ -190,9 +328,12 @@ function UploadField({
     setErr('');
     try {
       const dimsPromise = file.type.startsWith('image/') ? readImageDimensions(file) : Promise.resolve(null);
-      const [res, dims] = await Promise.all([api.uploadFile(file), dimsPromise]);
+      const videoMetaPromise = file.type.startsWith('video/') ? readVideoMetadata(file) : Promise.resolve(null);
+      const [res, dims, videoMeta] = await Promise.all([api.uploadFile(file), dimsPromise, videoMetaPromise]);
       onChange(res.url);
+      setStorage(res.storage || '');
       if (onDims) onDims(dims);
+      if (onVideoMeta) onVideoMeta(videoMeta);
     } catch (e: any) {
       setErr(e?.message || 'Error al subir');
     } finally {
@@ -233,8 +374,102 @@ function UploadField({
       {err && <p className="text-[11px] text-red-500">{err}</p>}
       {value && (
         <p className="text-[11px] text-zinc-600 truncate" title={value}>
-          ✓ {value}
+          ✓ {storage ? `${storage.toUpperCase()} · ` : ''}{value}
         </p>
+      )}
+    </div>
+  );
+}
+
+function AssetUploadField({
+  urls,
+  onChange,
+  title = 'Assets visuales',
+  description = 'Subí frames, posters o referencias. Se suman a la lista de URLs de abajo.',
+}: {
+  urls: string[];
+  onChange: (urls: string[]) => void;
+  title?: string;
+  description?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const addUrls = (next: string[]) => {
+    const merged = Array.from(new Set([...urls, ...next].map((u) => u.trim()).filter(Boolean)));
+    onChange(merged);
+  };
+
+  const removeUrl = (url: string) => {
+    onChange(urls.filter((u) => u !== url));
+  };
+
+  const handleFiles = async (files: FileList | File[]) => {
+    const arr = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (!arr.length) return;
+    setUploading(true);
+    setErr('');
+    try {
+      const uploaded = await Promise.all(arr.map((file) => api.uploadFile(file)));
+      addUrls(uploaded.map((u) => u.url));
+    } catch (e: any) {
+      setErr(e?.message || 'Error al subir assets');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="text-[11px] font-medium tracking-[0.14em] uppercase text-zinc-500">
+            {title}
+          </div>
+          <p className="mt-0.5 text-[11px] text-zinc-500">
+            {description}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-2 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--accent,#FA5D29)] disabled:opacity-50"
+        >
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+          {uploading ? 'Subiendo...' : 'Subir assets'}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const files = e.target.files;
+            if (files?.length) handleFiles(files);
+          }}
+        />
+      </div>
+      {err && <p className="text-[11px] text-red-500">{err}</p>}
+      {urls.length > 0 && (
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+          {urls.map((url) => (
+            <div key={url} className="group relative aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-white">
+              <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
+              <button
+                type="button"
+                onClick={() => removeUrl(url)}
+                className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                aria-label="Quitar asset"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -328,7 +563,7 @@ function BulkDropZone({
   };
 
   const acceptFilter = (f: File): boolean => {
-    if (kind === 'foto' || kind === 'wallpaper') return f.type.startsWith('image/');
+    if (kind === 'foto' || kind === 'wallpaper' || kind === 'panorama_360') return f.type.startsWith('image/');
     if (kind === 'video_ia') return f.type.startsWith('video/') || f.type.startsWith('image/'); // allow poster images here too
     if (kind === 'cancion') return f.type.startsWith('audio/') || f.type.startsWith('image/');
     return true;
@@ -351,13 +586,16 @@ function BulkDropZone({
           : Promise.resolve({});
 
       const dimsPromise = job.file.type.startsWith('image/') ? readImageDimensions(job.file) : Promise.resolve(null);
+      const videoMetaPromise = job.file.type.startsWith('video/') ? readVideoMetadata(job.file) : Promise.resolve(null);
 
-      const [up, dims, meta] = await Promise.all([
+      const [up, dims, videoMeta, meta] = await Promise.all([
         api.uploadFile(job.file),
         dimsPromise,
+        videoMetaPromise,
         metaPromise,
       ]);
-      updateJob(job.id, { status: 'creating', progress: 0.7, mediaUrl: up.url, dims });
+      const detectedDims = dims || (videoMeta ? { w: videoMeta.w, h: videoMeta.h } : null);
+      updateJob(job.id, { status: 'creating', progress: 0.7, mediaUrl: up.url, dims: detectedDims });
 
       const fallbackTitle = filenameToTitle(job.file.name);
       const title = (kind === 'cancion' && meta.title) ? meta.title : fallbackTitle;
@@ -377,6 +615,7 @@ function BulkDropZone({
         showDescription: true,
         showPrompt: true,
         showTool: true,
+        assetUrls: [],
         isLocked: false,
         active: true,
         featured: false,
@@ -391,6 +630,11 @@ function BulkDropZone({
         // If a video was uploaded, we don't have a poster yet; leave cover blank.
         if (job.file.type.startsWith('video/')) {
           base.coverImage = '';
+          if (videoMeta) {
+            base.aspectRatio = aspectRatioFromDimensions(videoMeta.w, videoMeta.h);
+            if (videoMeta.durationSec != null) base.duration = formatDuration(videoMeta.durationSec);
+            if (!base.description) base.description = `${videoMeta.w}×${videoMeta.h}`;
+          }
         }
       } else if (kind === 'cancion') {
         // Audio: start with no cover, then fill in from ID3 if we found one.
@@ -534,10 +778,12 @@ function BulkDropZone({
         <p className="text-[11px] text-zinc-600 mt-1">
           {kind === 'foto' || kind === 'wallpaper'
             ? 'Imágenes JPG / PNG / WebP / AVIF'
-            : kind === 'video_ia'
-              ? 'Videos MP4/WebM o imágenes como poster'
-              : 'Audio MP3/WAV o una imagen como cover'}
-          {' · hasta 200 MB por archivo · subidas en paralelo'}
+            : kind === 'panorama_360'
+              ? 'Panorama equirectangular 2:1 JPG / PNG (ej. 6000×3000)'
+              : kind === 'video_ia'
+                ? 'Videos MP4/WebM o imágenes como poster'
+                : 'Audio MP3/WAV o una imagen como cover'}
+          {' · hasta 200 MB por archivo · sin compresión automática · subidas en paralelo'}
         </p>
         <input
           ref={fileInputRef}
@@ -598,10 +844,11 @@ function BulkDropZone({
  * Selection bar — batch actions on selected media rows
  * ------------------------------------------------------------------------- */
 const CATEGORY_SUGGESTIONS: Record<MediaKind, string[]> = {
-  wallpaper: ['paisaje', 'ciudad', 'edificio', 'interior', 'retrato', 'objeto', 'abstracto', 'otros'],
-  foto:      ['paisaje', 'ciudad', 'retrato', 'backstage', 'ba', 'viaje', 'otros'],
-  video_ia:  ['FILM · 2026', 'short', 'visual', 'promo'],
-  cancion:   ['Electrónico', 'Pop', 'Indie', 'Ambient', 'Colab'],
+  wallpaper:    ['paisaje', 'ciudad', 'edificio', 'interior', 'retrato', 'objeto', 'abstracto', 'otros'],
+  foto:         ['paisaje', 'ciudad', 'retrato', 'backstage', 'ba', 'viaje', 'otros'],
+  video_ia:     ['FILM · 2026', 'short', 'visual', 'promo'],
+  cancion:      ['Electrónico', 'Pop', 'Indie', 'Ambient', 'Colab'],
+  panorama_360: ['estudio', 'casa', 'ba', 'viaje', 'backstage', 'naturaleza', 'otros'],
 };
 
 function SelectionBar({
@@ -704,6 +951,11 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>(fields.defaultView);
   const [showUploader, setShowUploader] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [backfilling, setBackfilling] = useState(false);
+  // Auto-cover in-modal: loading state mientras consultamos Spotify/YT/Apple.
+  const [resolvingCover, setResolvingCover] = useState(false);
+  const [coverResolveNote, setCoverResolveNote] = useState<string>('');
+  const meta = MEDIA_META[kind];
 
   const load = async () => {
     setLoading(true);
@@ -744,9 +996,14 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
 
   const openNew = () => {
     setEditing({ ...emptyMedia(kind), sortOrder: getNextSortOrder(1) });
+    setCoverResolveNote('');
     setModalOpen(true);
   };
-  const openEdit = (m: Media) => { setEditing(m); setModalOpen(true); };
+  const openEdit = (m: Media) => {
+    setEditing(m);
+    setCoverResolveNote('');
+    setModalOpen(true);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -789,6 +1046,68 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
   const handleBulkCreated = useCallback((created: Media) => {
     setItems(prev => [...prev, created]);
   }, []);
+
+  /**
+   * Corre el endpoint de backfill para canciones sin cover. Rellena los
+   * coverImage de los tracks que tengan URL de YouTube/Spotify/Apple Music
+   * y no tengan portada cargada. Pensado para un click del admin.
+   */
+  const handleBackfillCovers = async () => {
+    if (!window.confirm('¿Intentar rellenar las portadas de las canciones que no tienen? Usa YouTube/Spotify/Apple Music como fuente.')) return;
+    setBackfilling(true);
+    try {
+      const result = await api.backfillMediaCovers();
+      // Recargamos para ver los covers nuevos.
+      await load();
+      const failedCount = result.failures.length;
+      if (failedCount === 0) {
+        alert(`Listo. ${result.updated} de ${result.scanned} canciones ya tienen cover.`);
+      } else {
+        const preview = result.failures
+          .slice(0, 5)
+          .map((f) => `· ${f.title} (${f.reason})`)
+          .join('\n');
+        alert(
+          `Actualizadas: ${result.updated}\nSin resolver: ${failedCount}\n\n${preview}${failedCount > 5 ? '\n…' : ''}`,
+        );
+      }
+    } catch (e) {
+      console.error('[admin/media] backfill covers', e);
+      alert('Error al rellenar covers. Revisá la consola.');
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
+  /**
+   * Auto-rellena `coverImage` del ítem en edición usando el URL de embed /
+   * mediaUrl actual. Llama al endpoint `/media/resolve-cover` que conoce
+   * YouTube / Spotify / Apple Music.
+   */
+  const handleResolveCoverFromUrl = async () => {
+    if (!editing) return;
+    const candidate = (editing.embedUrl || editing.mediaUrl || '').trim();
+    if (!candidate) {
+      setCoverResolveNote('Primero pegá el URL de YouTube/Spotify/Apple.');
+      return;
+    }
+    setResolvingCover(true);
+    setCoverResolveNote('');
+    try {
+      const result = await api.resolveMediaCover(candidate);
+      if (result.coverUrl) {
+        setEditing((prev) => (prev ? { ...prev, coverImage: result.coverUrl! } : prev));
+        setCoverResolveNote(`✓ Cover de ${result.platform} aplicado.`);
+      } else {
+        setCoverResolveNote(`No pude encontrar cover desde ${result.platform}.`);
+      }
+    } catch (e) {
+      console.error('[admin/media] resolve cover', e);
+      setCoverResolveNote('Error al resolver. Probá de nuevo.');
+    } finally {
+      setResolvingCover(false);
+    }
+  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -866,19 +1185,94 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
     }
   };
 
+  const persistOrder = async (nextItems: Media[]) => {
+    setItems(nextItems);
+    try {
+      await Promise.all(
+        nextItems.map((item, index) => (
+          item.sortOrder === index + 1
+            ? Promise.resolve(item)
+            : api.updateMedia(item.id, { sortOrder: index + 1 })
+        )),
+      );
+      await load();
+    } catch (e) {
+      console.error('[admin/media] bulk reorder failed', e);
+      alert('No pude guardar todo el orden. Recargo para sincronizar.');
+      load();
+    }
+  };
+
+  const handleLatestFirst = async () => {
+    const next = items
+      .slice()
+      .sort((a, b) => {
+        const bt = new Date(b.createdAt || 0).getTime();
+        const at = new Date(a.createdAt || 0).getTime();
+        return bt - at;
+      })
+      .map((item, index) => ({ ...item, sortOrder: index + 1 }));
+    await persistOrder(next);
+  };
+
+  const handleNormalizeOrder = async () => {
+    const next = sortedItems.map((item, index) => ({ ...item, sortOrder: index + 1 }));
+    await persistOrder(next);
+  };
+
   const allSelected = items.length > 0 && selectedIds.size === items.length;
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <p className="text-sm text-zinc-500">
-            {items.length} {items.length === 1 ? 'ítem' : 'ítems'}
-          </p>
+      <section className="overflow-hidden rounded-[28px] border border-white/10 bg-zinc-950/70 shadow-[0_18px_70px_rgba(0,0,0,0.28)]">
+        <div className={`bg-gradient-to-br ${meta.accent} p-4 sm:p-5`}>
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-zinc-400">{meta.eyebrow}</p>
+              <h3 className="mt-1 text-3xl font-black tracking-[-0.07em] text-white sm:text-5xl">{meta.title}</h3>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">{meta.description}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold text-zinc-500">
+                <span className="rounded-full border border-white/10 bg-black/24 px-3 py-1">
+                  {loading ? 'Cargando...' : `${items.length} ${items.length === 1 ? 'ítem' : 'ítems'}`}
+                </span>
+                {kind === 'panorama_360' && (
+                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-cyan-100">
+                    Recomendado: imagen 2:1
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap xl:justify-end">
+              <button
+                onClick={openNew}
+                className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black !text-zinc-950 transition-colors hover:bg-zinc-200"
+              >
+                <Plus className="h-4 w-4" />
+                {meta.cta}
+              </button>
+              <button
+                onClick={() => setShowUploader(v => !v)}
+                className={
+                  'flex min-h-12 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-black transition-colors ' +
+                  (showUploader
+                    ? 'border-cyan-300/40 bg-cyan-300/12 text-cyan-100'
+                    : 'border-white/10 bg-black/24 text-zinc-200 hover:border-white/20')
+                }
+              >
+                <UploadCloud className="h-4 w-4" />
+                {showUploader ? 'Cerrar carga masiva' : 'Subir varios'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="flex flex-col gap-3 rounded-[24px] border border-white/10 bg-zinc-950/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
           {items.length > 0 && (
             <button
               onClick={allSelected ? clearSelection : selectAll}
-              className="text-xs text-zinc-500 hover:text-zinc-200 flex items-center gap-1"
+              className="flex min-h-11 items-center gap-2 rounded-2xl border border-white/10 px-3 text-xs font-black text-zinc-400 hover:text-zinc-100"
               title={allSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
             >
               {allSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
@@ -886,38 +1280,50 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-0.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-h-11 items-center rounded-2xl border border-white/10 bg-black/24 p-1">
             <button
               onClick={() => setViewMode('list')}
-              className={'px-2 py-1 rounded ' + (viewMode === 'list' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-200')}
+              className={'grid h-9 w-10 place-items-center rounded-xl ' + (viewMode === 'list' ? 'bg-white !text-zinc-950' : 'text-zinc-500 hover:text-zinc-200')}
               title="Vista lista"
             ><List className="w-4 h-4" /></button>
             <button
               onClick={() => setViewMode('grid')}
-              className={'px-2 py-1 rounded ' + (viewMode === 'grid' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-200')}
+              className={'grid h-9 w-10 place-items-center rounded-xl ' + (viewMode === 'grid' ? 'bg-white !text-zinc-950' : 'text-zinc-500 hover:text-zinc-200')}
               title="Vista grid"
             ><LayoutGrid className="w-4 h-4" /></button>
           </div>
-          <button
-            onClick={() => setShowUploader(v => !v)}
-            className={
-              'flex items-center gap-2 px-3 py-2 rounded-xl font-medium text-sm transition-colors ' +
-              (showUploader
-                ? 'bg-zinc-800 text-white'
-                : 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800')
-            }
-          >
-            <UploadCloud className="w-4 h-4" />
-            {showUploader ? 'Ocultar subida' : 'Subir varios'}
-          </button>
-          <button
-            onClick={openNew}
-            className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Nuevo
-          </button>
+          {kind === 'cancion' && (
+            <button
+              onClick={handleBackfillCovers}
+              disabled={backfilling}
+              className="flex min-h-11 items-center gap-2 rounded-2xl border border-white/10 bg-black/24 px-3 text-sm font-black text-zinc-300 transition-colors hover:text-white disabled:opacity-50"
+              title="Busca cover en YouTube/Spotify/Apple Music para todas las canciones sin portada"
+            >
+              {backfilling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {backfilling ? 'Rellenando covers…' : 'Rellenar covers faltantes'}
+            </button>
+          )}
+          {kind === 'panorama_360' && items.length > 1 && (
+            <>
+              <button
+                onClick={handleLatestFirst}
+                className="flex min-h-11 items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 text-sm font-black text-cyan-100 transition-colors hover:border-cyan-200/50 hover:bg-cyan-300/18"
+                title="Pone primero las escenas más nuevas que acabás de subir"
+              >
+                <ArrowUp className="w-4 h-4" />
+                Últimas arriba
+              </button>
+              <button
+                onClick={handleNormalizeOrder}
+                className="flex min-h-11 items-center gap-2 rounded-2xl border border-white/10 bg-black/24 px-3 text-sm font-black text-zinc-300 transition-colors hover:text-white"
+                title="Reescribe el orden como 1, 2, 3... respetando la vista actual"
+              >
+                <List className="w-4 h-4" />
+                Orden limpio
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -935,14 +1341,18 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
       )}
 
       {loading ? (
-        <p className="text-zinc-500 text-sm">Cargando...</p>
+        <div className="rounded-[24px] border border-white/10 bg-zinc-950/70 p-8 text-sm text-zinc-500">Cargando...</div>
       ) : items.length === 0 ? (
-        <div className="border border-dashed border-zinc-800 rounded-2xl p-10 text-center text-zinc-500">
-          Todavía no hay {kind} cargados. Arrastrá archivos arriba o apretá "Nuevo" para arrancar.
+        <div className="rounded-[28px] border border-dashed border-white/15 bg-zinc-950/70 p-8 text-center text-zinc-500 sm:p-12">
+          <Sparkles className="mx-auto mb-3 h-7 w-7 text-zinc-600" />
+          <p className="text-lg font-black tracking-[-0.03em] text-zinc-200">Todavía no hay {meta.title.toLowerCase()}.</p>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6">
+            Usá "{meta.cta}" para crear uno a mano o activá "Subir varios" para cargar una tanda desde el celular o la compu.
+          </p>
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {sortedItems.map(m => (
+          {sortedItems.map((m, i) => (
             <GridTile
               key={m.id}
               m={m}
@@ -951,6 +1361,8 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
               onEdit={() => openEdit(m)}
               onDelete={() => handleDelete(m.id)}
               onToggle={(patch) => toggle(m, patch)}
+              onMoveUp={i > 0 ? () => handleMove(m, 'up') : undefined}
+              onMoveDown={i < sortedItems.length - 1 ? () => handleMove(m, 'down') : undefined}
               showLock={fields.supportsLock}
             />
           ))}
@@ -1018,13 +1430,37 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
                 label={fields.mediaUrlLabel}
                 accept={fields.accept}
                 value={editing.mediaUrl || ''}
-                onChange={(url) => setEditing({ ...editing, mediaUrl: url })}
+                onChange={(url) => setEditing({
+                  ...editing,
+                  mediaUrl: url,
+                  ...(kind === 'panorama_360' && !editing.coverImage ? { coverImage: url } : {}),
+                })}
                 onDims={(dims) => {
                   if (!dims) return;
                   if ((kind === 'wallpaper') && !editing.description) {
                     setEditing(prev => prev ? { ...prev, description: `${dims.w}×${dims.h}` } : prev);
                   }
+                  if ((kind === 'panorama_360') && !editing.description) {
+                    setEditing(prev => prev ? { ...prev, description: `${dims.w}×${dims.h} · equirectangular 360` } : prev);
+                  }
                 }}
+                onVideoMeta={(meta) => {
+                  if (!meta || kind !== 'video_ia') return;
+                  setEditing(prev => {
+                    if (!prev) return prev;
+                    return {
+                      ...prev,
+                      aspectRatio: prev.aspectRatio || aspectRatioFromDimensions(meta.w, meta.h),
+                      duration: prev.duration || (meta.durationSec != null ? formatDuration(meta.durationSec) : prev.duration),
+                      description: prev.description || `${meta.w}×${meta.h}`,
+                    };
+                  });
+                }}
+                hint={kind === 'video_ia'
+                  ? 'La subida guarda el archivo tal cual. Detecto ratio/duración, pero no lo comprimo ni le bajo calidad automáticamente.'
+                  : kind === 'panorama_360'
+                    ? 'Usá una imagen 2:1. Ejemplo: 6000×3000, 4096×2048 o similar. Si no cargás thumbnail aparte, uso esta misma imagen como preview.'
+                  : undefined}
               />
             )}
             {kind === 'cancion' && (
@@ -1046,6 +1482,27 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
               }}
               hint={kind === 'foto' ? 'La foto se usa como cover y como full-size.' : undefined}
             />
+            {kind === 'cancion' && (
+              <div className="flex flex-wrap items-center gap-2 -mt-1">
+                <button
+                  type="button"
+                  onClick={handleResolveCoverFromUrl}
+                  disabled={resolvingCover}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-100 disabled:opacity-50"
+                  title="Busca la portada en YouTube/Spotify/Apple Music a partir del URL"
+                >
+                  {resolvingCover ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  {resolvingCover ? 'Buscando…' : 'Obtener cover desde URL'}
+                </button>
+                {coverResolveNote && (
+                  <span className={
+                    'text-[11px] ' + (coverResolveNote.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600')
+                  }>
+                    {coverResolveNote}
+                  </span>
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-[11px] font-medium tracking-[0.14em] uppercase text-zinc-500 mb-1.5">Descripción</label>
               <textarea
@@ -1090,6 +1547,27 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
                     onChange={(e) => setEditing({ ...editing, aiPrompt: e.target.value })}
                     className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 bg-zinc-50/70 focus:border-[var(--accent,#FA5D29)] focus:ring-2 focus:ring-[var(--accent,#FA5D29)]/20 focus:bg-white focus:outline-none transition-colors placeholder:text-zinc-400"
                   />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium tracking-[0.14em] uppercase text-zinc-500 mb-1.5">
+                    Assets usados
+                  </label>
+                  <AssetUploadField
+                    urls={editing.assetUrls || []}
+                    onChange={(urls) => setEditing({ ...editing, assetUrls: urls })}
+                    title="Storyboard / frames del video"
+                    description="Subí frames, bocetos, referencias o pasos de generación. En /laboratorio se ven como rail de proceso."
+                  />
+                  <textarea
+                    rows={3}
+                    placeholder="También podés pegar URLs manualmente, una por línea."
+                    value={assetUrlsToText(editing.assetUrls)}
+                    onChange={(e) => setEditing({ ...editing, assetUrls: textToAssetUrls(e.target.value) })}
+                    className="mt-3 w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 bg-zinc-50/70 focus:border-[var(--accent,#FA5D29)] focus:ring-2 focus:ring-[var(--accent,#FA5D29)]/20 focus:bg-white focus:outline-none transition-colors placeholder:text-zinc-400"
+                  />
+                  <p className="mt-1 text-[11px] text-zinc-500 leading-snug">
+                    Se muestran en /laboratorio como muro en desktop y carrusel horizontal en mobile.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium tracking-[0.14em] uppercase text-zinc-500 mb-1.5">
@@ -1258,7 +1736,7 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
  * Grid tile (thumbnail card)
  * ------------------------------------------------------------------------- */
 function GridTile({
-  m, selected, onToggleSelect, onEdit, onDelete, onToggle, showLock,
+  m, selected, onToggleSelect, onEdit, onDelete, onToggle, onMoveUp, onMoveDown, showLock,
 }: {
   m: Media;
   selected: boolean;
@@ -1266,6 +1744,8 @@ function GridTile({
   onEdit: () => void;
   onDelete: () => void;
   onToggle: (patch: Partial<Media>) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   showLock: boolean;
 }) {
   const cover = m.coverImage || m.mediaUrl || '';
@@ -1302,8 +1782,36 @@ function GridTile({
         {m.isMemberOnly && <span className="text-[9px] uppercase tracking-wider bg-fuchsia-700 text-white px-1.5 py-0.5 rounded-full">Miembros</span>}
         {m.isLocked && <span className="text-[9px] uppercase tracking-wider bg-amber-600 text-white px-1.5 py-0.5 rounded-full">Lock</span>}
         {m.publicFrom && <span className="text-[9px] uppercase tracking-wider bg-sky-700 text-white px-1.5 py-0.5 rounded-full">Early</span>}
+        {m.kind === 'video_ia' && (m.assetUrls?.length || 0) > 0 && (
+          <span className="text-[9px] uppercase tracking-wider bg-cyan-700 text-white px-1.5 py-0.5 rounded-full">
+            {m.assetUrls?.length} assets
+          </span>
+        )}
         {!m.active && <span className="text-[9px] uppercase tracking-wider bg-zinc-700 text-zinc-200 px-1.5 py-0.5 rounded-full">Oculto</span>}
       </div>
+
+      {(onMoveUp || onMoveDown) && (
+        <div className="absolute left-2 top-10 z-10 flex flex-col gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoveUp?.(); }}
+            disabled={!onMoveUp}
+            className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-black/62 text-white shadow-[0_10px_28px_rgba(0,0,0,0.32)] transition-colors hover:bg-white hover:text-black disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-black/62 disabled:hover:text-white"
+            title="Mover arriba"
+            aria-label="Mover arriba"
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoveDown?.(); }}
+            disabled={!onMoveDown}
+            className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-black/62 text-white shadow-[0_10px_28px_rgba(0,0,0,0.32)] transition-colors hover:bg-white hover:text-black disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-black/62 disabled:hover:text-white"
+            title="Mover abajo"
+            aria-label="Mover abajo"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Info */}
       <div className="p-2.5 space-y-1">
@@ -1385,6 +1893,11 @@ function ListRow({
           {m.isMemberOnly && <span className="text-[10px] uppercase tracking-wider bg-fuchsia-600/20 text-fuchsia-300 px-2 py-0.5 rounded-full">Sólo miembros</span>}
           {m.isLocked && <span className="text-[10px] uppercase tracking-wider bg-amber-600/20 text-amber-300 px-2 py-0.5 rounded-full">Lockeado</span>}
           {m.publicFrom && <span className="text-[10px] uppercase tracking-wider bg-sky-600/20 text-sky-300 px-2 py-0.5 rounded-full">Early drop</span>}
+          {m.kind === 'video_ia' && (m.assetUrls?.length || 0) > 0 && (
+            <span className="text-[10px] uppercase tracking-wider bg-cyan-600/20 text-cyan-300 px-2 py-0.5 rounded-full">
+              {m.assetUrls?.length} assets
+            </span>
+          )}
           {!m.active && <span className="text-[10px] uppercase tracking-wider bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">Oculto</span>}
           {m.embedUrl && parseEmbedUrl(m.embedUrl) && (
             <span
@@ -1456,7 +1969,7 @@ function SocialsPanel() {
   const load = async () => {
     setLoading(true);
     try {
-      const rows = await api.getSocials();
+      const rows = await api.getAdminSocials();
       setItems(rows);
     } catch (e) {
       console.error('[admin/socials] load', e);

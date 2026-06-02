@@ -35,9 +35,8 @@ function sizeFor(i: number): 'big' | 'small' {
 
 type Orient = 'v' | 'h' | 's';
 
-/** Mostramos los primeros 6 (3 free + 3 locked como teaser) y el resto
- * va tras un "Ver todos" para no eternizar el scroll. El pack CTA sigue
- * siendo el upgrade hook principal. */
+/** Mostramos los primeros 6 (3 free + 3 con gate de mail como teaser) y el
+ * resto va tras un "Ver todos" para no eternizar el scroll. */
 const PREVIEW_LIMIT = 6;
 
 export default function PixelSection() {
@@ -144,8 +143,8 @@ export default function PixelSection() {
             <h2>wallpapers<br /><em>para tu teléfono</em>.</h2>
           </div>
           <p>
-            3 gratis para bajar ya mismo. El pack completo (10 wallpapers 4K · iPhone + desktop) va
-            por aporte o lo desbloqueás siendo Baloskier.
+            Fondos que salen del mismo universo visual de Ojo. Algunos se bajan gratis, otros
+            pasan por mail para no perder el archivo.
           </p>
         </div>
 
@@ -224,7 +223,7 @@ export default function PixelSection() {
                   />
                   <div className="w-overlay" />
                   <EarlyDropBadge media={m} />
-                  <div className="w-btn">{locked ? 'Baloskiers' : 'Bajar'}</div>
+                  <div className="w-btn">{locked ? 'Ver' : 'Bajar'}</div>
                   <div className="w-meta">
                     <div className="w-name">{m.title}</div>
                     <div className="w-res">{m.duration || '4K'}</div>
@@ -254,32 +253,32 @@ export default function PixelSection() {
 
           <div className="wall-cta reveal">
             <div>
-              <h4>¿Querés todos los wallpapers?</h4>
+              <h4>¿Querés sostener el archivo?</h4>
               <p>
-                Pack de 10 con archivo para iPhone, Android y escritorio. Actualizo con 2 drops
-                nuevos por mes para los Baloskiers — o lo bajás sueltito por un aporte.
+                Los wallpapers siguen disponibles desde la galería. Si te gusta lo que hago,
+                el pago directo queda concentrado en cafecito.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
               <a
                 className="cta cta-primary"
-                href="/api/checkout/quick?mode=pack-walls"
-                data-cursor="PACK"
+                href="/cafecito"
+                data-cursor="CAFECITO"
               >
-                <span>Pack 10 · $3.500</span>
+                <span>Invitame un cafecito</span>
                 <span className="arr">→</span>
               </a>
               <a
                 className="cta"
-                href="#club"
-                data-cursor="BALOSKIERS"
+                href="#trabajemos"
+                data-cursor="PRESU"
                 style={{
                   background: 'rgba(255,255,255,0.15)',
                   color: '#fff',
                   border: '1px solid rgba(255,255,255,0.3)',
                 }}
               >
-                <span>Baloskiers</span>
+                <span>Pedir presupuesto</span>
                 <span className="arr">→</span>
               </a>
             </div>

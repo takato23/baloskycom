@@ -2,13 +2,26 @@
 # Mantiene el bundle del Serverless Function por debajo del límite de 250 MB.
 # Los binarios pesados viven en blob storage / CDN, no en el repo.
 
+# dependencias/builds/cachés locales
+node_modules/
+dist/
+build/
+coverage/
+.git/
+.claude/
+.playwright-mcp/
+output/
+
 # videos grandes en public/ — mover a Vercel Blob / Cloudinary cuando haya tiempo
 public/uploads/videos/
+public/uploads/3d/
+public/uploads/2026/
+public/uploads/ojo/
+public/uploads/wallpapers/
+public/uploads/thumbs/ojo/
+public/uploads/thumbs/wallpapers/
 public/uploads/2026/04/harry-potter-argento.mp4
-public/agenda-publica/media/attention-machine-en.mp4
-public/agenda-publica/media/attention-machine-es.mp4
-public/agenda-publica/media/attention-machine-es.m4a
-public/agenda-publica/media/attention-machine-slides.pptx
+public/agenda-publica/media/
 
 # builds locales de debug — no hace falta subirlos
 dist-migrate-check/
@@ -20,6 +33,13 @@ AGENTS.md
 CODEX_BRIEF.md
 __smoke.mjs
 design-mockups/
+tmp/
+research/
+prototypes/
+.playwright-cli/
+HANDOFF_PREVIEW_FULL.md
+PLACEHOLDERS.md
+preview-full-mockups.html
 
 # sqlite local (prod usa Supabase Postgres)
 data/
@@ -28,6 +48,12 @@ data/
 /*.png
 /*.jpg
 /*.jpeg
+
+# backups / dumps locales
+*.zip
+*.tar
+*.tgz
+*.gz
 
 # env local (Vercel tiene sus propias env vars)
 .env

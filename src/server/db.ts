@@ -33,11 +33,14 @@ const COLUMN_MAP: Record<string, string> = {
   processedAt: 'processed_at',
   userAgent: 'user_agent',
   mediaUrl: 'media_url',
+  packageId: 'package_id',
+  referenceUrl: 'reference_url',
   thumbUrl: 'thumb_url',
   embedUrl: 'embed_url',
   playCount: 'play_count',
   aiTool: 'ai_tool',
   aiPrompt: 'ai_prompt',
+  assetUrls: 'asset_urls',
   isLocked: 'is_locked',
   colorFrom: 'color_from',
   colorTo: 'color_to',
@@ -46,6 +49,10 @@ const COLUMN_MAP: Record<string, string> = {
   downloadExpiresAt: 'download_expires_at',
   emailSentAt: 'email_sent_at',
   paidAt: 'paid_at',
+  supporterMessage: 'supporter_message',
+  contactEmail: 'contact_email',
+  messageVisibility: 'message_visibility',
+  followupAt: 'followup_at',
   memberId: 'member_id',
   membershipId: 'membership_id',
   mpPreapprovalId: 'mp_preapproval_id',
@@ -58,7 +65,10 @@ const COLUMN_MAP: Record<string, string> = {
   showDescription: 'show_description',
   showPrompt: 'show_prompt',
   showTool: 'show_tool',
-  publicFrom: 'public_from'
+  publicFrom: 'public_from',
+  eventName: 'event_name',
+  sessionId: 'session_id',
+  metadataJson: 'metadata_json'
 };
 
 // Reverse map: snake_case to camelCase
@@ -110,6 +120,34 @@ if (!databaseUrl) {
 
 const sql = postgres(databaseUrl, {
   prepare: false  // Required for pgbouncer transaction pooler mode
+});
+
+const buildDefaultSettings = () => ({
+  creatorName: 'Santi Balosky',
+  creatorBio: 'Creador de contenido, viajero y catador profesional de alfajores. Bancá este delirio para que siga creando.',
+  creatorAvatar: '/images/santi-avatar.jpeg',
+  heroTitle: 'Santi Balosky',
+  heroSubtitle: 'Creador de contenido, viajero y catador profesional de alfajores. Bancá este delirio para que siga creando.',
+  primaryCTA: 'Invitame un cafecito',
+  secondaryCTA: 'Ver recompensas',
+  socialLinks: {
+    instagram: 'https://instagram.com/santiagobalosky',
+    spotify: 'https://open.spotify.com/artist/balosky',
+    applemusic: 'https://music.apple.com/artist/balosky',
+    youtube: 'https://youtube.com/@santiagobalosky'
+  },
+  darkModeDefault: false,
+  visibleSections: ['hero', 'campaigns', 'rewards', 'wall'],
+  supportAmountsSuggested: [3000, 5000, 10000, 15000],
+  cafecito: {
+    amount: 3000,
+    mercadoPagoLink: '',
+    paypalLink: 'https://paypal.me/balosky',
+    paypalCurrency: 'USD',
+    paypalUnitAmount: 3
+  },
+  legalText: 'Pago seguro con Mercado Pago.',
+  content: DEFAULT_PUBLIC_CONTENT
 });
 
 // Wrapper to convert ? placeholders to $1, $2, etc.
@@ -252,6 +290,56 @@ async function initDb() {
   `);
 
   await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS web_events (
+      id TEXT PRIMARY KEY,
+      event_name TEXT NOT NULL,
+      path TEXT,
+      target TEXT,
+      session_id TEXT,
+      user_agent TEXT,
+      metadata_json TEXT,
+      created_at TEXT NOT NULL
+    )
+  `);
+  await sql.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_web_events_name_created
+    ON web_events(event_name, created_at DESC)
+  `);
+  await sql.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_web_events_session_created
+    ON web_events(session_id, created_at DESC)
+  `);
+
+  /* encargos — pre-pedidos de videos con IA (y otros servicios a futuro).
+   *
+   * La gente llena el form en EncargosIASection (home) y cae acá. No es una
+   * compra directa: Santi los revisa, contesta por el canal que dejen
+   * (contact), y recién después se cobra. Por eso no hay amount fijo ni
+   * status payment-related — hay workflow status (nuevo → respondido →
+   * cotizado → ganado | perdido).
+   *
+   * package_id: 'reel'|'spot'|'historia'|'consultoria'|'serie'|'web'|'proyecto'|'custom' — el paquete que eligieron,
+   * o 'custom' si usaron el form genérico. Lo guardamos como text porque los
+   * paquetes viven en el frontend (EncargosIASection.tsx) y pueden cambiar
+   * sin migrar el schema.
+   *
+   * reference_url: opcional, para que manden un link a algo que quieren imitar
+   * (reel de referencia, web, mood board). */
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS encargos (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      contact TEXT NOT NULL,
+      package_id TEXT NOT NULL,
+      brief TEXT NOT NULL,
+      reference_url TEXT,
+      status TEXT NOT NULL DEFAULT 'nuevo',
+      created_at TEXT NOT NULL,
+      updated_at TEXT
+    )
+  `);
+
+  await sql.unsafe(`
     CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -345,6 +433,10 @@ async function initDb() {
     ALTER TABLE purchases ADD COLUMN IF NOT EXISTS download_expires_at TEXT;
     ALTER TABLE purchases ADD COLUMN IF NOT EXISTS email_sent_at TEXT;
     ALTER TABLE purchases ADD COLUMN IF NOT EXISTS paid_at TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS supporter_message TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS contact_email TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS message_visibility TEXT;
+    ALTER TABLE purchases ADD COLUMN IF NOT EXISTS followup_at TEXT;
     ALTER TABLE purchases ADD COLUMN IF NOT EXISTS updated_at TEXT;
   `);
   await sql.unsafe(`
@@ -405,6 +497,9 @@ async function initDb() {
   `);
   await sql.unsafe(`
     ALTER TABLE media ADD COLUMN IF NOT EXISTS ai_prompt TEXT
+  `);
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS asset_urls TEXT
   `);
 
   // Social links
@@ -646,26 +741,7 @@ async function initDb() {
     `).run('s4', 'Sofi', 1000, 'Invitame un cafecito virtual', null, 0, 1, new Date(Date.now() - 86400000).toISOString(), 'c3');
 
     // Seed settings
-    const initialSettings = {
-      creatorName: 'Santi Balosky',
-      creatorBio: 'Creador de contenido, viajero y catador profesional de alfajores. Bancá este delirio para que siga creando.',
-      creatorAvatar: '/images/santi-avatar.jpeg',
-      heroTitle: 'Santi Balosky',
-      heroSubtitle: 'Creador de contenido, viajero y catador profesional de alfajores. Bancá este delirio para que siga creando.',
-      primaryCTA: 'Invitame un cafecito',
-      secondaryCTA: 'Ver recompensas',
-      socialLinks: {
-        instagram: 'https://instagram.com/santiagobalosky',
-        spotify: 'https://open.spotify.com/artist/balosky',
-        applemusic: 'https://music.apple.com/artist/balosky',
-        youtube: 'https://youtube.com/@santiagobalosky'
-      },
-      darkModeDefault: false,
-      visibleSections: ['hero', 'campaigns', 'rewards', 'wall'],
-      supportAmountsSuggested: [1000, 3000, 5000, 10000],
-      legalText: 'Pago seguro con Mercado Pago.',
-      content: DEFAULT_PUBLIC_CONTENT
-    };
+    const initialSettings = buildDefaultSettings();
 
     await db.prepare('INSERT INTO settings (id, data) VALUES (?, ?)').run('global', JSON.stringify(initialSettings));
 
@@ -702,6 +778,53 @@ async function initDb() {
 
     // Seed purchases
     await db.prepare('INSERT INTO purchases (id, supporterName, type, itemId, title, createdAt) VALUES (?, ?, ?, ?, ?, ?)').run('pur1', 'Santi Balosky', 'product', 'p1', 'Guía de Viaje: Tokyo Low Cost', now);
+  }
+
+  // Backfill existing installs: Cafecito now has a settings-managed floor.
+  const settingsRow = await db.prepare('SELECT data FROM settings WHERE id = ?').get('global') as any;
+  if (!settingsRow?.data) {
+    await db.prepare('INSERT INTO settings (id, data) VALUES (?, ?)').run('global', JSON.stringify(buildDefaultSettings()));
+  } else {
+    try {
+      const settings = JSON.parse(settingsRow.data);
+      const currentAmount = Number(settings?.cafecito?.amount);
+      const cafecitoAmount = Number.isFinite(currentAmount) && currentAmount >= 3000
+        ? Math.round(currentAmount)
+        : 3000;
+      const suggested = Array.from(
+        new Set([
+          cafecitoAmount,
+          ...((settings.supportAmountsSuggested || [])
+            .map((amount: unknown) => Math.round(Number(amount)))
+            .filter((amount: number) => Number.isFinite(amount) && amount >= cafecitoAmount)),
+          5000,
+          10000,
+          15000,
+        ]),
+      );
+      const nextSettings = {
+        ...settings,
+        supportAmountsSuggested: suggested,
+        cafecito: {
+          amount: cafecitoAmount,
+          mercadoPagoLink: typeof settings?.cafecito?.mercadoPagoLink === 'string'
+            ? settings.cafecito.mercadoPagoLink.trim()
+            : '',
+          paypalLink: typeof settings?.cafecito?.paypalLink === 'string'
+            ? settings.cafecito.paypalLink.trim()
+            : 'https://paypal.me/balosky',
+          paypalCurrency: /^[A-Z]{3}$/.test(String(settings?.cafecito?.paypalCurrency || '').trim().toUpperCase())
+            ? String(settings.cafecito.paypalCurrency).trim().toUpperCase()
+            : 'USD',
+          paypalUnitAmount: Number.isFinite(Number(settings?.cafecito?.paypalUnitAmount)) && Number(settings.cafecito.paypalUnitAmount) > 0
+            ? Math.round(Number(settings.cafecito.paypalUnitAmount) * 100) / 100
+            : 3,
+        },
+      };
+      await db.prepare('UPDATE settings SET data = ? WHERE id = ?').run(JSON.stringify(nextSettings), 'global');
+    } catch (error) {
+      console.warn('[db] could not backfill cafecito settings', error);
+    }
   }
 
   // Idempotent seed for the 3 Club tiers (base / orbita / cerrada).
@@ -786,7 +909,7 @@ async function initDb() {
     if (countSocials.length === 0 || (countSocials[0] as any).count === 0) {
       const nowSoc = new Date().toISOString();
       const socialsSeed: Array<[string, string, string, string, string, string, string, string, number]> = [
-        ['soc_ig',  'instagram',   'Instagram',    '@santiagobalosky · 176K', 'https://instagram.com/santiagobalosky',     'IG', '#F02E65', '#FFB83D', 1],
+        ['soc_ig',  'instagram',   'Instagram',    '@santiagobalosky · 185K', 'https://instagram.com/santiagobalosky',     'IG', '#F02E65', '#FFB83D', 1],
         ['soc_igf', 'instagram',   'Foto Balosky', '@fotobalosky',            'https://instagram.com/fotobalosky',         '📷', '#7C3FFF', '#F02E65', 2],
         ['soc_tw',  'twitch',      'Twitch',       'balosky · streams',       'https://twitch.tv/balosky',                 'TV', '#9146FF', '#5c2bb5', 3],
         ['soc_yt',  'youtube',     'YouTube',      '@santiagobalosky',        'https://youtube.com/@santiagobalosky',      '▶',  '#FF0000', '#b50000', 4],
@@ -876,7 +999,7 @@ async function initDb() {
       title: 'El molinete del conurbano',
       description: 'La épica del molinete del tren en hora pico, contada como western generado con IA.',
       category: 'IDEAS · IA',
-      mediaUrl: '/uploads/videos/balosky-molinete-conurbano.mp4',
+      mediaUrl: '/uploads/videos/balosky-molinete-conurbano.web.mp4',
       coverImage: null,
       duration: null,
       aiTool: 'Veo 3',
@@ -985,7 +1108,13 @@ export const updateAdminUserCredentials = async (userId: string, username: strin
   ).run(username, null, passwordHash, userId);
 };
 
-// Initialize on module load
-await initDb();
+// Initialize on module load for local/dev. On Vercel production, running the
+// whole schema + seed pass during every cold start can block lightweight API
+// routes (like /api/auth/status) long enough for the function to fail.
+if (process.env.VERCEL && process.env.NODE_ENV === 'production') {
+  console.log('[db] Skipping automatic init on Vercel production cold start.');
+} else {
+  await initDb();
+}
 
 export default db;

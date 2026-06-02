@@ -79,11 +79,11 @@ export default function SonidoSection() {
                 07 · SONIDO
               </span>
             </div>
-            <h2>canciones<br /><em>con SUNO</em>.</h2>
+            <h2>canciones<br /><em>desde el humo</em>.</h2>
           </div>
           <p>
-            Tracks que generé con SUNO de distinta índole — experimentos, bocetos, versiones que no
-            llegaron al disco. Todo se escucha acá.
+            Bocetos, loops y atmósferas hechas con SUNO. Lo publicado sale a plataformas; lo raro
+            queda acá como archivo de proceso.
           </p>
         </div>
 
@@ -112,7 +112,7 @@ export default function SonidoSection() {
             </div>
           )}
 
-          <div className="suno-grid">
+          <div className="suno-grid suno-coverflow" aria-label="Portadas de canciones">
             {visible.length === 0 ? (
               <div
                 style={{
@@ -173,10 +173,17 @@ export default function SonidoSection() {
                           <span className={badge.cls}>{badge.label}</span>
                         </div>
                       )}
+                      {/*
+                        El "play" es visual únicamente. No puede ser <button>
+                        porque la tile ya es un <button> y eso rompía
+                        hidratación (nested button). Con role removido y
+                        aria-hidden, el click sigue viniendo desde la tile
+                        externa que maneja setActive(i) → abre SunoModal.
+                      */}
                       <div className="suno-card__overlay">
-                        <button type="button" className="suno-card__play" aria-hidden tabIndex={-1}>
+                        <span className="suno-card__play" aria-hidden="true">
                           ▶
-                        </button>
+                        </span>
                       </div>
                     </div>
                     <div className="suno-card__body">

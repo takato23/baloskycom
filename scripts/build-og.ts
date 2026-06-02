@@ -5,8 +5,14 @@ import sharp from 'sharp';
 const projectRoot = process.cwd();
 const publicDir = path.join(projectRoot, 'public');
 const ojoDir = path.join(publicDir, 'uploads', 'ojo');
+const preferredOgSource = path.join(publicDir, 'images', 'home-editorial', 'lab-poster-h.jpg');
 
 async function pickSourceImage() {
+  try {
+    await fs.access(preferredOgSource);
+    return preferredOgSource;
+  } catch (_) {}
+
   const files = (await fs.readdir(ojoDir))
     .filter((file) => /\.(avif|jpe?g|png|webp)$/i.test(file))
     .sort();
@@ -38,10 +44,10 @@ function ogOverlaySvg() {
         BALOSKY
       </text>
       <text x="62" y="355" fill="#FA5D29" font-family="Inter, sans-serif" font-size="32" font-weight="600">
-        donde termina el feed, empezamos nosotros
+        edición IA con mirada propia
       </text>
       <text x="86" y="545" fill="#F3EFE6" font-family="Inter, sans-serif" font-size="28" font-weight="600">
-        Fotos, música, wallpapers y apoyo directo.
+        Archivo intervenido, escenas raras y encargos visuales.
       </text>
     </svg>
   `);

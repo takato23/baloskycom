@@ -140,7 +140,7 @@ export default function CampaignDetails() {
             <section>
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 t-section text-[var(--black)]">
                 <span className="bg-[var(--accent)]/20 text-[var(--accent)] p-2"><Award className="w-5 h-5" /></span>
-                Roadmap de Metas
+                Próximas metas
               </h2>
               <div className="relative pl-8 space-y-8 before:absolute before:inset-0 before:ml-[39px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-[var(--border)]">
                 {campaign.stretchGoals.map((goal, index) => {
@@ -214,15 +214,15 @@ export default function CampaignDetails() {
             <div className="space-y-4">
               <div className="bg-[var(--white)] border border-[var(--border)] p-5">
                 <h4 className="font-bold text-[var(--accent)] mb-2">¿Qué pasa si no se llega a la meta?</h4>
-                <p className="text-[var(--muted)] text-sm">Todo lo recaudado se utilizará de todas formas para el proyecto, aunque tomará más tiempo completarlo. Tu aporte siempre ayuda.</p>
+                <p className="text-[var(--muted)] text-sm">Igual lo uso para el proyecto, solo que va a tardar un poco más. Cada peso suma.</p>
               </div>
               <div className="bg-[var(--white)] border border-[var(--border)] p-5">
                 <h4 className="font-bold text-[var(--accent)] mb-2">¿Puedo aportar de forma anónima?</h4>
-                <p className="text-[var(--muted)] text-sm">Sí, al momento de hacer el pago podés elegir la opción de que tu nombre no aparezca públicamente en el muro.</p>
+                <p className="text-[var(--muted)] text-sm">Sí. Cuando pagás podés elegir que tu nombre no aparezca en el muro.</p>
               </div>
               <div className="bg-[var(--white)] border border-[var(--border)] p-5">
                 <h4 className="font-bold text-[var(--accent)] mb-2">¿Cuáles son los métodos de pago?</h4>
-                <p className="text-[var(--muted)] text-sm">Aceptamos todas las tarjetas de crédito y débito a través de Mercado Pago, además de dinero en cuenta.</p>
+                <p className="text-[var(--muted)] text-sm">Tarjetas de crédito y débito por Mercado Pago, más dinero en cuenta.</p>
               </div>
             </div>
           </div>

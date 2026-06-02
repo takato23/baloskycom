@@ -1,18 +1,24 @@
-import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
+import { CAFECITOS_TOTAL_AMOUNT, CAFECITOS_TOTAL_COUNT } from '@/content/cafecitos';
 
 /**
- * Links that point to home-page anchor sections. These live in the static
- * `delirio.html` served by Express for `/`, so we use plain `<a href="/#...">`
- * tags (not react-router Links) to force a full page navigation. That lets
- * the anchor resolve once the static HTML's own JS wires scroll-to-section.
+ * Links que apuntan a las secciones de la home. Se usan `<a href="/#...">`
+ * (no react-router Links) para que, estando en otra ruta, un click haga un
+ * full-nav a `/` y recién ahí el hash resuelva al anchor.
  *
- * `Laboratorio` is a React route, so it uses react-router.
+ * **Historial de anchors**: `#apoya` y `#club` existían cuando teníamos
+ * `ApoyaSection` + `ClubSection` separados. Desde la unificación en
+ * `MonetizacionHub` ambos colapsaron a `#trabajemos`. Dejamos el span
+ * `#club` dentro del hub para retrocompat de links viejos, pero en el nav
+ * nuevo apuntamos directo a `#trabajemos`.
+ *
+ * `Laboratorio` es una ruta React → `<Link>`.
  */
 const ANCHOR_LINKS = [
-  { href: '/#apoya', label: 'Apoyá' },
-  { href: '/#club', label: 'Club' },
+  { href: '/btv', label: 'BTV' },
+  { href: '/productora', label: 'Productora' },
+  { href: '/#trabajemos', label: 'Trabajemos' },
   { href: '/#vision', label: 'Visión' },
   { href: '/#ojo', label: 'Ojo' },
   { href: '/#sonido', label: 'Sonido' },
@@ -20,52 +26,10 @@ const ANCHOR_LINKS = [
   { href: '/#redes', label: 'Redes' },
 ];
 
-/** Next Saturday at 22:00 local time — matches the logic in delirio.html. */
-function nextSaturday(now = new Date()): Date {
-  const d = new Date(now);
-  const day = d.getDay(); // 0 sun .. 6 sat
-  let add = (6 - day + 7) % 7;
-  if (add === 0 && now.getHours() >= 22) add = 7;
-  d.setDate(d.getDate() + add);
-  d.setHours(22, 0, 0, 0);
-  return d;
-}
-
-function formatCountdown(target: Date): string {
-  const t = target.getTime() - Date.now();
-  if (t <= 0) return 'live LIVE';
-  const h = Math.floor(t / 3_600_000);
-  const m = Math.floor((t % 3_600_000) / 60_000);
-  const s = Math.floor((t % 60_000) / 1000);
-  if (h >= 24) {
-    const d = Math.floor(h / 24);
-    return `prox. live ${d}d ${h % 24}h`;
-  }
-  return `prox. live ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
 export default function DelirioHeader() {
   const location = useLocation();
   const { theme, setTheme } = useAppContext();
-
-  const [countdown, setCountdown] = useState(() => formatCountdown(nextSaturday()));
-  const [online, setOnline] = useState(312);
-
-  // Live countdown — recomputes every second.
-  useEffect(() => {
-    const tick = () => setCountdown(formatCountdown(nextSaturday()));
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  // Rolling "online" counter — matches the 4.8s cadence of the static home.
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setOnline(300 + Math.floor(Math.random() * 40));
-    }, 4800);
-    return () => window.clearInterval(id);
-  }, []);
+  const isHome = location.pathname === '/' || location.pathname === '/home-preview';
 
   // Dark ↔ Light quick toggle (the full 5-theme picker lives in <ThemeFab />).
   const toggleQuick = () => setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -87,7 +51,7 @@ export default function DelirioHeader() {
   };
 
   return (
-    <nav className="nav" role="navigation" aria-label="Navegación principal">
+    <nav className={isHome ? 'nav nav--home' : 'nav'} role="navigation" aria-label="Navegación principal">
       <a href="/" className="logo" aria-label="Balosky — inicio" onClick={handleLogoClick}>
         <span className="orbito" aria-hidden="true" />
         Balosky
@@ -95,7 +59,7 @@ export default function DelirioHeader() {
 
       <div className="nav-links">
         {ANCHOR_LINKS.map((l) => (
-          <a key={l.href} href={l.href}>
+          <a key={l.href} href={l.href} aria-current={location.pathname === l.href ? 'page' : undefined}>
             <span className="nav-inner">
               <span className="txt">{l.label}</span>
               <span className="txt-alt">{l.label}</span>
@@ -115,12 +79,23 @@ export default function DelirioHeader() {
       </div>
 
       <div className="nav-right">
-        <div className="pill-live" data-cursor="LIVE">
+        <a
+          className={isHome ? 'pill-live pill-live--compact' : 'pill-live'}
+          href="/cafecito"
+          data-cursor="CAFECITO"
+          aria-label="Invitame un cafecito"
+        >
           <span className="pulse" aria-hidden="true" />
-          <span>{online} online</span>
-          <span style={{ marginLeft: 6, color: 'rgba(24,210,196,0.7)' }}>·</span>
-          <span style={{ color: 'rgba(24,210,196,0.8)' }}>{countdown}</span>
-        </div>
+          <span>{CAFECITOS_TOTAL_COUNT} cafecitos</span>
+          {!isHome && (
+            <>
+              <span style={{ marginLeft: 6, color: 'rgba(24,210,196,0.7)' }}>·</span>
+              <span style={{ color: 'rgba(24,210,196,0.8)' }}>
+                ${(CAFECITOS_TOTAL_AMOUNT / 1_000_000).toFixed(2)}M reales
+              </span>
+            </>
+          )}
+        </a>
         <button
           className="mode-btn"
           onClick={toggleQuick}

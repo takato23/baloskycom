@@ -13,6 +13,8 @@
     href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet"
   />
+  <script defer data-domain="balosky.com" src="https://plausible.io/js/script.tagged-events.outbound-links.js"></script>
+  <script defer src="/static-analytics.js"></script>
   <style>
     :root {
       --black: #0a0a0a;
@@ -91,9 +93,12 @@
 
     h1 {
       font-family: 'Inter Tight', Inter, sans-serif;
-      font-weight: 900; font-size: clamp(28px, 5vw, 40px);
+      font-weight: 900; font-size: 40px;
       letter-spacing: -0.04em; line-height: 1.05;
       margin: 14px 0 10px;
+    }
+    @media (max-width: 520px) {
+      h1 { font-size: 30px; }
     }
     h1 .pt { color: var(--accent); }
     .sub {
@@ -151,6 +156,35 @@
     .hint { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 20px; }
     .hint a { color: var(--accent); text-decoration: none; }
 
+    .followup {
+      margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);
+      display: grid; gap: 12px;
+    }
+    .followup h2 {
+      font-family: 'Inter Tight', Inter, sans-serif;
+      font-size: 22px; line-height: 1; letter-spacing: -0.02em;
+      margin: 0;
+    }
+    .followup p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .followup input,
+    .followup textarea {
+      width: 100%; border: 1px solid var(--border); border-radius: 12px;
+      background: #090807; color: var(--text); font: inherit;
+      padding: 12px 14px; outline: none;
+    }
+    .followup textarea { min-height: 92px; resize: vertical; }
+    .followup input:focus,
+    .followup textarea:focus { border-color: var(--accent); }
+    .visibility {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .visibility label {
+      border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
+      display: flex; align-items: center; gap: 8px; color: var(--body);
+      font-size: 13px;
+    }
+    .followup-status { font-size: 12px; color: var(--muted); min-height: 18px; }
+
     footer {
       position: relative; z-index: 2;
       padding: 22px 24px; border-top: 1px solid var(--border);
@@ -200,6 +234,20 @@
         <div class="meta-row"><span>Ref</span><span class="ref" id="metaRef">—</span></div>
       </div>
 
+      <form class="followup hidden" id="followupForm">
+        <h2>dejame algo, si querés</h2>
+        <p>Ahora que ya pagaste, esto es opcional: nombre, mail, mensaje público o mensaje privado.</p>
+        <input id="supporterName" maxlength="60" placeholder="tu nombre o @IG" autocomplete="name" />
+        <input id="supporterEmail" type="email" placeholder="mail opcional" autocomplete="email" />
+        <textarea id="supporterMessage" maxlength="500" placeholder="mensaje opcional"></textarea>
+        <div class="visibility" role="radiogroup" aria-label="Privacidad del mensaje">
+          <label><input type="radio" name="visibility" value="public" checked /> público</label>
+          <label><input type="radio" name="visibility" value="private" /> privado</label>
+        </div>
+        <button class="cta" id="followupBtn" type="submit">enviar mensaje &rarr;</button>
+        <div class="followup-status" id="followupStatus"></div>
+      </form>
+
       <p class="hint" id="hint">
         También te mandamos un mail con el link de descarga (válido 48h). Si no te llega, revisá spam o escribime a
         <a href="mailto:hola@balosky.com">hola@balosky.com</a>.
@@ -228,6 +276,12 @@
       var metaTitle = $('metaTitle');
       var metaAmount = $('metaAmount');
       var metaRef = $('metaRef');
+      var followupForm = $('followupForm');
+      var followupBtn = $('followupBtn');
+      var followupStatus = $('followupStatus');
+      var supporterName = $('supporterName');
+      var supporterEmail = $('supporterEmail');
+      var supporterMessage = $('supporterMessage');
 
       var params = new URLSearchParams(window.location.search);
       var purchaseId = params.get('purchase') || params.get('purchase_id') || params.get('id') || '';
@@ -248,8 +302,11 @@
         statusDot.className = 'dot paid';
         statusText.innerHTML = 'Pago confirmado';
         eyebrow.textContent = 'listo';
-        headline.innerHTML = 'ya es tuyo<span class="pt">.</span>';
-        subheadline.textContent = 'Tu descarga está lista. También te mandamos el link por mail.';
+        var isCampaign = data && data.type === 'campaign';
+        headline.innerHTML = isCampaign ? 'gracias por bancar<span class="pt">.</span>' : 'ya es tuyo<span class="pt">.</span>';
+        subheadline.textContent = isCampaign
+          ? 'Tu aporte ya entró. Si querés, abajo podés dejarme un mensaje sin frenar el pago.'
+          : 'Tu descarga está lista. También te mandamos el link por mail.';
         if (data && data.downloadToken) {
           var url = '/api/download/' + encodeURIComponent(data.downloadToken);
           downloadBtn.disabled = false;
@@ -260,6 +317,10 @@
           // Aporte/membresía sin archivo → botón inerte
           downloadBtn.textContent = 'Gracias';
           downloadBtn.disabled = true;
+        }
+        if (isCampaign) {
+          followupForm.classList.remove('hidden');
+          hint.innerHTML = 'Si preferís escribirme directo, estoy en <a href="https://instagram.com/santiagobalosky" target="_blank" rel="noopener">Instagram</a>.';
         }
         if (data && (data.title || data.amount)) {
           metaBox.hidden = false;
@@ -337,6 +398,32 @@
       // kickoff
       poll();
       timer = setInterval(poll, intervalMs);
+
+      followupForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        followupBtn.disabled = true;
+        followupStatus.textContent = 'enviando...';
+        try {
+          var visibilityInput = document.querySelector('input[name="visibility"]:checked');
+          var r = await fetch('/api/purchases/' + encodeURIComponent(purchaseId) + '/followup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              supporterName: supporterName.value,
+              email: supporterEmail.value,
+              message: supporterMessage.value,
+              visibility: visibilityInput ? visibilityInput.value : 'public'
+            })
+          });
+          var json = await r.json().catch(function () { return {}; });
+          if (!r.ok) throw new Error(json.error || 'No pudimos guardar el mensaje.');
+          followupStatus.textContent = 'listo, gracias. ahora sí.';
+          followupBtn.textContent = 'mensaje enviado';
+        } catch (e) {
+          followupStatus.textContent = e && e.message ? e.message : 'No pudimos guardar el mensaje.';
+          followupBtn.disabled = false;
+        }
+      });
 
       // Al volver del background reintentar inmediato
       document.addEventListener('visibilitychange', function () {

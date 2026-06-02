@@ -1,12 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { api } from '@/services/api';
+import type { Media, MediaKind } from '@/types';
 
 /**
  * Port of `<section id="archivo">` — drag-to-scroll archive rail.
  *
- * Faithful port. The rail uses native horizontal scrolling plus a mousedown
- * grab handler so desktop users can fling it. Touch scrolling works out of
- * the box. Entries are static placeholders — a CMS-backed feed and the
- * archive detail modal are a future pass, not blockers for this port.
+ * The rail uses native horizontal scrolling plus a mousedown grab handler so
+ * desktop users can fling it. Touch scrolling works out of the box. Entries
+ * come from /api/media: no fake discos, giras or drops.
  */
 
 type RailItem = {
@@ -15,56 +16,76 @@ type RailItem = {
   cat: string;
   title: string;
   desc: string;
+  href: string;
+  image?: string | null;
 };
 
-const ITEMS: RailItem[] = [
-  {
-    n: '01',
-    cls: 'g1',
-    cat: 'DISCO · 2026',
-    title: '"Nadie escucha"',
-    desc: 'Single nuevo. Mix final.',
-  },
-  {
-    n: '02',
-    cls: 'g2',
-    cat: 'VIVO · 2026',
-    title: 'Niceto, marzo',
-    desc: 'Grabación completa · 78 min.',
-  },
-  {
-    n: '03',
-    cls: 'g3',
-    cat: 'PROCESO · 2025',
-    title: 'Cuaderno abierto',
-    desc: 'Letras y bocetos.',
-  },
-  {
-    n: '04',
-    cls: 'g4',
-    cat: 'ENCUENTROS · 2025',
-    title: 'Club en Mar del Plata',
-    desc: '52 miembros IRL.',
-  },
-  {
-    n: '05',
-    cls: 'g5',
-    cat: 'DROP · 2024',
-    title: 'Remera edición 01',
-    desc: 'Limitada · 120 unidades.',
-  },
-  {
-    n: '06',
-    cls: 'g1',
-    cat: 'ENSAYO · 2024',
-    title: 'Sobre el algoritmo',
-    desc: 'Texto · 12 min lectura.',
-  },
-  { n: '07', cls: 'g2', cat: 'DISCO · 2023', title: '"Órbita"', desc: 'EP de 4 tracks.' },
-];
+const KIND_LABEL: Record<MediaKind, string> = {
+  video_ia: 'VIDEO IA',
+  foto: 'FOTO',
+  wallpaper: 'WALLPAPER',
+  cancion: 'CANCIÓN',
+  panorama_360: '360',
+};
+
+function archiveHref(m: Media) {
+  if (m.kind === 'video_ia' || m.kind === 'panorama_360') return '/laboratorio';
+  if (m.kind === 'foto') return '/#ojo';
+  if (m.kind === 'wallpaper') return '/#pixel';
+  if (m.kind === 'cancion') return '/#sonido';
+  return m.embedUrl || m.mediaUrl || '/';
+}
+
+function toRailItem(m: Media, index: number): RailItem {
+  const cat = [KIND_LABEL[m.kind], m.category].filter(Boolean).join(' · ');
+  const desc =
+    m.description ||
+    m.duration ||
+    (m.kind === 'video_ia' && m.aiTool ? `Hecho con ${m.aiTool}` : '') ||
+    'Parte del archivo de Balosky.';
+  return {
+    n: String(index + 1).padStart(2, '0'),
+    cls: `g${(index % 5) + 1}` as RailItem['cls'],
+    cat,
+    title: m.title || 'Sin título',
+    desc,
+    href: archiveHref(m),
+    image: m.thumbUrl || m.coverImage || (m.kind === 'foto' || m.kind === 'wallpaper' ? m.mediaUrl : null),
+  };
+}
 
 export default function ArchivoSection() {
   const railRef = useRef<HTMLDivElement | null>(null);
+  const [media, setMedia] = useState<Media[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    api
+      .getMedia()
+      .then((rows) => {
+        if (!mounted) return;
+        setMedia(rows.filter((m) => m.active !== false));
+      })
+      .catch((err) => console.error('[ArchivoSection] getMedia failed', err));
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const items = useMemo(
+    () =>
+      media
+        .slice()
+        .sort((a, b) => {
+          if (a.featured !== b.featured) return a.featured ? -1 : 1;
+          const sort = (a.sortOrder || 0) - (b.sortOrder || 0);
+          if (sort !== 0) return sort;
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        })
+        .slice(0, 14)
+        .map(toRailItem),
+    [media],
+  );
 
   useEffect(() => {
     const el = railRef.current;
@@ -109,11 +130,11 @@ export default function ArchivoSection() {
                 09 · ARCHIVO
               </span>
             </div>
-            <h2>cinco años<br /><em>al alcance</em>.</h2>
+            <h2>archivo vivo<br /><em>en movimiento</em>.</h2>
           </div>
           <p>
-            Todo lo publicado, en una franja que se arrastra. Videos, temas, giras, encuentros,
-            drops. Click para abrir, arrastrá para pasar.
+            Un índice vivo de todo el universo: videos IA, fotos, wallpapers, canciones y
+            panoramas.
           </p>
         </div>
       </div>
@@ -148,15 +169,17 @@ export default function ArchivoSection() {
           >
             agarrá y arrastrá
           </div>
-          {ITEMS.map((it, i) => (
-            <div key={i} data-cursor="ARRASTRAR" className={`rail-card ${it.cls}`}>
-              <div className="art">{it.n}</div>
+          {items.map((it) => (
+            <a key={`${it.n}-${it.title}`} href={it.href} data-cursor="ABRIR" className={`rail-card ${it.cls}`}>
+              <div className="art">
+                {it.image ? <img src={it.image} alt="" loading="lazy" draggable={false} /> : it.n}
+              </div>
               <div className="info">
                 <div className="cat">{it.cat}</div>
                 <h4>{it.title}</h4>
                 <p>{it.desc}</p>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </div>

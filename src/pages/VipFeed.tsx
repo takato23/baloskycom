@@ -40,13 +40,11 @@ export default function VipFeed() {
     }
   };
 
-  // "Aportar ahora" from inside the locked-content overlay: jumps to the
-  // unified checkout, pre-selecting the encargo flow with the minimum
-  // contribution the post demands. That lands the user on the amount step
-  // with the exact number they need to hit already populated.
+  // "Aportar ahora" from inside the locked-content overlay is support money,
+  // not a custom job. Keep it in the cafecito/contribution lane.
   const handleUnlockAport = (minContribution: number) => {
     const amount = Math.max(500, Math.round(minContribution));
-    navigate(`/checkout?mode=encargo&amount=${amount}`);
+    navigate(`/checkout?mode=cafecito&amount=${amount}`);
   };
 
   const unlockedPosts = useMemo(
