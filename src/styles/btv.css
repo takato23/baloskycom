@@ -700,3 +700,114 @@
     min-height: 205px;
   }
 }
+
+/* --- Canal en vivo 24/7 --- */
+.btv-live-scanlines {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.14) 0px,
+    rgba(0, 0, 0, 0.14) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  mix-blend-mode: overlay;
+}
+
+.btv-live-bug {
+  position: absolute;
+  top: clamp(96px, 12vh, 130px);
+  left: clamp(16px, 4vw, 64px);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid rgba(250, 93, 41, 0.5);
+  background: rgba(5, 5, 5, 0.7);
+  backdrop-filter: blur(10px);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #f7efe6;
+}
+
+.btv-live-bug i,
+.btv-live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff2b2b;
+  box-shadow: 0 0 12px rgba(255, 43, 43, 0.9);
+  animation: btvLivePulse 1.4s ease infinite;
+}
+
+.btv-live-dot {
+  margin-right: 8px;
+  vertical-align: baseline;
+}
+
+@keyframes btvLivePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.25); }
+}
+
+.btv-now__bar {
+  display: block;
+  height: 3px;
+  margin-top: 16px;
+  background: rgba(247, 239, 230, 0.14);
+  overflow: hidden;
+}
+
+.btv-now__bar i {
+  display: block;
+  height: 100%;
+  background: var(--btv-hot);
+  transition: width 1s linear;
+}
+
+.btv-now__next {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.btv-now__next li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--btv-muted);
+  border-top: 1px solid var(--btv-line);
+  padding-top: 8px;
+}
+
+.btv-now__next li em {
+  flex: 0 0 auto;
+  min-width: 52px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--btv-hot);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btv-live-bug i,
+  .btv-live-dot {
+    animation: none;
+  }
+}

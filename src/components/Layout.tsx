@@ -37,6 +37,7 @@ export default function Layout() {
   const isCheckout = location.pathname.startsWith('/checkout');
   const isBtv = location.pathname === '/btv' || location.pathname === '/balosflix';
   const isProductora = location.pathname === '/productora';
+  const isCameo = location.pathname === '/cameo';
   const isLaboratorio = location.pathname === '/laboratorio';
   // `/` y `/home-preview` renderizan el mismo HomePreview (Delirio home).
   // Ambos necesitan full-bleed para que el hero + secciones de media
@@ -49,7 +50,7 @@ export default function Layout() {
   // full-bleed: tiene su propio fondo oscuro `#0a0908` que necesita
   // llegar a los bordes en mobile (sino se ven tiras claras a los
   // costados — bug que se notaba como "se ve igual que desktop").
-  const isFullBleed = isAgendaPublica || isHome || isCheckout || isBtv || isProductora || isLaboratorio;
+  const isFullBleed = isAgendaPublica || isHome || isCheckout || isBtv || isProductora || isCameo || isLaboratorio;
   const { settings } = useAppContext();
 
   const reducedMotion = usePrefersReducedMotion();
@@ -63,6 +64,7 @@ export default function Layout() {
     !isCheckout &&
     !isAgendaPublica &&
     !isProductora &&
+    !isCameo &&
     !isMobileViewport &&
     !reducedMotion;
 
@@ -200,7 +202,7 @@ export default function Layout() {
           </AnimatePresence>
         </main>
 
-        {isProductora ? <ProductoraFooter /> : <DelirioFooter />}
+        {isProductora || isCameo ? <ProductoraFooter /> : <DelirioFooter />}
 
         <MusicPlayerDock hidden={isFullBleed} />
 

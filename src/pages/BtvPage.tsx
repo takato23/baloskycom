@@ -1,8 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/services/api';
 import type { Media, MediaKind } from '@/types';
 import '@/styles/btv.css';
+
+/**
+ * Canal 24/7: la programación sale del reloj, no de un server. Cada pieza
+ * ocupa un slot nominal de SLOT_SECONDS; el slot actual es
+ * floor(epoch / SLOT) % playlist.length, así todos los que entran ven la
+ * misma pieza "al mismo tiempo", como un canal de TV de verdad. Si la pieza
+ * dura menos que el slot, loopea hasta el próximo cambio.
+ */
+const SLOT_SECONDS = 90;
 
 const KIND_LABEL: Record<MediaKind, string> = {
   video_ia: 'Video IA',
@@ -136,6 +145,16 @@ function EmptyRow({ label }: { label: string }) {
 export default function BtvPage() {
   const [media, setMedia] = useState<MediaBuckets>(EMPTY_BUCKETS);
 
+  // --- Canal en vivo ---
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
+  const [channelMuted, setChannelMuted] = useState(true);
+  const channelVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
@@ -182,8 +201,44 @@ export default function BtvPage() {
   );
 
   const heroItem = media.videos[0] || allFeatured[0] || null;
-  const heroTitle = heroItem?.title || 'BTV';
-  const heroDescription = heroItem?.description || heroItem?.category || 'Lo último del archivo de Balosky.';
+
+  // Playlist del canal: todos los videos IA con archivo reproducible.
+  const playlist = useMemo(() => media.videos.filter((v) => v.mediaUrl), [media.videos]);
+  const slot = playlist.length ? Math.floor(nowSec / SLOT_SECONDS) : 0;
+  const channelIndex = playlist.length ? slot % playlist.length : 0;
+  const slotProgress = ((nowSec % SLOT_SECONDS) / SLOT_SECONDS) * 100;
+  const onAir = playlist[channelIndex] || null;
+  const upNext = playlist.length > 1
+    ? [1, 2, 3].map((i) => playlist[(channelIndex + i) % playlist.length])
+    : [];
+  const clock = new Date(nowSec * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+  // Sincronizar la pieza al entrar al slot: arranca donde "va" el canal.
+  useEffect(() => {
+    const vid = channelVideoRef.current;
+    if (!vid || !onAir) return;
+    const sync = () => {
+      if (Number.isFinite(vid.duration) && vid.duration > 0) {
+        vid.currentTime = ((Date.now() / 1000) % SLOT_SECONDS) % vid.duration;
+      }
+      vid.play().catch(() => {});
+    };
+    if (vid.readyState >= 1) sync();
+    else vid.addEventListener('loadedmetadata', sync, { once: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onAir?.id]);
+
+  useEffect(() => {
+    const vid = channelVideoRef.current;
+    if (!vid) return;
+    vid.muted = channelMuted;
+    vid.play().catch(() => {
+      if (!vid.muted) {
+        vid.muted = true;
+        setChannelMuted(true);
+      }
+    });
+  }, [channelMuted, onAir?.id]);
   const totals = {
     videos: media.videos.length,
     songs: media.songs.length,
@@ -195,37 +250,82 @@ export default function BtvPage() {
     <div className="btv-page">
       <section className="btv-hero" id="btv-top">
         <div className="btv-hero__media" aria-hidden="true">
-          {heroItem ? <MediaVisual item={heroItem} eager allowVideo /> : <span className="btv-empty-art">BTV</span>}
-          {heroItem?.kind === 'video_ia' && heroItem.mediaUrl && visualUrl(heroItem) && (
-            <video src={heroItem.mediaUrl} autoPlay muted loop playsInline />
+          {onAir?.mediaUrl ? (
+            <video
+              key={onAir.id}
+              ref={channelVideoRef}
+              src={onAir.mediaUrl}
+              poster={visualUrl(onAir) || undefined}
+              autoPlay
+              muted={channelMuted}
+              loop
+              playsInline
+              preload="auto"
+            />
+          ) : heroItem ? (
+            <MediaVisual item={heroItem} eager allowVideo />
+          ) : (
+            <span className="btv-empty-art">BTV</span>
           )}
+          <span className="btv-live-scanlines" />
         </div>
         <div className="btv-hero__shade" aria-hidden="true" />
+
+        {onAir && (
+          <div className="btv-live-bug" aria-label="Transmisión en vivo">
+            <i /> EN VIVO · {clock}
+          </div>
+        )}
 
         <div className="btv-hero__copy">
           <p className="btv-kicker"><span /> BTV</p>
           <h1>BTV</h1>
-          <p className="btv-claim">El canal de Balosky.</p>
+          <p className="btv-claim">Transmitiendo siempre. Para todos lo mismo, como un canal de verdad.</p>
           <p className="btv-lede">
             Panel: {totals.videos} IA · {totals.songs} canciones · {totals.photos} fotos · {totals.wallpapers} wallpapers.
           </p>
           <div className="btv-actions">
-            <a className="btv-btn btv-btn--hot" href="#catalogo-real">
+            {onAir && (
+              <button
+                type="button"
+                className="btv-btn btv-btn--hot"
+                onClick={() => setChannelMuted((m) => !m)}
+              >
+                {channelMuted ? '🔊 Activar sonido' : '🔇 Silenciar canal'}
+              </button>
+            )}
+            <a className="btv-btn btv-btn--ghost" href="#catalogo-real">
               Ver archivo
             </a>
-            <a className="btv-btn btv-btn--ghost" href="/#prepedido-custom">
-              Pedime algo con IA
-            </a>
-            <a className="btv-btn btv-btn--ghost" href="/cafecito">
-              Financiar próximo capítulo
+            <a className="btv-btn btv-btn--ghost" href="/cameo">
+              Aparecer en una escena
             </a>
           </div>
         </div>
 
         <aside className="btv-now">
-          <p>Ahora en BTV</p>
-          <strong>{heroTitle}</strong>
-          <span>{heroDescription}</span>
+          <p>
+            <i className="btv-live-dot" aria-hidden="true" /> Ahora en BTV
+          </p>
+          <strong>{onAir?.title || heroItem?.title || 'BTV'}</strong>
+          <span className="btv-now__bar" aria-hidden="true">
+            <i style={{ width: `${slotProgress}%` }} />
+          </span>
+          {upNext.length > 0 && (
+            <ol className="btv-now__next">
+              {upNext.map((item, i) => {
+                const secs = (i + 1) * SLOT_SECONDS - (nowSec % SLOT_SECONDS);
+                const mm = Math.floor(secs / 60);
+                const ss = String(secs % 60).padStart(2, '0');
+                return (
+                  <li key={item.id}>
+                    <em>{i === 0 ? 'sigue' : `en ${mm}:${ss}`}</em>
+                    {item.title}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </aside>
       </section>
 

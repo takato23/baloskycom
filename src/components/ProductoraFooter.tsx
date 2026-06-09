@@ -46,6 +46,8 @@ export default function ProductoraFooter() {
       <div className="prod-foot__bottom">
         <span>© {year} Balosky · Buenos Aires</span>
         <nav className="prod-foot__links" aria-label="Enlaces">
+          <a href="/cameo">Cameo</a>
+          <a href="/productora">Productora</a>
           <a href="https://instagram.com/santiagobalosky" target="_blank" rel="noopener noreferrer">
             Instagram
           </a>

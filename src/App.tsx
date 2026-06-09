@@ -31,6 +31,7 @@ const AgendaPublica = lazy(() => import('./pages/AgendaPublica'));
 const Laboratorio = lazy(() => import('./pages/Laboratorio'));
 const BtvPage = lazy(() => import('./pages/BtvPage'));
 const Productora = lazy(() => import('./pages/Productora'));
+const Cameo = lazy(() => import('./pages/Cameo'));
 const HomePreview = lazy(() => import('./pages/HomePreview'));
 const HeroPreview = lazy(() => import('./pages/HeroPreview'));
 const MultimediaPreview = lazy(() => import('./pages/MultimediaPreview'));
@@ -202,6 +203,7 @@ export default function App() {
                     <Route path="btv" element={<BtvPage />} />
                     <Route path="balosflix" element={<Navigate to="/btv" replace />} />
                     <Route path="productora" element={<Productora />} />
+                    <Route path="cameo" element={<Cameo />} />
                     <Route path="home-preview" element={<HomePreview />} />
                     <Route path="preview-hero" element={<HeroPreview />} />
                     <Route path="preview-multimedia" element={<MultimediaPreview />} />
