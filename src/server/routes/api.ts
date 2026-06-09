@@ -1178,7 +1178,12 @@ const ENCARGO_CONTACT_MAX = 160;
 const ENCARGO_BRIEF_MIN = 10;
 const ENCARGO_BRIEF_MAX = 1200;
 const ENCARGO_REFERENCE_MAX = 500;
-const ENCARGO_PACKAGES = new Set(['reel', 'spot', 'historia', 'consultoria', 'serie', 'web', 'proyecto', 'custom']);
+const ENCARGO_PACKAGES = new Set([
+  'reel', 'spot', 'historia', 'consultoria', 'serie', 'web', 'proyecto', 'custom',
+  // Paquetes de la landing /productora (pack pauta de 3 variantes y campaña
+  // con distribución en la cuenta de Santi).
+  'pack', 'campania',
+]);
 const ENCARGO_STATUSES = new Set(['nuevo', 'respondido', 'cotizado', 'ganado', 'perdido']);
 const ENCARGO_PAYMENT_RE = /\[ENCARGO\]|\bencargo\b/i;
 

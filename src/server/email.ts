@@ -26,6 +26,13 @@ const REPLY_TO_EMAIL = process.env.REPLY_TO_EMAIL || 'hola@balosky.com';
 // una suscripción. Por defecto cae al mismo inbox que usamos como reply-to.
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || REPLY_TO_EMAIL;
 
+// WhatsApp de alertas vía CallMeBot (gratis, sin cuenta Meta Business).
+// Setup una sola vez: agendá +34 644 71 81 99 y mandale por WhatsApp
+// "I allow callmebot to send me messages" — te responde con tu apikey.
+// Después completá WHATSAPP_ALERT_PHONE y WHATSAPP_CALLMEBOT_APIKEY en .env.
+const WHATSAPP_ALERT_PHONE = process.env.WHATSAPP_ALERT_PHONE || '';
+const WHATSAPP_CALLMEBOT_APIKEY = process.env.WHATSAPP_CALLMEBOT_APIKEY || '';
+
 let resendClient: Resend | null = null;
 if (RESEND_API_KEY) {
   resendClient = new Resend(RESEND_API_KEY);
@@ -627,6 +634,25 @@ export type AdminAlertArgs = {
   details?: Record<string, string | number | undefined | null>;
 };
 
+/**
+ * WhatsApp paralelo al mail de alerta. Fire-and-forget: si CallMeBot está
+ * caído o no configurado, el alert por email sigue su curso normal.
+ */
+async function sendWhatsAppAlert(text: string): Promise<void> {
+  if (!WHATSAPP_ALERT_PHONE || !WHATSAPP_CALLMEBOT_APIKEY) return;
+  const url =
+    'https://api.callmebot.com/whatsapp.php' +
+    `?phone=${encodeURIComponent(WHATSAPP_ALERT_PHONE)}` +
+    `&apikey=${encodeURIComponent(WHATSAPP_CALLMEBOT_APIKEY)}` +
+    `&text=${encodeURIComponent(text)}`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) console.error('[whatsapp-alert] CallMeBot respondió', res.status);
+  } catch (e) {
+    console.error('[whatsapp-alert] error:', e);
+  }
+}
+
 export async function sendAdminAlert(args: AdminAlertArgs): Promise<SendResult> {
   const subject = `[Balosky] ${args.kind.toUpperCase()} · ${args.summary}`;
   const rows = Object.entries(args.details || {})
@@ -651,6 +677,9 @@ export async function sendAdminAlert(args: AdminAlertArgs): Promise<SendResult> 
     .map(([k, v]) => `${k}: ${v}`)
     .join('\n');
   const text = `[Balosky] ${args.kind} — ${args.summary}\n\n${textLines}\n`;
+
+  // WhatsApp en paralelo (no bloquea ni afecta el resultado del email).
+  void sendWhatsAppAlert(`🔔 ${args.kind.toUpperCase()} · ${args.summary}\n${textLines.slice(0, 500)}`);
 
   if (!resendClient) {
     console.log('\n========== [email · dev stub · admin-alert] ==========');

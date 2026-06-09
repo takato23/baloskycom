@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import cors from 'cors';
 import helmet from 'helmet';
 import apiRouter from './src/server/routes/api.js';
@@ -97,6 +98,69 @@ if (!isVercel) {
   app.get('/terminos', servePage('terminos.html'));
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// /productora — OG tags propios inyectados server-side.
+// Los crawlers de WhatsApp/Slack/Twitter NO ejecutan JS, así que el
+// <PageMeta> del cliente no alcanza: cuando alguien comparte el link a un
+// cliente, la preview mostraba la card genérica del sitio creator. Acá
+// servimos el mismo index.html del SPA pero con title/og:*/twitter:*
+// reescritos para la landing comercial.
+// (En Vercel este route no corre — ver guards isVercel más abajo — pero el
+// hosting actual es el Express server, igual que `/` con delirio.html.)
+// ────────────────────────────────────────────────────────────────────────────
+let viteRef: { transformIndexHtml(url: string, html: string): Promise<string> } | null = null;
+
+const PRODUCTORA_META = {
+  title: 'Balosky Productora — video para marcas',
+  description:
+    'Spots, trailers y piezas con IA para marcas. 223K seguidores, piezas de hasta 5.5M de views. Pensados para el feed: enganchan en segundos y se entienden sin sonido.',
+};
+
+function injectProductoraOg(html: string): string {
+  return html
+    .replace(/<title>[^<]*<\/title>/, `<title>${PRODUCTORA_META.title}</title>`)
+    .replace(
+      /(<meta\s+name="description"[\s\S]*?content=")[^"]*(")/,
+      `$1${PRODUCTORA_META.description}$2`,
+    )
+    .replace(/(property="og:title" content=")[^"]*(")/, `$1${PRODUCTORA_META.title}$2`)
+    .replace(
+      /(<meta\s+property="og:description"[\s\S]*?content=")[^"]*(")/,
+      `$1${PRODUCTORA_META.description}$2`,
+    )
+    .replace(/(property="og:url" content=")[^"]*(")/, '$1https://balosky.com/productora$2')
+    .replace(/(property="og:image:alt" content=")[^"]*(")/, `$1${PRODUCTORA_META.title}$2`)
+    .replace(/(name="twitter:title" content=")[^"]*(")/, `$1${PRODUCTORA_META.title}$2`)
+    .replace(
+      /(name="twitter:description" content=")[^"]*(")/,
+      `$1${PRODUCTORA_META.description}$2`,
+    )
+    .replace(/og-card\.jpg/g, 'og-productora.jpg');
+}
+
+const serveProductoraHtml: express.RequestHandler = async (req, res, next) => {
+  try {
+    const htmlPath =
+      process.env.NODE_ENV === 'production'
+        ? path.join(process.cwd(), 'dist', 'index.html')
+        : path.join(process.cwd(), 'index.html');
+    let html = await fs.promises.readFile(htmlPath, 'utf-8');
+    if (process.env.NODE_ENV !== 'production' && viteRef) {
+      html = await viteRef.transformIndexHtml(req.originalUrl, html);
+    }
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(injectProductoraOg(html));
+  } catch (error) {
+    console.error('[productora] OG html error:', error);
+    next();
+  }
+};
+
+if (!isVercel) {
+  app.get('/productora', serveProductoraHtml);
+}
+
 const isPotentialPaidAssetPath = (pathname: string) =>
   pathname.startsWith('/uploads/') || pathname.startsWith('/audio/') || pathname.startsWith('/videos/');
 
@@ -166,6 +230,7 @@ async function setupVite() {
     const vite = await createViteServer({server: { middlewareMode: true },
     appType: 'spa',
   });
+  viteRef = vite;
   app.use(vite.middlewares);
 }
 

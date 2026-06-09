@@ -10,6 +10,7 @@ import ModoHomerEasterEgg from '@/components/effects/ModoHomerEasterEgg';
 // import MascotCompanion from '@/components/effects/MascotCompanion'; // Desactivado: distraía y no sumaba. Si querés volver a probar, descomentá esto y el render abajo.
 import DelirioHeader from '@/components/delirio/DelirioHeader';
 import DelirioFooter from '@/components/delirio/DelirioFooter';
+import ProductoraFooter from '@/components/ProductoraFooter';
 import DelirioCursor from '@/components/delirio/DelirioCursor';
 import MobileNav from '@/components/delirio/MobileNav';
 import ThemeFab from '@/components/delirio/ThemeFab';
@@ -61,6 +62,7 @@ export default function Layout() {
     !isAdmin &&
     !isCheckout &&
     !isAgendaPublica &&
+    !isProductora &&
     !isMobileViewport &&
     !reducedMotion;
 
@@ -198,7 +200,7 @@ export default function Layout() {
           </AnimatePresence>
         </main>
 
-        <DelirioFooter />
+        {isProductora ? <ProductoraFooter /> : <DelirioFooter />}
 
         <MusicPlayerDock hidden={isFullBleed} />
 

@@ -4,22 +4,76 @@
   "outputDirectory": "dist",
   "framework": null,
   "routes": [
-    { "src": "/", "dest": "/delirio.html" },
-    { "src": "/delirio/?", "dest": "/delirio.html" },
-    { "src": "/balosflix/?", "status": 308, "headers": { "Location": "/btv" } },
-    { "src": "/privacidad/?", "dest": "/privacidad.html" },
-    { "src": "/terminos/?", "dest": "/terminos.html" },
-    { "src": "/pago-exitoso/?", "dest": "/pago-exitoso.html" },
-    { "src": "/pago-pendiente/?", "dest": "/pago-pendiente.html" },
-    { "src": "/pago-fallido/?", "dest": "/pago-fallido.html" },
-    { "src": "/club/?", "dest": "/club.html" },
-    { "src": "/api/(.*)", "dest": "/api/index" },
-    { "handle": "filesystem" },
-    { "src": "/assets/(.*)", "dest": "/assets/$1" },
-    { "src": "/uploads/(.*)", "dest": "/api/index" },
-    { "src": "/audio/(.*)", "dest": "/api/index" },
-    { "src": "/videos/(.*)", "dest": "/api/index" },
-    { "src": "/.*", "dest": "/index.html" }
+    {
+      "src": "/",
+      "dest": "/delirio.html"
+    },
+    {
+      "src": "/delirio/?",
+      "dest": "/delirio.html"
+    },
+    {
+      "src": "/balosflix/?",
+      "status": 308,
+      "headers": {
+        "Location": "/btv"
+      }
+    },
+    {
+      "src": "/privacidad/?",
+      "dest": "/privacidad.html"
+    },
+    {
+      "src": "/terminos/?",
+      "dest": "/terminos.html"
+    },
+    {
+      "src": "/pago-exitoso/?",
+      "dest": "/pago-exitoso.html"
+    },
+    {
+      "src": "/pago-pendiente/?",
+      "dest": "/pago-pendiente.html"
+    },
+    {
+      "src": "/pago-fallido/?",
+      "dest": "/pago-fallido.html"
+    },
+    {
+      "src": "/club/?",
+      "dest": "/club.html"
+    },
+    {
+      "src": "/productora/?",
+      "dest": "/productora.html"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "/uploads/(.*)",
+      "dest": "/api/index"
+    },
+    {
+      "src": "/audio/(.*)",
+      "dest": "/api/index"
+    },
+    {
+      "src": "/videos/(.*)",
+      "dest": "/api/index"
+    },
+    {
+      "src": "/.*",
+      "dest": "/index.html"
+    }
   ],
   "functions": {
     "api/index.ts": {

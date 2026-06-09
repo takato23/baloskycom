@@ -30,6 +30,7 @@ export default function DelirioHeader() {
   const location = useLocation();
   const { theme, setTheme } = useAppContext();
   const isHome = location.pathname === '/' || location.pathname === '/home-preview';
+  const isProductora = location.pathname === '/productora';
 
   // Dark ↔ Light quick toggle (the full 5-theme picker lives in <ThemeFab />).
   const toggleQuick = () => setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -79,23 +80,35 @@ export default function DelirioHeader() {
       </div>
 
       <div className="nav-right">
-        <a
-          className={isHome ? 'pill-live pill-live--compact' : 'pill-live'}
-          href="/cafecito"
-          data-cursor="CAFECITO"
-          aria-label="Invitame un cafecito"
-        >
-          <span className="pulse" aria-hidden="true" />
-          <span>{CAFECITOS_TOTAL_COUNT} cafecitos</span>
-          {!isHome && (
-            <>
-              <span style={{ marginLeft: 6, color: 'rgba(24,210,196,0.7)' }}>·</span>
-              <span style={{ color: 'rgba(24,210,196,0.8)' }}>
-                ${(CAFECITOS_TOTAL_AMOUNT / 1_000_000).toFixed(2)}M reales
-              </span>
-            </>
-          )}
-        </a>
+        {isProductora ? (
+          <a
+            className="pill-live pill-live--cta"
+            href="/productora#consulta"
+            data-cursor="HABLAR"
+            aria-label="Contar proyecto"
+          >
+            <span className="pulse" aria-hidden="true" />
+            <span>Contar proyecto</span>
+          </a>
+        ) : (
+          <a
+            className={isHome ? 'pill-live pill-live--compact' : 'pill-live'}
+            href="/cafecito"
+            data-cursor="CAFECITO"
+            aria-label="Invitame un cafecito"
+          >
+            <span className="pulse" aria-hidden="true" />
+            <span>{CAFECITOS_TOTAL_COUNT} cafecitos</span>
+            {!isHome && (
+              <>
+                <span style={{ marginLeft: 6, color: 'rgba(24,210,196,0.7)' }}>·</span>
+                <span style={{ color: 'rgba(24,210,196,0.8)' }}>
+                  ${(CAFECITOS_TOTAL_AMOUNT / 1_000_000).toFixed(2)}M reales
+                </span>
+              </>
+            )}
+          </a>
+        )}
         <button
           className="mode-btn"
           onClick={toggleQuick}

@@ -1746,6 +1746,23 @@
   border-color: rgba(24, 210, 196, 0.38);
 }
 
+/* Productora: CTA naranja (gana sobre el teal de arriba por orden) */
+.pill-live--cta {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0a0908;
+}
+
+.pill-live--cta:hover {
+  color: #0a0908;
+  background: color-mix(in srgb, var(--accent) 88%, #fff 12%);
+}
+
+.pill-live--cta .pulse {
+  background: #0a0908;
+  box-shadow: 0 0 8px rgba(10, 9, 8, 0.5);
+}
+
 .mode-btn {
   border-color: color-mix(in srgb, var(--black) 10%, transparent);
   background: rgba(255, 255, 255, 0.04);
