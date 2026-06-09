@@ -67,6 +67,8 @@ export interface Encargo {
   status: EncargoStatus;
   createdAt: string;
   updatedAt?: string | null;
+  /** Valor estimado del deal en USD — editable desde el kanban del admin. */
+  estimatedValue?: number | null;
 }
 
 export interface EventSummary {

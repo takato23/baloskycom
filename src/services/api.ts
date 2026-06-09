@@ -201,6 +201,15 @@ export const api = {
     if (!res.ok) throw new Error('Failed to update encargo status');
     return res.json();
   },
+  updateEncargoValue: async (id: string, value: number | null): Promise<Encargo> => {
+    const res = await fetch(`${API_URL}/encargos/${id}/value`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ value })
+    });
+    if (!res.ok) throw new Error('Failed to update encargo value');
+    return res.json();
+  },
   deleteEncargo: async (id: string): Promise<void> => {
     const res = await fetch(`${API_URL}/encargos/${id}`, {
       method: 'DELETE',

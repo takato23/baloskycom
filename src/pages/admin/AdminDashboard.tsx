@@ -115,8 +115,85 @@ const encargoPackageLabel: Record<string, string> = {
   serie: 'Serie de videos',
   web: 'Web / webapp',
   proyecto: 'Proyecto grande',
+  pack: 'Pack Pauta ×3',
+  campania: 'Campaña + Canal',
   custom: 'Idea rara',
 };
+
+// Anclas de /productora — fallback de valor cuando el encargo no tiene uno
+// guardado (filas viejas). Mantener en sync con ENCARGO_PACKAGE_VALUES (api.ts).
+const encargoPackageValue: Record<string, number> = {
+  spot: 500,
+  pack: 900,
+  campania: 2500,
+};
+
+const encargoValue = (e: Encargo): number =>
+  e.estimatedValue ?? encargoPackageValue[e.packageId] ?? 0;
+
+const formatUsd = (n: number) =>
+  `USD ${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+
+const daysAgo = (iso: string): string => {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  return `hace ${days}d`;
+};
+
+/** Valor del deal, editable con un click (Enter guarda, Esc cancela). */
+function EncargoValueChip({
+  encargo,
+  onSave,
+}: {
+  encargo: Encargo;
+  onSave: (id: string, value: number | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  const commit = () => {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed === '') return;
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    if (Math.round(parsed) === encargoValue(encargo)) return;
+    onSave(encargo.id, Math.round(parsed));
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        min={0}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') setEditing(false);
+        }}
+        className="w-24 rounded-lg border border-white/20 bg-black/40 px-2 py-1 text-xs font-black text-white outline-none focus:ring-2 focus:ring-emerald-400/30"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setDraft(String(encargoValue(encargo)));
+        setEditing(true);
+      }}
+      title="Editar valor estimado del deal"
+      className="rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-2 py-1 text-xs font-black text-emerald-300 hover:bg-emerald-500/20"
+    >
+      {formatUsd(encargoValue(encargo))}
+    </button>
+  );
+}
 
 const analyticsEventLabel: Record<string, { label: string; detail: string }> = {
   page_view: { label: 'Visitas', detail: 'Páginas públicas vistas' },
@@ -378,6 +455,15 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
       setEncargos(encargos.map((encargo) => (encargo.id === id ? updated : encargo)));
     } catch (error) {
       console.error('Error updating encargo status:', error);
+    }
+  };
+
+  const handleUpdateEncargoValue = async (id: string, value: number | null) => {
+    try {
+      const updated = await api.updateEncargoValue(id, value);
+      setEncargos((prev) => prev.map((encargo) => (encargo.id === id ? updated : encargo)));
+    } catch (error) {
+      console.error('Error updating encargo value:', error);
     }
   };
 
@@ -762,6 +848,12 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
       {activeTab === 'encargos' && (() => {
         const openCount = encargos.filter((e) => !['ganado', 'perdido'].includes(e.status)).length;
         const newCount = encargos.filter((e) => e.status === 'nuevo').length;
+        const pipelineValue = encargos
+          .filter((e) => !['ganado', 'perdido'].includes(e.status))
+          .reduce((acc, e) => acc + encargoValue(e), 0);
+        const wonValue = encargos
+          .filter((e) => e.status === 'ganado')
+          .reduce((acc, e) => acc + encargoValue(e), 0);
         const sorted = [...encargos].sort((a, b) => {
           const statusWeight: Record<EncargoStatus, number> = {
             nuevo: 0,
@@ -791,21 +883,82 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                   <span className="rounded-full border border-white/10 bg-zinc-950 px-3 py-2 text-sm font-black text-zinc-300">
                     {openCount} abierto{openCount === 1 ? '' : 's'}
                   </span>
+                  <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-sm font-black text-emerald-300">
+                    En juego: {formatUsd(pipelineValue)}
+                  </span>
+                  {wonValue > 0 && (
+                    <span className="rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-2 text-sm font-black text-emerald-200">
+                      Ganado: {formatUsd(wonValue)}
+                    </span>
+                  )}
                 </div>
               }
             />
 
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-              {encargoStatuses.map((status) => (
-                <div key={status} className={panelClass}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                    {encargoStatusMeta[status].label}
-                  </p>
-                  <p className="mt-2 text-3xl font-black tracking-[-0.06em] text-white">
-                    {encargos.filter((e) => e.status === status).length}
-                  </p>
-                </div>
-              ))}
+            {/* Kanban del pipeline: cada lead avanza con las flechas ← →,
+                el valor verde se edita con un click. */}
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {encargoStatuses.map((status) => {
+                const items = sorted.filter((e) => e.status === status);
+                const sum = items.reduce((acc, e) => acc + encargoValue(e), 0);
+                const statusIndex = encargoStatuses.indexOf(status);
+                return (
+                  <div
+                    key={status}
+                    className="flex w-[250px] shrink-0 flex-col gap-2 rounded-[24px] border border-white/10 bg-zinc-950/60 p-3 lg:w-auto lg:flex-1"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${encargoStatusMeta[status].className}`}>
+                        {encargoStatusMeta[status].label} · {items.length}
+                      </span>
+                      <span className="text-[11px] font-black text-zinc-500">{sum > 0 ? formatUsd(sum) : '—'}</span>
+                    </div>
+
+                    {items.length === 0 ? (
+                      <p className="rounded-2xl border border-dashed border-white/10 p-3 text-center text-[11px] text-zinc-600">
+                        vacío
+                      </p>
+                    ) : (
+                      items.map((e) => (
+                        <div key={e.id} className="space-y-2 rounded-2xl border border-white/10 bg-black/30 p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="min-w-0 truncate text-sm font-black text-white" title={e.name}>
+                              {e.name}
+                            </p>
+                            <span className="shrink-0 text-[10px] font-bold text-zinc-600">{daysAgo(e.createdAt)}</span>
+                          </div>
+                          <p className="truncate text-[11px] font-bold text-zinc-500">
+                            {encargoPackageLabel[e.packageId] || e.packageId}
+                          </p>
+                          <div className="flex items-center justify-between gap-1">
+                            <EncargoValueChip encargo={e} onSave={handleUpdateEncargoValue} />
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                disabled={statusIndex === 0}
+                                onClick={() => handleUpdateEncargoStatus(e.id, encargoStatuses[statusIndex - 1])}
+                                title="Mover atrás"
+                                className="rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-xs font-black text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"
+                              >
+                                ←
+                              </button>
+                              <button
+                                type="button"
+                                disabled={statusIndex === encargoStatuses.length - 1}
+                                onClick={() => handleUpdateEncargoStatus(e.id, encargoStatuses[statusIndex + 1])}
+                                title="Mover adelante"
+                                className="rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-xs font-black text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"
+                              >
+                                →
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">

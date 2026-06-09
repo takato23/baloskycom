@@ -439,6 +439,12 @@ async function initDb() {
     ALTER TABLE purchases ADD COLUMN IF NOT EXISTS followup_at TEXT;
     ALTER TABLE purchases ADD COLUMN IF NOT EXISTS updated_at TEXT;
   `);
+
+  /* CRM de encargos: valor estimado del deal en USD (entero). Editable desde
+     el kanban del admin; al crearse toma el ancla del paquete elegido. */
+  await sql.unsafe(`
+    ALTER TABLE encargos ADD COLUMN IF NOT EXISTS estimated_value INTEGER;
+  `);
   await sql.unsafe(`
     CREATE INDEX IF NOT EXISTS idx_purchases_ext_ref ON purchases(external_reference);
     CREATE INDEX IF NOT EXISTS idx_purchases_email ON purchases(email);

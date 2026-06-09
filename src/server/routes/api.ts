@@ -1196,11 +1196,19 @@ const normalizeEncargoStatus = (status: unknown) => {
   return ENCARGO_STATUSES.has(raw) ? raw : 'nuevo';
 };
 
+// Anclas de la landing /productora — valor default del deal al crearse.
+const ENCARGO_PACKAGE_VALUES: Record<string, number> = {
+  spot: 500,
+  pack: 900,
+  campania: 2500,
+};
+
 const mapEncargoRow = (row: any) => ({
   ...row,
   packageId: row.packageId || row.package_id || 'custom',
   referenceUrl: row.referenceUrl || row.reference_url || null,
   status: normalizeEncargoStatus(row.status),
+  estimatedValue: row.estimatedValue ?? row.estimated_value ?? null,
 });
 
 router.get('/encargos', requireAuth, async (_req, res) => {
@@ -1233,6 +1241,30 @@ router.put('/encargos/:id/status', requireAuth, async (req, res) => {
     res.json(mapEncargoRow(row));
   } catch (e) {
     console.error('[PUT /encargos/:id/status]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+router.put('/encargos/:id/value', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const raw = req.body?.value;
+    const parsed = raw === null || raw === '' ? null : Number(raw);
+    if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0 || parsed > 10_000_000)) {
+      return res.status(400).json({ error: 'Valor inválido' });
+    }
+    const value = parsed === null ? null : Math.round(parsed);
+    const updatedAt = new Date().toISOString();
+
+    await db
+      .prepare('UPDATE encargos SET estimated_value = ?, updatedAt = ? WHERE id = ?')
+      .run(value, updatedAt, id);
+
+    const row = await db.prepare('SELECT * FROM encargos WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'Encargo no encontrado' });
+    res.json(mapEncargoRow(row));
+  } catch (e) {
+    console.error('[PUT /encargos/:id/value]', e);
     res.status(500).json({ error: 'database error' });
   }
 });
@@ -1284,12 +1316,13 @@ router.post('/encargos', writePublicLimiter, async (req, res) => {
     const id = `enc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const createdAt = new Date().toISOString();
 
+    const estimatedValue = ENCARGO_PACKAGE_VALUES[packageId] ?? null;
     await db
       .prepare(
-        `INSERT INTO encargos (id, name, contact, package_id, brief, reference_url, status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'nuevo', ?)`,
+        `INSERT INTO encargos (id, name, contact, package_id, brief, reference_url, status, created_at, estimated_value)
+         VALUES (?, ?, ?, ?, ?, ?, 'nuevo', ?, ?)`,
       )
-      .run(id, rawName, rawContact, packageId, rawBrief, rawReference || null, createdAt);
+      .run(id, rawName, rawContact, packageId, rawBrief, rawReference || null, createdAt, estimatedValue);
 
     const adminUrl = `${getBaseUrl(req)}/admin/encargos`;
     await sendAdminAlert({
