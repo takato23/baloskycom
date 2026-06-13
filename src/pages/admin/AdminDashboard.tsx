@@ -1014,7 +1014,9 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
             </div>
 
             {(() => {
-              const visible = encargoFilter === 'todos' ? sorted : sorted.filter((e) => e.status === encargoFilter);
+              const visible = (encargoFilter === 'todos' ? encargos : encargos.filter((e) => e.status === encargoFilter))
+                .slice()
+                .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
               if (visible.length === 0) {
                 return (
                   <div className="rounded-[24px] border border-dashed border-white/10 bg-zinc-950/50 p-10 text-center text-sm text-zinc-500">
@@ -1022,39 +1024,67 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                   </div>
                 );
               }
+              const bucketOf = (iso: string) => {
+                const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+                if (d <= 0) return 'Hoy';
+                if (d <= 7) return 'Esta semana';
+                if (d <= 31) return 'Este mes';
+                return 'Más viejos';
+              };
+              const avatarColors = ['#FA5D29', '#F02E65', '#7C3FFF', '#18D2C4', '#FFB83D'];
+              let lastBucket = '';
               return (
-              <div className="grid gap-4">
-                {visible.map((encargo) => {
-                  const status = encargoStatusMeta[encargo.status];
-                  const isNew = encargo.status === 'nuevo';
-                  const val = encargoValue(encargo);
-                  return (
-                    <button
-                      key={encargo.id}
-                      type="button"
-                      onClick={() => setOpenEncargo(encargo)}
-                      className={`block w-full rounded-3xl border p-4 text-left transition-colors hover:bg-black/50 ${isNew ? 'border-[var(--accent,#FA5D29)]/45 bg-[var(--accent,#FA5D29)]/[0.06]' : 'border-white/10 bg-black/30'}`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2">
-                          {isNew && <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--accent,#FA5D29)]" />}
-                          <h3 className="truncate text-base font-black tracking-[-0.02em] text-white">{encargo.name}</h3>
-                        </div>
-                        <span className="shrink-0 text-[11px] font-bold text-zinc-500">{daysAgo(encargo.createdAt)}</span>
+                <div className="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-950/40">
+                  {visible.map((encargo) => {
+                    const isNew = encargo.status === 'nuevo';
+                    const val = encargoValue(encargo);
+                    const initial = (encargo.name.trim()[0] || '?').toUpperCase();
+                    const color = avatarColors[encargo.name.length % avatarColors.length];
+                    const bucket = bucketOf(encargo.createdAt);
+                    const showHeader = bucket !== lastBucket;
+                    lastBucket = bucket;
+                    return (
+                      <div key={encargo.id}>
+                        {showHeader && (
+                          <div className="bg-black/30 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                            {bucket}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setOpenEncargo(encargo)}
+                          className="flex w-full items-start gap-3 border-b border-white/[0.06] px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
+                        >
+                          <span
+                            className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-black text-black"
+                            style={{ backgroundColor: color }}
+                          >
+                            {initial}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="flex min-w-0 items-center gap-2">
+                                {isNew && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent,#FA5D29)]" />}
+                                <span className={`truncate ${isNew ? 'font-black text-white' : 'font-bold text-zinc-400'}`}>{encargo.name}</span>
+                                {!isNew && (
+                                  <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-black ${encargoStatusMeta[encargo.status].className}`}>
+                                    {encargoStatusMeta[encargo.status].label}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="shrink-0 text-[11px] font-medium text-zinc-500">{daysAgo(encargo.createdAt)}</span>
+                            </span>
+                            <span className="mt-1 block truncate text-sm text-zinc-400">
+                              <span className="font-bold text-zinc-500">{encargoPackageLabel[encargo.packageId] || encargo.packageId}{val > 0 ? ` · ${formatUsd(val)}` : ''}</span>
+                              <span className="text-zinc-600"> — </span>
+                              {encargo.brief}
+                            </span>
+                          </span>
+                        </button>
                       </div>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${status.className}`}>{status.label}</span>
-                        <span className="text-[11px] font-bold text-zinc-500">{encargoPackageLabel[encargo.packageId] || encargo.packageId}</span>
-                        {val > 0 && <span className="text-[11px] font-black text-emerald-300">{formatUsd(val)}</span>}
-                      </div>
-                      <p className="mt-2 line-clamp-2 text-sm leading-snug text-zinc-300">{encargo.brief}</p>
-                      <p className="mt-2 truncate text-xs font-medium text-zinc-500">
-                        <span className="uppercase tracking-[0.12em] text-zinc-600">contacto</span> {encargo.contact}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
               );
             })()}
 
