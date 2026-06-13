@@ -265,6 +265,150 @@ function contactActions(contact: string): Array<{ label: string; href: string }>
   return actions;
 }
 
+/* ---------------------------------------------------------------------
+ * Triage de leads: clasificación automática por reglas + detección de
+ * presupuesto. Separa cómo Santi monetiza cada lead (marca / aprender /
+ * personal) y resalta el dinero, que es la señal que importa.
+ * ------------------------------------------------------------------- */
+type EncargoCategory = 'marca' | 'aprender' | 'personal';
+
+const categoryMeta: Record<EncargoCategory, { label: string; tab: string; hint: string }> = {
+  marca: { label: 'Marca', tab: 'Marcas', hint: 'negocio, plata' },
+  aprender: { label: 'Quiere aprender', tab: 'Aprender', hint: 'workshops' },
+  personal: { label: 'Personal', tab: 'Personal', hint: 'otros' },
+};
+
+function categorizeEncargo(e: { brief: string; packageId: string }): EncargoCategory {
+  const t = (e.brief || '').toLowerCase();
+  if (/\b(aprend|workshop|taller|capacit|curso|ense[ñn]|skill|tutor|c[oó]mo (lo|los) hac)/.test(t)) return 'aprender';
+  if (/\b(marca|empresa|negocio|local|producto|tienda|agencia|lanzamiento|comercio|pyme|emprend|client|vender|venta|difusi[oó]n|publicidad|campa[ñn]a|expo|show|banda|evento|presentaci[oó]n|cotiz|presupuest)/.test(t)) return 'marca';
+  if (e.packageId === 'consultoria') return 'aprender';
+  return 'personal';
+}
+
+// Devuelve el texto del monto si el brief trae un número real; null si no
+// (ej: "a definir", "no tengo idea", "lo que valga tu laburo").
+function detectBudget(brief: string): string | null {
+  const t = brief || '';
+  const tagged = t.match(/(?:rango pensado|presupuesto|invertir|cu[aá]nto)[:\s]+([^\n.]{1,40})/i);
+  if (tagged && /\d/.test(tagged[1])) return tagged[1].trim().replace(/\s+/g, ' ');
+  const amount = t.match(/(?:USD|US\$|U\$S|\$|ARS)\s?\d[\d.,]{2,}/i);
+  if (amount) return amount[0].trim();
+  return null;
+}
+
+/**
+ * Panel de detalle del lead — reutilizado por el panel fijo de escritorio
+ * y por el modal de celular. Mensaje completo + botones para responder.
+ */
+function EncargoDetailPanel({
+  e,
+  onStatus,
+  onDelete,
+  onCopy,
+}: {
+  e: Encargo;
+  onStatus: (id: string, status: EncargoStatus) => void;
+  onDelete: (id: string) => void;
+  onCopy: (contact: string) => void;
+}) {
+  const budget = detectBudget(e.brief);
+  const cat = categorizeEncargo(e);
+  return (
+    <div>
+      <div className="flex items-start gap-3">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.06] text-lg font-black text-zinc-200">
+          {(e.name.trim()[0] || '?').toUpperCase()}
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-2xl font-black tracking-[-0.03em] text-white">{e.name}</h3>
+          <p className="mt-0.5 text-xs font-medium text-zinc-500">
+            {encargoPackageLabel[e.packageId] || e.packageId}
+            {' · '}
+            {new Date(e.createdAt).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' })}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-zinc-300">
+          {categoryMeta[cat].label}
+        </span>
+        {budget && (
+          <span className="rounded-full border border-emerald-400/35 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-300">
+            Presupuesto: {budget}
+          </span>
+        )}
+        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] ${encargoStatusMeta[e.status].className}`}>
+          {encargoStatusMeta[e.status].label}
+        </span>
+      </div>
+
+      <p className="mt-5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Lo que te escribió</p>
+      <p className="mt-2 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-relaxed text-zinc-200">
+        {e.brief}
+      </p>
+      {e.referenceUrl && (
+        <a
+          href={e.referenceUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="mt-3 inline-flex max-w-full items-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-3 py-2 text-xs font-black text-zinc-300 hover:text-white"
+        >
+          <span className="shrink-0 uppercase tracking-[0.14em]">Referencia</span>
+          <span className="min-w-0 break-all text-zinc-400">{e.referenceUrl}</span>
+          <ArrowUpRight className="h-3.5 w-3.5 shrink-0" />
+        </a>
+      )}
+
+      <p className="mt-5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Responder</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {contactActions(e.contact).map((a) => (
+          <a
+            key={a.href}
+            href={a.href}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[var(--accent,#FA5D29)]/40 bg-[var(--accent,#FA5D29)]/10 px-3.5 py-2.5 text-sm font-black text-[var(--accent,#FA5D29)] hover:bg-[var(--accent,#FA5D29)]/20"
+          >
+            {a.label}
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </a>
+        ))}
+        <button
+          type="button"
+          onClick={() => onCopy(e.contact)}
+          className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-sm font-bold text-zinc-300 hover:text-white"
+          title="Copiar contacto"
+        >
+          <Copy className="h-4 w-4" />
+          {e.contact}
+        </button>
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
+        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Etapa</span>
+        <select
+          value={e.status}
+          onChange={(ev) => onStatus(e.id, ev.target.value as EncargoStatus)}
+          className="min-h-10 flex-1 rounded-2xl border border-white/10 bg-black/40 px-3 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-white/20"
+        >
+          {encargoStatuses.map((statusKey) => (
+            <option key={statusKey} value={statusKey}>{encargoStatusMeta[statusKey].label}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => onDelete(e.id)}
+          className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 px-4 text-sm font-black text-red-300 hover:bg-red-500/15"
+        >
+          Eliminar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab?: string }) {
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -274,7 +418,7 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [encargos, setEncargos] = useState<Encargo[]>([]);
   const [openEncargo, setOpenEncargo] = useState<Encargo | null>(null);
-  const [encargoFilter, setEncargoFilter] = useState<EncargoStatus | 'todos'>('todos');
+  const [encargoTab, setEncargoTab] = useState<'prioridad' | EncargoCategory | 'cerrados'>('prioridad');
   const [eventSummary, setEventSummary] = useState<EventSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -985,218 +1129,148 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
               }
             />
 
-            {/* Filtros por estado — chips legibles, sin scroll horizontal */}
-            <div className="flex flex-wrap gap-2">
-              {(['todos', ...encargoStatuses] as const).map((key) => {
-                const count = key === 'todos' ? encargos.length : encargos.filter((e) => e.status === key).length;
-                const active = encargoFilter === key;
-                const label = key === 'todos' ? 'Todos' : encargoStatusMeta[key].label;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setEncargoFilter(key)}
-                    className={`rounded-full border px-3.5 py-2 text-sm font-black transition-colors ${active ? 'border-[var(--accent,#FA5D29)] bg-[var(--accent,#FA5D29)]/15 text-white' : 'border-white/10 bg-zinc-950 text-zinc-400 hover:text-white'}`}
-                  >
-                    {label} · {count}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Funnel compacto — referencia rápida, sin robar la pantalla */}
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[20px] border border-white/10 bg-zinc-950/60 px-4 py-3 text-sm">
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Funnel {eventSummary?.days ?? 30}d</span>
-              <span className="font-bold text-zinc-300">{funnel?.starts ?? 0} <span className="text-zinc-500">abrieron</span></span>
-              <span className="font-bold text-zinc-300">{funnel?.created ?? 0} <span className="text-zinc-500">enviaron</span></span>
-              <span className="font-bold text-orange-300">{newCount} <span className="text-zinc-500">sin responder</span></span>
-              <span className="ml-auto rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2.5 py-1 text-xs font-black text-cyan-300">{funnel?.conversionRate ?? 0}% conversión</span>
-            </div>
-
+            {/* Pestañas por intención — separan cómo se monetiza cada lead */}
             {(() => {
-              const visible = (encargoFilter === 'todos' ? encargos : encargos.filter((e) => e.status === encargoFilter))
-                .slice()
-                .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-              if (visible.length === 0) {
-                return (
-                  <div className="rounded-[24px] border border-dashed border-white/10 bg-zinc-950/50 p-10 text-center text-sm text-zinc-500">
-                    {encargos.length === 0 ? 'Todavía no entró ningún pre-pedido.' : 'No hay leads en este estado.'}
-                  </div>
-                );
-              }
-              const bucketOf = (iso: string) => {
-                const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-                if (d <= 0) return 'Hoy';
-                if (d <= 7) return 'Esta semana';
-                if (d <= 31) return 'Este mes';
-                return 'Más viejos';
-              };
-              const avatarColors = ['#FA5D29', '#F02E65', '#7C3FFF', '#18D2C4', '#FFB83D'];
-              let lastBucket = '';
+              const open = encargos.filter((e) => !['ganado', 'perdido'].includes(e.status));
+              const catCount = (c: EncargoCategory) => open.filter((e) => categorizeEncargo(e) === c).length;
+              const tabs: { key: 'prioridad' | EncargoCategory | 'cerrados'; label: string; count: number }[] = [
+                { key: 'prioridad', label: '🔥 Prioridad', count: open.length },
+                { key: 'marca', label: 'Marcas', count: catCount('marca') },
+                { key: 'aprender', label: 'Aprender', count: catCount('aprender') },
+                { key: 'personal', label: 'Personal', count: catCount('personal') },
+                { key: 'cerrados', label: 'Cerrados', count: encargos.length - open.length },
+              ];
               return (
-                <div className="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-950/40">
-                  {visible.map((encargo) => {
-                    const isNew = encargo.status === 'nuevo';
-                    const val = encargoValue(encargo);
-                    const initial = (encargo.name.trim()[0] || '?').toUpperCase();
-                    const color = avatarColors[encargo.name.length % avatarColors.length];
-                    const bucket = bucketOf(encargo.createdAt);
-                    const showHeader = bucket !== lastBucket;
-                    lastBucket = bucket;
+                <div className="flex flex-wrap gap-2">
+                  {tabs.map((t) => {
+                    const active = encargoTab === t.key;
                     return (
-                      <div key={encargo.id}>
-                        {showHeader && (
-                          <div className="bg-black/30 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                            {bucket}
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setOpenEncargo(encargo)}
-                          className="flex w-full items-start gap-3 border-b border-white/[0.06] px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
-                        >
-                          <span
-                            className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-black text-black"
-                            style={{ backgroundColor: color }}
-                          >
-                            {initial}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-center justify-between gap-2">
-                              <span className="flex min-w-0 items-center gap-2">
-                                {isNew && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent,#FA5D29)]" />}
-                                <span className={`truncate ${isNew ? 'font-black text-white' : 'font-bold text-zinc-400'}`}>{encargo.name}</span>
-                                {!isNew && (
-                                  <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-black ${encargoStatusMeta[encargo.status].className}`}>
-                                    {encargoStatusMeta[encargo.status].label}
-                                  </span>
-                                )}
-                              </span>
-                              <span className="shrink-0 text-[11px] font-medium text-zinc-500">{daysAgo(encargo.createdAt)}</span>
-                            </span>
-                            <span className="mt-1 block truncate text-sm text-zinc-400">
-                              <span className="font-bold text-zinc-500">{encargoPackageLabel[encargo.packageId] || encargo.packageId}{val > 0 ? ` · ${formatUsd(val)}` : ''}</span>
-                              <span className="text-zinc-600"> — </span>
-                              {encargo.brief}
-                            </span>
-                          </span>
-                        </button>
-                      </div>
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => { setEncargoTab(t.key); setOpenEncargo(null); }}
+                        className={`rounded-full border px-3.5 py-2 text-sm font-black transition-colors ${active ? 'border-[var(--accent,#FA5D29)] bg-[var(--accent,#FA5D29)]/15 text-white' : 'border-white/10 bg-zinc-950 text-zinc-400 hover:text-white'}`}
+                      >
+                        {t.label} <span className="opacity-60">· {t.count}</span>
+                      </button>
                     );
                   })}
                 </div>
               );
             })()}
 
-            {/* Detalle del lead — se abre al clickear una tarjeta del kanban.
-                Muestra el mensaje completo y botones para responder directo. */}
+            {/* Funnel compacto — referencia, sobrio */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[20px] border border-white/10 bg-zinc-950/60 px-4 py-3 text-sm">
+              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Funnel {eventSummary?.days ?? 30}d</span>
+              <span className="font-bold text-zinc-300">{funnel?.starts ?? 0} <span className="text-zinc-500">abrieron</span></span>
+              <span className="font-bold text-zinc-300">{funnel?.created ?? 0} <span className="text-zinc-500">enviaron</span></span>
+              <span className="font-bold text-[var(--accent,#FA5D29)]">{newCount} <span className="text-zinc-500">sin responder</span></span>
+              <span className="ml-auto text-zinc-400">{funnel?.conversionRate ?? 0}% conversión</span>
+            </div>
+
+            {/* Dos paneles: lista (izq) + lectura (der, escritorio). Celular: lista + modal. */}
+            {(() => {
+              const withCat = encargos.map((e) => ({
+                e,
+                cat: categorizeEncargo(e),
+                budget: detectBudget(e.brief),
+                open: !['ganado', 'perdido'].includes(e.status),
+              }));
+              let list = withCat;
+              if (encargoTab === 'prioridad') list = withCat.filter((x) => x.open);
+              else if (encargoTab === 'cerrados') list = withCat.filter((x) => !x.open);
+              else list = withCat.filter((x) => x.cat === encargoTab);
+              list = list.slice().sort((a, b) => {
+                if (encargoTab === 'prioridad') {
+                  const score = (x: typeof a) => (x.budget ? 2 : 0) + (x.cat === 'marca' ? 1 : 0);
+                  const s = score(b) - score(a);
+                  if (s !== 0) return s;
+                }
+                return new Date(b.e.createdAt || 0).getTime() - new Date(a.e.createdAt || 0).getTime();
+              });
+              if (list.length === 0) {
+                return (
+                  <div className="rounded-[24px] border border-dashed border-white/10 bg-zinc-950/50 p-10 text-center text-sm text-zinc-500">
+                    {encargos.length === 0 ? 'Todavía no entró ningún pre-pedido.' : 'No hay leads en esta vista.'}
+                  </div>
+                );
+              }
+              const selected = (openEncargo && list.some((x) => x.e.id === openEncargo.id)) ? openEncargo : list[0].e;
+              return (
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_1fr]">
+                  <div className="overflow-hidden rounded-[24px] border border-white/10 bg-zinc-950/40">
+                    {list.map(({ e, cat, budget }) => {
+                      const isNew = e.status === 'nuevo';
+                      const isSel = selected.id === e.id;
+                      return (
+                        <button
+                          key={e.id}
+                          type="button"
+                          onClick={() => setOpenEncargo(e)}
+                          className={`flex w-full items-start gap-3 border-b border-white/[0.06] px-4 py-3 text-left transition-colors ${isSel ? 'bg-[var(--accent,#FA5D29)]/10 shadow-[inset_3px_0_0_var(--accent,#FA5D29)]' : 'hover:bg-white/[0.03]'}`}
+                        >
+                          <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-black text-zinc-200">
+                            {(e.name.trim()[0] || '?').toUpperCase()}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="flex min-w-0 items-center gap-2">
+                                {isNew && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent,#FA5D29)]" />}
+                                <span className={`truncate ${isNew ? 'font-black text-white' : 'font-bold text-zinc-400'}`}>{e.name}</span>
+                              </span>
+                              <span className="shrink-0 text-[11px] font-medium text-zinc-500">{daysAgo(e.createdAt)}</span>
+                            </span>
+                            <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <span className="rounded-full border border-white/12 bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.06em] text-zinc-400">{categoryMeta[cat].label}</span>
+                              {budget && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-black text-emerald-300">{budget}</span>}
+                            </span>
+                            <span className="mt-1 block truncate text-[13px] text-zinc-500">{e.brief}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="hidden rounded-[24px] border border-white/10 bg-zinc-950/40 p-6 lg:block">
+                    <EncargoDetailPanel
+                      e={selected}
+                      onStatus={(id, st) => { handleUpdateEncargoStatus(id, st); setOpenEncargo({ ...selected, status: st }); }}
+                      onDelete={(id) => { handleDeleteEncargo(id); setOpenEncargo(null); }}
+                      onCopy={copyContact}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Detalle en celular — modal a pantalla completa. En escritorio
+                el detalle vive en el panel derecho fijo, así que se oculta. */}
             {openEncargo && (
               <div
-                className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+                className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm lg:hidden"
                 onClick={() => setOpenEncargo(null)}
                 role="dialog"
                 aria-modal="true"
               >
                 <div
-                  className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-t-[28px] border border-white/10 bg-zinc-950 p-6 shadow-2xl sm:rounded-[28px]"
+                  className="max-h-[90vh] w-full overflow-y-auto rounded-t-[28px] border border-white/10 bg-zinc-950 p-6 shadow-2xl"
                   onClick={(ev) => ev.stopPropagation()}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-2xl font-black tracking-[-0.04em] text-white">{openEncargo.name}</h3>
-                        <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${encargoStatusMeta[openEncargo.status].className}`}>
-                          {encargoStatusMeta[openEncargo.status].label}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs font-medium text-zinc-500">
-                        {encargoPackageLabel[openEncargo.packageId] || openEncargo.packageId}
-                        {' · '}
-                        {new Date(openEncargo.createdAt).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' })}
-                      </p>
-                    </div>
+                  <div className="mb-4 flex justify-end">
                     <button
                       type="button"
                       onClick={() => setOpenEncargo(null)}
-                      className="shrink-0 rounded-full border border-white/10 bg-black/40 p-2 text-zinc-400 hover:text-white"
+                      className="rounded-full border border-white/10 bg-black/40 p-2 text-zinc-400 hover:text-white"
                       aria-label="Cerrar"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-
-                  {/* El mensaje que mandó el lead */}
-                  <div className="mt-5">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Lo que te escribió</p>
-                    <p className="mt-2 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-relaxed text-zinc-200">
-                      {openEncargo.brief}
-                    </p>
-                    {openEncargo.referenceUrl && (
-                      <a
-                        href={openEncargo.referenceUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="mt-3 inline-flex max-w-full items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-200 hover:text-cyan-100"
-                      >
-                        <span className="shrink-0 uppercase tracking-[0.14em]">Referencia</span>
-                        <span className="min-w-0 break-all text-cyan-100/80">{openEncargo.referenceUrl}</span>
-                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0" />
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Responder: botones directos según el contacto que dejó */}
-                  <div className="mt-5">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Responder</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {contactActions(openEncargo.contact).map((a) => (
-                        <a
-                          key={a.href}
-                          href={a.href}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="inline-flex items-center gap-2 rounded-2xl border border-[var(--accent,#FA5D29)]/40 bg-[var(--accent,#FA5D29)]/10 px-3.5 py-2.5 text-sm font-black text-[var(--accent,#FA5D29)] hover:bg-[var(--accent,#FA5D29)]/20"
-                        >
-                          {a.label}
-                          <ArrowUpRight className="h-3.5 w-3.5" />
-                        </a>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => copyContact(openEncargo.contact)}
-                        className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-sm font-bold text-zinc-300 hover:text-white"
-                        title="Copiar contacto"
-                      >
-                        <Copy className="h-4 w-4" />
-                        {openEncargo.contact}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Mover de etapa sin cerrar */}
-                  <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
-                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Etapa</span>
-                    <select
-                      value={openEncargo.status}
-                      onChange={(ev) => {
-                        const next = ev.target.value as EncargoStatus;
-                        handleUpdateEncargoStatus(openEncargo.id, next);
-                        setOpenEncargo({ ...openEncargo, status: next });
-                      }}
-                      className="min-h-10 flex-1 rounded-2xl border border-white/10 bg-black/40 px-3 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-white/20"
-                    >
-                      {encargoStatuses.map((statusKey) => (
-                        <option key={statusKey} value={statusKey}>{encargoStatusMeta[statusKey].label}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => { handleDeleteEncargo(openEncargo.id); setOpenEncargo(null); }}
-                      className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 px-4 text-sm font-black text-red-300 hover:bg-red-500/15"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
+                  <EncargoDetailPanel
+                    e={openEncargo}
+                    onStatus={(id, st) => { handleUpdateEncargoStatus(id, st); setOpenEncargo({ ...openEncargo, status: st }); }}
+                    onDelete={(id) => { handleDeleteEncargo(id); setOpenEncargo(null); }}
+                    onCopy={copyContact}
+                  />
                 </div>
               </div>
             )}
