@@ -1129,7 +1129,7 @@
     if (!m) return '/';
     if (m.kind === 'video_ia' || m.kind === 'panorama_360') return '/laboratorio';
     if (m.kind === 'foto') return '#ojo';
-    if (m.kind === 'wallpaper') return '#pixel';
+    if (m.kind === 'wallpaper') return '/gallery';
     if (m.kind === 'cancion') return '#sonido';
     return m.embedUrl || m.mediaUrl || '/';
   }

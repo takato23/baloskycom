@@ -1,0 +1,119 @@
+/* /reel — showreel fullscreen, cero distracciones. */
+
+.reel-page {
+  position: fixed;
+  inset: 0;
+  background: #0a0908;
+  color: #f3efe6;
+  overflow: hidden;
+}
+
+.reel-page__video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+  background: #0a0908;
+}
+
+.reel-page__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(243, 239, 230, 0.5);
+}
+
+.reel-page__brand {
+  position: absolute;
+  top: 18px;
+  left: 22px;
+  pointer-events: none;
+}
+
+.reel-page__brand a {
+  pointer-events: auto;
+  font-family: 'Inter Tight', Inter, sans-serif;
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: -0.04em;
+  color: #f3efe6;
+  text-decoration: none;
+}
+
+.reel-page__brand a span {
+  color: #fa5d29;
+}
+
+.reel-page__brand p {
+  margin: 2px 0 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(243, 239, 230, 0.55);
+}
+
+.reel-page__sound {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  padding: 8px 14px;
+  border: 1px solid rgba(243, 239, 230, 0.3);
+  border-radius: 999px;
+  background: rgba(10, 9, 8, 0.55);
+  color: #f3efe6;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.reel-page__cta {
+  /* Anula el border-top magenta del estilo global de <footer> */
+  border-top: 0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 22px calc(18px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(10, 9, 8, 0.85), transparent);
+}
+
+.reel-page__cta p {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(243, 239, 230, 0.75);
+}
+
+.reel-page__cta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: #fa5d29;
+  color: #0a0908;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: 999px;
+  transition: transform 0.2s ease;
+}
+
+.reel-page__cta a:hover {
+  transform: translateY(-2px);
+}
+

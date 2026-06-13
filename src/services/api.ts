@@ -398,6 +398,13 @@ export const api = {
   // fila en `subscriptions` (status=pending), llama a MP /preapproval,
   // y devuelve el initPoint al que redirigimos. Cuando el usuario
   // autoriza en MP, el webhook actualiza la subscription a `authorized`.
+  // Disponibilidad real del mes en /productora — agregado del CRM de
+  // encargos (deals ganados este mes vs capacidad configurada). Público.
+  getProductoraSlots: async (): Promise<{ total: number; taken: number; remaining: number; whatsapp?: string | null }> => {
+    const res = await fetch(`${API_URL}/productora/slots`);
+    if (!res.ok) throw new Error('slots no disponibles');
+    return res.json();
+  },
   // Pre-pedido de encargos (videos IA / consultoría / proyectos) — el form
   // en MonetizacionHub (tab A MEDIDA) y el CTA de la card VIDEO IA apuntan
   // acá. No es una compra: crea una fila `encargos` con status=nuevo y

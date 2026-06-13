@@ -1180,9 +1180,9 @@ const ENCARGO_BRIEF_MAX = 1200;
 const ENCARGO_REFERENCE_MAX = 500;
 const ENCARGO_PACKAGES = new Set([
   'reel', 'spot', 'historia', 'consultoria', 'serie', 'web', 'proyecto', 'custom',
-  // Paquetes de la landing /productora (pack pauta de 3 variantes y campaña
-  // con distribución en la cuenta de Santi).
-  'pack', 'campania',
+  // Paquetes de la landing /productora (pack pauta de 3 variantes, campaña
+  // con distribución en la cuenta de Santi, y retainer mensual de canal 24/7).
+  'pack', 'campania', 'canal',
 ]);
 const ENCARGO_STATUSES = new Set(['nuevo', 'respondido', 'cotizado', 'ganado', 'perdido']);
 const ENCARGO_PAYMENT_RE = /\[ENCARGO\]|\bencargo\b/i;
@@ -1201,6 +1201,7 @@ const ENCARGO_PACKAGE_VALUES: Record<string, number> = {
   spot: 500,
   pack: 900,
   campania: 2500,
+  canal: 1500,
 };
 
 const mapEncargoRow = (row: any) => ({
@@ -1280,6 +1281,45 @@ router.delete('/encargos/:id', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/productora/slots — disponibilidad pública del mes.
+ *
+ * Un "slot" es un encargo ganado este mes en el CRM (status='ganado',
+ * fecha de última actualización dentro del mes corriente). La capacidad
+ * mensual sale de settings.productora.slotsPerMonth (default 4, tope 20).
+ * Devuelve sólo números agregados — nada del contenido de los deals — para
+ * que la landing muestre escasez real y verificable, no inventada.
+ */
+router.get('/productora/slots', async (_req, res) => {
+  try {
+    const settings: any = await getStoredSettings();
+    const configured = Number(settings?.productora?.slotsPerMonth);
+    const total = Number.isFinite(configured) ? Math.max(1, Math.min(20, Math.round(configured))) : 4;
+
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const rows = await db.prepare('SELECT * FROM encargos LIMIT 500').all();
+    const taken = (rows as any[]).filter((row) => {
+      if (normalizeEncargoStatus(row.status) !== 'ganado') return false;
+      const stamp = row.updatedAt || row.updated_at || row.createdAt || row.created_at || '';
+      const ts = Date.parse(stamp);
+      return Number.isFinite(ts) && ts >= monthStart.getTime();
+    }).length;
+
+    // WhatsApp comercial: PRODUCTORA_WHATSAPP pisa al teléfono de alertas.
+    // Sólo dígitos (formato wa.me). Si no hay número, el front oculta el botón.
+    const rawPhone = process.env.PRODUCTORA_WHATSAPP || process.env.WHATSAPP_ALERT_PHONE || '';
+    const whatsapp = rawPhone.replace(/\D/g, '') || null;
+
+    res.json({ total, taken: Math.min(taken, total), remaining: Math.max(0, total - taken), whatsapp });
+  } catch (e) {
+    console.error('[GET /productora/slots]', e);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
 router.post('/encargos', writePublicLimiter, async (req, res) => {
   try {
     const body = req.body || {};
@@ -1338,6 +1378,23 @@ router.post('/encargos', writePublicLimiter, async (req, res) => {
         adminUrl
       }
     }).catch((alertError) => console.error('[POST /encargos] admin alert error', alertError));
+
+    // Auto-reply al lead: si dejó un email, le confirmamos al toque que el
+    // brief llegó y le damos el reel para que siga caliente mientras Santi
+    // responde. Fire-and-forget — si Resend no está configurado, el servicio
+    // lo loguea en consola (dev stub) y no rompe nada.
+    const contactEmail = rawContact.match(/[^\s<>,;]+@[^\s<>,;]+\.[^\s<>,;]+/)?.[0];
+    if (contactEmail) {
+      sendThanksEmail({
+        to: contactEmail,
+        supporterName: rawName,
+        itemTitle: `Consulta productora · ${packageId}`,
+        isEncargo: true,
+        nextSteps:
+          'Me llegó tu consulta. La leo y te respondo en menos de 24 horas con una propuesta concreta y un número. Mientras tanto, mirá el reel: balosky.com/reel — así ves el tono de lo que hago.',
+        purchaseId: id,
+      }).catch((ackError) => console.error('[POST /encargos] ack email error', ackError));
+    }
 
     res.json({ ok: true, id });
   } catch (e) {
@@ -2716,12 +2773,12 @@ router.post('/media', requireAuth, async (req, res) => {
       return isNaN(d.getTime()) ? null : d.toISOString();
     })() : null;
     await db.prepare(`
-      INSERT INTO media (id, kind, title, description, category, mediaUrl, thumbUrl, embedUrl, coverImage, duration, aiTool, aiPrompt, assetUrls, isMemberOnly, aspectRatio, showDescription, showPrompt, showTool, isLocked, active, featured, sortOrder, publicFrom, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO media (id, kind, title, description, category, mediaUrl, thumbUrl, embedUrl, coverImage, duration, aiTool, aiPrompt, resultNote, assetUrls, isMemberOnly, aspectRatio, showDescription, showPrompt, showTool, isLocked, active, featured, sortOrder, publicFrom, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, m.kind, m.title, m.description || null, m.category || null,
       m.mediaUrl || null, m.thumbUrl || null, m.embedUrl || null, m.coverImage || null, m.duration || null,
-      m.aiTool || null, m.aiPrompt || null, assetUrls,
+      m.aiTool || null, m.aiPrompt || null, m.resultNote || null, assetUrls,
       isMemberOnly, aspectRatio, showDesc, showPrompt, showTool,
       m.isLocked ? 1 : 0,
       m.active === false ? 0 : 1,
@@ -2758,6 +2815,7 @@ router.put('/media/:id', requireAuth, async (req, res) => {
     if (m.duration !== undefined)    cols.push(['duration', m.duration || null]);
     if (m.aiTool !== undefined)      cols.push(['aiTool', m.aiTool || null]);
     if (m.aiPrompt !== undefined)    cols.push(['aiPrompt', m.aiPrompt || null]);
+    if (m.resultNote !== undefined)  cols.push(['resultNote', m.resultNote || null]);
     if (m.assetUrls !== undefined) {
       const assetUrls = Array.isArray(m.assetUrls)
         ? m.assetUrls.map((u: unknown) => String(u).trim()).filter(Boolean)

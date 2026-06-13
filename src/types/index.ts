@@ -471,6 +471,11 @@ export interface Media {
    * laboratorio page for transparency. Optional.
    */
   aiPrompt?: string | null;
+  /**
+   * Resultado de la pieza para los trabajos de /productora — números cortos
+   * que venden: "2.1M views · hecho en 5 días". Optional.
+   */
+  resultNote?: string | null;
   /** Images/references used to build a video_ia piece. Shown as an asset wall in Laboratorio. */
   assetUrls?: string[];
   /**

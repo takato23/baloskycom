@@ -1538,6 +1538,19 @@ function MediaPanel({ kind }: { kind: MediaKind }) {
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium tracking-[0.14em] uppercase text-zinc-500 mb-1.5">
+                    Resultado (se muestra en /productora)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="2.1M views · hecho en 5 días"
+                    maxLength={80}
+                    value={editing.resultNote || ''}
+                    onChange={(e) => setEditing({ ...editing, resultNote: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-zinc-200 bg-zinc-50/70 focus:border-[var(--accent,#FA5D29)] focus:ring-2 focus:ring-[var(--accent,#FA5D29)]/20 focus:bg-white focus:outline-none transition-colors placeholder:text-zinc-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium tracking-[0.14em] uppercase text-zinc-500 mb-1.5">
                     Prompt
                   </label>
                   <textarea

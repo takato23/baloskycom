@@ -1,6 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
-import { CAFECITOS_TOTAL_AMOUNT, CAFECITOS_TOTAL_COUNT } from '@/content/cafecitos';
 
 /**
  * Links que apuntan a las secciones de la home. Se usan `<a href="/#...">`
@@ -19,10 +18,9 @@ const ANCHOR_LINKS = [
   { href: '/btv', label: 'BTV' },
   { href: '/productora', label: 'Productora' },
   { href: '/#trabajemos', label: 'Trabajemos' },
-  { href: '/#vision', label: 'Visión' },
+  { href: '/#vision', label: 'Trabajos' },
   { href: '/#ojo', label: 'Ojo' },
   { href: '/#sonido', label: 'Sonido' },
-  { href: '/#muro', label: 'Muro' },
   { href: '/#redes', label: 'Redes' },
 ];
 
@@ -93,18 +91,16 @@ export default function DelirioHeader() {
         ) : (
           <a
             className={isHome ? 'pill-live pill-live--compact' : 'pill-live'}
-            href="/cafecito"
-            data-cursor="CAFECITO"
-            aria-label="Invitame un cafecito"
+            href="/productora#consulta"
+            data-cursor="BRIEF"
+            aria-label="Contame tu proyecto"
           >
             <span className="pulse" aria-hidden="true" />
-            <span>{CAFECITOS_TOTAL_COUNT} cafecitos</span>
+            <span>disponible para proyectos</span>
             {!isHome && (
               <>
                 <span style={{ marginLeft: 6, color: 'rgba(24,210,196,0.7)' }}>·</span>
-                <span style={{ color: 'rgba(24,210,196,0.8)' }}>
-                  ${(CAFECITOS_TOTAL_AMOUNT / 1_000_000).toFixed(2)}M reales
-                </span>
+                <span style={{ color: 'rgba(24,210,196,0.8)' }}>trabajemos →</span>
               </>
             )}
           </a>

@@ -40,6 +40,7 @@ const COLUMN_MAP: Record<string, string> = {
   playCount: 'play_count',
   aiTool: 'ai_tool',
   aiPrompt: 'ai_prompt',
+  resultNote: 'result_note',
   assetUrls: 'asset_urls',
   isLocked: 'is_locked',
   colorFrom: 'color_from',
@@ -506,6 +507,11 @@ async function initDb() {
   `);
   await sql.unsafe(`
     ALTER TABLE media ADD COLUMN IF NOT EXISTS asset_urls TEXT
+  `);
+  // Migration: resultado de la pieza ("2.1M views · hecho en 5 días") para
+  // mostrar prueba con números en los trabajos de /productora.
+  await sql.unsafe(`
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS result_note TEXT
   `);
 
   // Social links

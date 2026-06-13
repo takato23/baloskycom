@@ -31,6 +31,7 @@ const AgendaPublica = lazy(() => import('./pages/AgendaPublica'));
 const Laboratorio = lazy(() => import('./pages/Laboratorio'));
 const BtvPage = lazy(() => import('./pages/BtvPage'));
 const Productora = lazy(() => import('./pages/Productora'));
+const Reel = lazy(() => import('./pages/Reel'));
 const Cameo = lazy(() => import('./pages/Cameo'));
 const HomePreview = lazy(() => import('./pages/HomePreview'));
 const HeroPreview = lazy(() => import('./pages/HeroPreview'));
@@ -76,6 +77,19 @@ export default function App() {
             pruebas aislado que necesita el viewport completo limpio para
             ver el efecto del hero sin interferencias.
           */}
+          {/*
+            `/reel` — tarjeta de presentación: el showreel fullscreen sin nav
+            ni footer, para pitchear por DM/WhatsApp con un solo link. Express
+            le inyecta OG tags propios server-side (ver server.ts).
+          */}
+          <Route
+            path="/reel"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <Reel />
+              </Suspense>
+            }
+          />
           <Route
             path="/preview-hero"
             element={

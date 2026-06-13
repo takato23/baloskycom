@@ -110,35 +110,54 @@ if (!isVercel) {
 // ────────────────────────────────────────────────────────────────────────────
 let viteRef: { transformIndexHtml(url: string, html: string): Promise<string> } | null = null;
 
-const PRODUCTORA_META = {
+type RouteOgMeta = {
+  title: string;
+  description: string;
+  url: string;
+  /** Archivo de OG image en /public (reemplaza og-card.jpg). */
+  ogImage?: string;
+};
+
+const PRODUCTORA_META: RouteOgMeta = {
   title: 'Balosky Productora — video para marcas',
   description:
     'Spots, trailers y piezas con IA para marcas. 223K seguidores, piezas de hasta 5.5M de views. Pensados para el feed: enganchan en segundos y se entienden sin sonido.',
+  url: 'https://balosky.com/productora',
+  ogImage: 'og-productora.jpg',
 };
 
-function injectProductoraOg(html: string): string {
-  return html
-    .replace(/<title>[^<]*<\/title>/, `<title>${PRODUCTORA_META.title}</title>`)
+const REEL_META: RouteOgMeta = {
+  title: 'Showreel — Santi Balosky, creativo IA',
+  description:
+    'El reel: spots, campañas y piezas con IA en un minuto. Si te cierra el tono, hablamos.',
+  url: 'https://balosky.com/reel',
+  ogImage: 'og-productora.jpg',
+};
+
+function injectRouteOg(html: string, meta: RouteOgMeta): string {
+  let out = html
+    .replace(/<title>[^<]*<\/title>/, `<title>${meta.title}</title>`)
     .replace(
       /(<meta\s+name="description"[\s\S]*?content=")[^"]*(")/,
-      `$1${PRODUCTORA_META.description}$2`,
+      `$1${meta.description}$2`,
     )
-    .replace(/(property="og:title" content=")[^"]*(")/, `$1${PRODUCTORA_META.title}$2`)
+    .replace(/(property="og:title" content=")[^"]*(")/, `$1${meta.title}$2`)
     .replace(
       /(<meta\s+property="og:description"[\s\S]*?content=")[^"]*(")/,
-      `$1${PRODUCTORA_META.description}$2`,
+      `$1${meta.description}$2`,
     )
-    .replace(/(property="og:url" content=")[^"]*(")/, '$1https://balosky.com/productora$2')
-    .replace(/(property="og:image:alt" content=")[^"]*(")/, `$1${PRODUCTORA_META.title}$2`)
-    .replace(/(name="twitter:title" content=")[^"]*(")/, `$1${PRODUCTORA_META.title}$2`)
+    .replace(/(property="og:url" content=")[^"]*(")/, `$1${meta.url}$2`)
+    .replace(/(property="og:image:alt" content=")[^"]*(")/, `$1${meta.title}$2`)
+    .replace(/(name="twitter:title" content=")[^"]*(")/, `$1${meta.title}$2`)
     .replace(
       /(name="twitter:description" content=")[^"]*(")/,
-      `$1${PRODUCTORA_META.description}$2`,
-    )
-    .replace(/og-card\.jpg/g, 'og-productora.jpg');
+      `$1${meta.description}$2`,
+    );
+  if (meta.ogImage) out = out.replace(/og-card\.jpg/g, meta.ogImage);
+  return out;
 }
 
-const serveProductoraHtml: express.RequestHandler = async (req, res, next) => {
+const serveSpaWithOg = (meta: RouteOgMeta): express.RequestHandler => async (req, res, next) => {
   try {
     const htmlPath =
       process.env.NODE_ENV === 'production'
@@ -150,15 +169,16 @@ const serveProductoraHtml: express.RequestHandler = async (req, res, next) => {
     }
     res.setHeader('Content-Type', 'text/html');
     res.setHeader('Cache-Control', 'no-store');
-    res.send(injectProductoraOg(html));
+    res.send(injectRouteOg(html, meta));
   } catch (error) {
-    console.error('[productora] OG html error:', error);
+    console.error(`[og:${meta.url}] html error:`, error);
     next();
   }
 };
 
 if (!isVercel) {
-  app.get('/productora', serveProductoraHtml);
+  app.get('/productora', serveSpaWithOg(PRODUCTORA_META));
+  app.get('/reel', serveSpaWithOg(REEL_META));
 }
 
 const isPotentialPaidAssetPath = (pathname: string) =>

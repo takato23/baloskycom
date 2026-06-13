@@ -228,6 +228,43 @@ function contactHref(contact: string) {
   return '';
 }
 
+/**
+ * Botones de respuesta para el detalle del encargo. Detecta mail, teléfono
+ * (→ WhatsApp) e Instagram dentro del texto libre del contacto y arma un link
+ * directo para cada uno, así Santi responde sin copiar y pegar.
+ */
+function contactActions(contact: string): Array<{ label: string; href: string }> {
+  const raw = (contact || '').trim();
+  if (!raw) return [];
+  const actions: Array<{ label: string; href: string }> = [];
+
+  const email = raw.match(/[^\s<>,;]+@[^\s<>,;]+\.[^\s<>,;]+/)?.[0];
+  if (email) actions.push({ label: `✉️ ${email}`, href: `mailto:${email}` });
+
+  // Teléfono: 8+ dígitos (tolera +, espacios, guiones, paréntesis) → WhatsApp.
+  const phoneRaw = raw.match(/\+?[\d][\d\s().-]{7,}\d/)?.[0];
+  if (phoneRaw) {
+    const digits = phoneRaw.replace(/\D/g, '');
+    if (digits.length >= 8) actions.push({ label: `🟢 WhatsApp ${phoneRaw.trim()}`, href: `https://wa.me/${digits}` });
+  }
+
+  // Instagram: sin confundir con el local-part de un mail.
+  const igSource = email ? raw.replace(email, ' ') : raw;
+  // 1) Handle explícito con @ (lo más confiable). Si no hay, 2) un único
+  // token plausible cuando el texto menciona instagram/ig.
+  let ig = igSource.match(/@([a-zA-Z0-9._]{2,30})/)?.[1];
+  if (!ig && /instagram|\big\b/i.test(raw)) {
+    const tokens = igSource
+      .replace(/instagram|\big\b/gi, ' ')
+      .match(/[a-zA-Z0-9._]{2,30}/g)
+      ?.filter((t) => /[a-zA-Z]/.test(t) && !t.includes('.com')) || [];
+    if (tokens.length === 1) ig = tokens[0];
+  }
+  if (ig) actions.push({ label: `📷 @${ig}`, href: `https://ig.me/m/${ig}` });
+
+  return actions;
+}
+
 export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab?: string }) {
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -236,6 +273,7 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [encargos, setEncargos] = useState<Encargo[]>([]);
+  const [openEncargo, setOpenEncargo] = useState<Encargo | null>(null);
   const [eventSummary, setEventSummary] = useState<EventSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -601,6 +639,16 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
         const recentEvents = eventSummary?.recentEvents ?? [];
         const topPaths = eventSummary?.topPaths ?? [];
 
+        // Embudo comercial: dónde se caen los leads entre que entran y mandan
+        // el brief. Cada etapa muestra conversión contra la anterior.
+        const funnelStages = [
+          { key: 'page_view', label: 'Visitas', detail: 'Entraron al sitio' },
+          { key: 'cta_click', label: 'Tocaron un CTA', detail: 'Mostraron interés' },
+          { key: 'encargo_start', label: 'Abrieron el form', detail: 'Empezaron el brief' },
+          { key: 'encargo_created', label: 'Mandaron el brief', detail: 'Lead en el CRM' },
+        ].map((stage) => ({ ...stage, count: counts[stage.key] || 0 }));
+        const funnelMax = funnelStages[0].count || 1;
+
         return (
           <div className="space-y-6">
             <AdminSectionHeader
@@ -630,6 +678,47 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                 value={counts.social_click || 0}
                 detail="Instagram, Spotify, YouTube, etc."
               />
+            </div>
+
+            <div className={panelClass}>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Embudo comercial</p>
+                  <h3 className="mt-1 text-2xl font-black tracking-[-0.05em] text-white">Dónde se caen los leads</h3>
+                </div>
+                <p className="text-xs font-medium text-zinc-500">Últimos {eventSummary?.days ?? 30} días · conversión vs etapa anterior</p>
+              </div>
+              <div className="mt-5 space-y-2">
+                {funnelStages.map((stage, index) => {
+                  const prev = index > 0 ? funnelStages[index - 1].count : null;
+                  const rate = prev && prev > 0 ? Math.round((stage.count / prev) * 1000) / 10 : null;
+                  const width = Math.max(2, Math.round((stage.count / funnelMax) * 100));
+                  return (
+                    <div key={stage.key} className="rounded-2xl border border-white/10 bg-black/25 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-white">{stage.label}</p>
+                          <p className="text-xs text-zinc-500">{stage.detail}</p>
+                        </div>
+                        <div className="flex shrink-0 items-baseline gap-3">
+                          {rate !== null && (
+                            <span className={`text-xs font-black ${rate >= 50 ? 'text-emerald-300' : rate >= 10 ? 'text-amber-300' : 'text-rose-300'}`}>
+                              {rate}%
+                            </span>
+                          )}
+                          <b className="text-2xl font-black tracking-[-0.06em] text-white">{stage.count}</b>
+                        </div>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
+                        <div
+                          className="h-full rounded-full bg-[var(--accent,#FA5D29)]"
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
@@ -920,7 +1009,15 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                       </p>
                     ) : (
                       items.map((e) => (
-                        <div key={e.id} className="space-y-2 rounded-2xl border border-white/10 bg-black/30 p-3">
+                        <div
+                          key={e.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setOpenEncargo(e)}
+                          onKeyDown={(ev) => { if (ev.key === 'Enter') setOpenEncargo(e); }}
+                          className="cursor-pointer space-y-2 rounded-2xl border border-white/10 bg-black/30 p-3 transition-colors hover:border-[var(--accent,#FA5D29)]/50 hover:bg-black/50"
+                          title="Ver el mensaje completo"
+                        >
                           <div className="flex items-start justify-between gap-2">
                             <p className="min-w-0 truncate text-sm font-black text-white" title={e.name}>
                               {e.name}
@@ -930,7 +1027,11 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                           <p className="truncate text-[11px] font-bold text-zinc-500">
                             {encargoPackageLabel[e.packageId] || e.packageId}
                           </p>
-                          <div className="flex items-center justify-between gap-1">
+                          {/* Adelanto del brief para reconocer el lead sin abrir */}
+                          <p className="line-clamp-2 text-[11px] leading-snug text-zinc-400">
+                            {e.brief}
+                          </p>
+                          <div className="flex items-center justify-between gap-1" onClick={(ev) => ev.stopPropagation()}>
                             <EncargoValueChip encargo={e} onSave={handleUpdateEncargoValue} />
                             <div className="flex gap-1">
                               <button
@@ -1112,6 +1213,119 @@ export default function AdminDashboard({ defaultTab = 'overview' }: { defaultTab
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Detalle del lead — se abre al clickear una tarjeta del kanban.
+                Muestra el mensaje completo y botones para responder directo. */}
+            {openEncargo && (
+              <div
+                className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+                onClick={() => setOpenEncargo(null)}
+                role="dialog"
+                aria-modal="true"
+              >
+                <div
+                  className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-t-[28px] border border-white/10 bg-zinc-950 p-6 shadow-2xl sm:rounded-[28px]"
+                  onClick={(ev) => ev.stopPropagation()}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-2xl font-black tracking-[-0.04em] text-white">{openEncargo.name}</h3>
+                        <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${encargoStatusMeta[openEncargo.status].className}`}>
+                          {encargoStatusMeta[openEncargo.status].label}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs font-medium text-zinc-500">
+                        {encargoPackageLabel[openEncargo.packageId] || openEncargo.packageId}
+                        {' · '}
+                        {new Date(openEncargo.createdAt).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' })}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOpenEncargo(null)}
+                      className="shrink-0 rounded-full border border-white/10 bg-black/40 p-2 text-zinc-400 hover:text-white"
+                      aria-label="Cerrar"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* El mensaje que mandó el lead */}
+                  <div className="mt-5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Lo que te escribió</p>
+                    <p className="mt-2 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-relaxed text-zinc-200">
+                      {openEncargo.brief}
+                    </p>
+                    {openEncargo.referenceUrl && (
+                      <a
+                        href={openEncargo.referenceUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="mt-3 inline-flex max-w-full items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-200 hover:text-cyan-100"
+                      >
+                        <span className="shrink-0 uppercase tracking-[0.14em]">Referencia</span>
+                        <span className="min-w-0 break-all text-cyan-100/80">{openEncargo.referenceUrl}</span>
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0" />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Responder: botones directos según el contacto que dejó */}
+                  <div className="mt-5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Responder</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {contactActions(openEncargo.contact).map((a) => (
+                        <a
+                          key={a.href}
+                          href={a.href}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex items-center gap-2 rounded-2xl border border-[var(--accent,#FA5D29)]/40 bg-[var(--accent,#FA5D29)]/10 px-3.5 py-2.5 text-sm font-black text-[var(--accent,#FA5D29)] hover:bg-[var(--accent,#FA5D29)]/20"
+                        >
+                          {a.label}
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        </a>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => copyContact(openEncargo.contact)}
+                        className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-sm font-bold text-zinc-300 hover:text-white"
+                        title="Copiar contacto"
+                      >
+                        <Copy className="h-4 w-4" />
+                        {openEncargo.contact}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Mover de etapa sin cerrar */}
+                  <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Etapa</span>
+                    <select
+                      value={openEncargo.status}
+                      onChange={(ev) => {
+                        const next = ev.target.value as EncargoStatus;
+                        handleUpdateEncargoStatus(openEncargo.id, next);
+                        setOpenEncargo({ ...openEncargo, status: next });
+                      }}
+                      className="min-h-10 flex-1 rounded-2xl border border-white/10 bg-black/40 px-3 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-white/20"
+                    >
+                      {encargoStatuses.map((statusKey) => (
+                        <option key={statusKey} value={statusKey}>{encargoStatusMeta[statusKey].label}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => { handleDeleteEncargo(openEncargo.id); setOpenEncargo(null); }}
+                      className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 px-4 text-sm font-black text-red-300 hover:bg-red-500/15"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

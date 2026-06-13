@@ -48,6 +48,10 @@
       "dest": "/productora.html"
     },
     {
+      "src": "/reel/?",
+      "dest": "/reel.html"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/index"
     },

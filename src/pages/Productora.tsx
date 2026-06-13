@@ -56,6 +56,20 @@ const packages = [
       'Reporte de resultados',
     ],
   },
+  {
+    id: 'canal',
+    name: 'Tu Marca, Canal Propio',
+    price: 'USD 1.500/mes',
+    meta: 'retainer mensual · piezas + canal 24/7',
+    pitch:
+      'Piezas nuevas todos los meses y un canal 24/7 con el contenido de tu marca, corriendo sobre la misma tecnología que BTV. Tu marca siempre prendida, sin depender del algoritmo.',
+    includes: [
+      '3 piezas nuevas por mes',
+      'Canal 24/7 con tu contenido',
+      'Programación y curaduría continua',
+      'Reporte mensual de resultados',
+    ],
+  },
 ];
 
 // Fallback de la cinta visual si todavía no cargaron los trabajos del feed.
@@ -111,6 +125,20 @@ export default function Productora() {
 
   // --- Trabajos: videos IA traídos del mismo feed que /laboratorio ---
   const [works, setWorks] = useState<Media[]>([]);
+
+  // Slots reales del mes: agregado del CRM de encargos (deals ganados vs
+  // capacidad). Escasez verificable — si el fetch falla, no se muestra nada.
+  const [slots, setSlots] = useState<{ total: number; taken: number; remaining: number; whatsapp?: string | null } | null>(null);
+
+  // Link directo a WhatsApp con mensaje prearmado: en Argentina los deals se
+  // cierran ahí, no por formulario.
+  const waLink = slots?.whatsapp
+    ? `https://wa.me/${slots.whatsapp}?text=${encodeURIComponent('Hola Santi! Vi tu productora y quiero hacer un video para mi marca.')}`
+    : null;
+
+  useEffect(() => {
+    api.getProductoraSlots().then(setSlots).catch(() => {});
+  }, []);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set());
@@ -515,6 +543,12 @@ export default function Productora() {
             <li><strong>223K</strong><span>seguidores · cuenta verificada</span></li>
             <li><strong>5.5M</strong><span>views en una sola pieza</span></li>
             <li><strong>Buenos Aires</strong><span>idea → entrega, equipo chico</span></li>
+            {slots && (
+              <li>
+                <strong>{slots.remaining}/{slots.total}</strong>
+                <span>{slots.remaining > 0 ? 'slots libres este mes' : 'mes completo · agendo el próximo'}</span>
+              </li>
+            )}
           </ul>
         </div>
 
@@ -563,6 +597,12 @@ export default function Productora() {
             <h2>Lo que podés pedir, con número.</h2>
             <p className="prod-section-lede">
               Precio final según la idea y los derechos. Seña del 50% para agendar, por Mercado Pago.
+              {slots && slots.remaining > 0 && slots.remaining <= 3 && (
+                <> Quedan <b>{slots.remaining} de {slots.total} slots</b> este mes.</>
+              )}
+              {slots && slots.remaining === 0 && (
+                <> El mes está completo: lo que entre ahora agenda para el próximo.</>
+              )}
             </p>
           </div>
 
@@ -575,6 +615,25 @@ export default function Productora() {
                 style={{ '--rev-i': index } as React.CSSProperties}
               >
                 {pack.featured && <span className="prod-pack__flag">El diferencial</span>}
+                {/* TV de fondo en la card del canal: el loop liviano del hero
+                    pasando tenue atrás del texto — la card se autodemuestra. */}
+                {pack.id === 'canal' && (previews.hero || Object.values(previews.items)[0]) && (
+                  <div className="prod-pack__tv" aria-hidden="true">
+                    <video
+                      src={previews.hero || Object.values(previews.items)[0]}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      preload="metadata"
+                      tabIndex={-1}
+                    />
+                    <span className="prod-pack__tv-badge">
+                      <i />
+                      en vivo · canal 24/7
+                    </span>
+                  </div>
+                )}
                 <h3>{pack.name}</h3>
                 <em>{pack.meta}</em>
                 <strong className="prod-pack__price">{boringMode ? 'Consulte presupuesto' : pack.price}</strong>
@@ -704,6 +763,7 @@ export default function Productora() {
                       <div className="prod-work__meta">
                         {m.aiTool && <span className="prod-work__tool">IA · {m.aiTool}</span>}
                         <h3>{m.title}</h3>
+                        {m.resultNote && <em className="prod-work__result">{m.resultNote}</em>}
                       </div>
                     )}
                   </article>
@@ -764,9 +824,22 @@ export default function Productora() {
             <p className="prod-eyebrow"><b>05</b>consulta comercial</p>
             <h2>Mandame lo que querés vender.</h2>
             <p>
-              Contame qué vendés: un producto, un local, un lanzamiento o una idea rara que tengas dando vueltas. Si veo algo posible, te respondo con una propuesta concreta y un número.
+              Contame qué vendés: un producto, un local, un lanzamiento o una idea rara que tengas dando vueltas. Si veo algo posible, te respondo con una propuesta concreta y un número. Y si la idea me ceba, no te mando un PDF: te mando una <b>prueba en video de tu marca</b>, ya hecha.
             </p>
             <div className="prod-contact__channels">
+              {waLink && (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="prod-mail prod-mail--wa"
+                  data-cursor="WSP"
+                  onClick={() => trackProductora('whatsapp')}
+                >
+                  WhatsApp directo
+                  <ArrowUpRight size={16} />
+                </a>
+              )}
               <a
                 href="mailto:hola@balosky.com"
                 className="prod-mail"

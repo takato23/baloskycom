@@ -353,7 +353,8 @@
 /* --- Paquetes con precio --- */
 .prod-pack-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* auto-fit para que la grilla absorba 3 o 4 paquetes sin tocar nada más */
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 14px;
   align-items: stretch;
 }
@@ -366,7 +367,85 @@
   padding: clamp(22px, 2.8vw, 34px);
   border: 1px solid rgba(243, 239, 230, 0.18);
   background: rgba(243, 239, 230, 0.035);
+  overflow: hidden;
   transition: border-color 0.3s var(--prod-ease), background 0.3s var(--prod-ease), transform 0.3s var(--prod-ease);
+}
+
+/* El texto de la card siempre por encima del TV de fondo */
+.prod-pack > :not(.prod-pack__tv) {
+  position: relative;
+  z-index: 1;
+}
+
+/* --- TV de fondo (card del canal 24/7) --- */
+.prod-pack__tv {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.prod-pack__tv video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Tenue: presencia de pantalla sin competir con el texto (los videos
+     pueden traer subtítulos quemados). */
+  opacity: 0.11;
+  filter: saturate(1.25) contrast(1.05) blur(1px);
+}
+
+/* Scanlines + viñeta para que se lea como pantalla, no como video de fondo */
+.prod-pack__tv::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(0, 0, 0, 0.12) 2px 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(10, 9, 8, 0.55) 100%);
+}
+
+.prod-pack__tv-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid rgba(243, 239, 230, 0.22);
+  border-radius: 999px;
+  background: rgba(10, 9, 8, 0.55);
+  color: rgba(243, 239, 230, 0.72);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.prod-pack__tv-badge i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ff3b3b;
+  box-shadow: 0 0 6px #ff3b3b;
+  animation: prodTvPulse 1.6s ease infinite;
+}
+
+@keyframes prodTvPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prod-pack__tv video { display: none; }
+  .prod-pack__tv-badge i { animation: none; }
+}
+
+/* En MODO INSTITUCIONAL™ el TV se apaga — obvio. */
+.prod-page--institucional .prod-pack__tv {
+  display: none;
 }
 
 .prod-pack:hover {
@@ -622,6 +701,25 @@
   font-weight: 800;
 }
 
+/* Resultado con números ("2.1M views · hecho en 5 días") — la prueba que
+   una marca quiere ver, cargada desde el admin de media. */
+.prod-work__result {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(10, 9, 8, 0.62);
+  border: 1px solid rgba(243, 239, 230, 0.22);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-style: normal;
+  color: rgba(243, 239, 230, 0.85);
+  backdrop-filter: blur(6px);
+}
+
 .prod-panel {
   min-height: 460px;
   padding: clamp(24px, 4vw, 44px);
@@ -708,6 +806,12 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   transition: color 0.25s var(--prod-ease), border-color 0.25s var(--prod-ease), gap 0.25s var(--prod-ease);
+}
+
+/* Canal preferido: WhatsApp en verde para que cante */
+.prod-mail--wa {
+  color: #1da851;
+  border-bottom-color: rgba(29, 168, 81, 0.45);
 }
 
 .prod-mail:hover {

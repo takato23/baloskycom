@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && node scripts/prune-dist-public.mjs && node scripts/build-productora-og.mjs",
+    "build": "vite build && node scripts/prune-dist-public.mjs && node scripts/build-productora-og.mjs && node scripts/build-reel-og.mjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "start": "NODE_ENV=production tsx server.ts",
