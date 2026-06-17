@@ -307,11 +307,11 @@ export type ThanksEmailArgs = {
 
 function buildThanksEmailHtml(args: ThanksEmailArgs): string {
   const name = (args.supporterName || '').trim();
-  const greeting = name ? `Hola ${escapeHtml(name)},` : 'Hola,';
+  const greeting = name ? `¡Hola ${escapeHtml(name)}!` : '¡Hola!';
 
-  const heading = args.isEncargo ? 'recibí tu encargo ✓' : 'gracias por el aporte ✓';
+  const heading = args.isEncargo ? 'me llegó tu mensaje' : 'gracias por el aporte ✓';
   const defaultNext = args.isEncargo
-    ? 'Te respondo en máximo <strong style="color:#f3efe6;">72 horas</strong> con lo que me pediste. Si necesito alguna aclaración extra, te escribo a este mismo mail.'
+    ? 'Gracias por escribir. Lo miro tranquilo y te respondo pronto con una idea y un número.'
     : 'Tu aporte ya se sumó al muro y lo vas a ver aparecer en balosky.com. Si dejaste mensaje, ya quedó publicado.';
   const next = args.nextSteps ? escapeHtml(args.nextSteps) : defaultNext;
 
@@ -325,6 +325,18 @@ function buildThanksEmailHtml(args: ThanksEmailArgs): string {
     ? `<tr><td style="padding:6px 0;color:#999;font-size:12px;letter-spacing:.1em;text-transform:uppercase;">Ref</td><td style="padding:6px 0;color:#777;font-size:12px;font-family:monospace;text-align:right;">${escapeHtml(args.purchaseId)}</td></tr>`
     : '';
 
+  // En encargos el mail es cálido y corto: botón al reel, sin tabla de
+  // "Concepto/Ref" ni pie de soporte. En aportes (cafecito) sí va el detalle.
+  const reelBtn = args.isEncargo
+    ? `<p style="margin:0 0 4px 0;"><a href="https://balosky.com/reel" style="display:inline-block;padding:11px 20px;background:#FA5D29;color:#0a0908;font-weight:800;font-size:14px;text-decoration:none;border-radius:10px;">Mirá el reel &rarr;</a></p>`
+    : '';
+  const metaTable = args.isEncargo
+    ? ''
+    : `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #1f1b17;margin-top:8px;padding-top:16px;">${itemLine}${amountLine}${idLine}</table>`;
+  const closing = args.isEncargo
+    ? `<p style="margin:24px 0 0 0;font-size:15px;line-height:1.6;color:#c9c4bb;">¡Hablamos!<br/><strong style="color:#f3efe6;">Santi</strong></p>`
+    : `<p style="margin:28px 0 0 0;font-size:12px;line-height:1.55;color:#777;">¿Dudas o algo que quieras cambiar? Respondé este mail y te contesto yo.</p>`;
+
   return `<!doctype html>
 <html lang="es">
 <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Gracias · Balosky</title></head>
@@ -337,14 +349,11 @@ function buildThanksEmailHtml(args: ThanksEmailArgs): string {
           <div style="font-family:monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#FA5D29;margin-top:6px;">${heading}</div>
         </td></tr>
         <tr><td style="padding:32px 36px;">
-          <p style="margin:0 0 16px 0;font-size:15px;line-height:1.55;color:#f3efe6;">${greeting}</p>
+          <p style="margin:0 0 16px 0;font-size:18px;line-height:1.4;color:#f3efe6;font-weight:700;">${greeting}</p>
           <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#c9c4bb;">${next}</p>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #1f1b17;margin-top:8px;padding-top:16px;">
-            ${itemLine}
-            ${amountLine}
-            ${idLine}
-          </table>
-          <p style="margin:28px 0 0 0;font-size:12px;line-height:1.55;color:#777;">¿Dudas o algo que quieras cambiar? Respondé este mail y te contesto yo.</p>
+          ${reelBtn}
+          ${metaTable}
+          ${closing}
         </td></tr>
         <tr><td style="padding:20px 36px;background:#080706;border-top:1px solid #1f1b17;">
           <p style="margin:0;font-size:11px;color:#666;line-height:1.5;">Balosky · donde termina el feed, empezamos nosotros.<br/><a href="https://balosky.com" style="color:#999;text-decoration:none;">balosky.com</a>&nbsp;·&nbsp;<a href="https://instagram.com/santiagobalosky" style="color:#999;text-decoration:none;">@santiagobalosky</a></p>
@@ -357,13 +366,23 @@ function buildThanksEmailHtml(args: ThanksEmailArgs): string {
 
 function buildThanksEmailText(args: ThanksEmailArgs): string {
   const name = (args.supporterName || '').trim();
-  const greeting = name ? `Hola ${name},` : 'Hola,';
-  const head = args.isEncargo ? 'Recibí tu encargo.' : 'Gracias por el aporte.';
-  const next = args.nextSteps
-    ? args.nextSteps
-    : args.isEncargo
-      ? 'Te respondo en máximo 72 horas con lo que me pediste.'
-      : 'Tu aporte ya se sumó al muro en balosky.com.';
+  const greeting = name ? `¡Hola ${name}!` : '¡Hola!';
+
+  // Encargo: cálido y corto, sin metadata. Aporte (cafecito): con detalle.
+  if (args.isEncargo) {
+    const next = args.nextSteps || 'Gracias por escribir. Lo miro tranquilo y te respondo pronto con una idea y un número.';
+    return `${greeting}
+
+${next}
+
+Mirá el reel: https://balosky.com/reel
+
+¡Hablamos!
+Santi
+`;
+  }
+
+  const next = args.nextSteps || 'Tu aporte ya se sumó al muro en balosky.com.';
   const meta: string[] = [];
   if (args.itemTitle) meta.push(`Concepto: ${args.itemTitle}`);
   if (args.amount) meta.push(`Aporte: ${formatAmount(args.amount)}`);
@@ -371,7 +390,7 @@ function buildThanksEmailText(args: ThanksEmailArgs): string {
 
   return `${greeting}
 
-${head}
+Gracias por el aporte.
 
 ${next}
 

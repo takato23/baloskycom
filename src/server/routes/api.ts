@@ -1391,7 +1391,7 @@ router.post('/encargos', writePublicLimiter, async (req, res) => {
         itemTitle: `Consulta productora · ${packageId}`,
         isEncargo: true,
         nextSteps:
-          'Me llegó tu consulta. La leo y te respondo en menos de 24 horas con una propuesta concreta y un número. Mientras tanto, mirá el reel: balosky.com/reel — así ves el tono de lo que hago.',
+          'Gracias por escribir. Lo miro tranquilo y te respondo pronto con una idea y un número. Mientras tanto, te dejo el reel para que veas el tono de lo que hago:',
         purchaseId: id,
       }).catch((ackError) => console.error('[POST /encargos] ack email error', ackError));
     }
