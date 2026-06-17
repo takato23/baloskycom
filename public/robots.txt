@@ -2,4 +2,10 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /api
+Disallow: /home-preview
+Disallow: /preview-hero
+Disallow: /preview-multimedia
+Disallow: /preview-full
+Disallow: /preview-v2
+Disallow: /preview-v2-tipo
 Sitemap: https://balosky.com/sitemap.xml

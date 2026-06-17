@@ -154,6 +154,16 @@ function injectRouteOg(html: string, meta: RouteOgMeta): string {
       `$1${meta.description}$2`,
     );
   if (meta.ogImage) out = out.replace(/og-card\.jpg/g, meta.ogImage);
+  // Canonical correcto por ruta: si ya hay un <link rel="canonical">, lo
+  // reescribe; si no, lo inserta después del og:url.
+  if (/<link\s+rel="canonical"/.test(out)) {
+    out = out.replace(/(<link\s+rel="canonical"\s+href=")[^"]*(")/, `$1${meta.url}$2`);
+  } else {
+    out = out.replace(
+      /(<meta\s+property="og:url"[^>]*>)/,
+      `$1\n    <link rel="canonical" href="${meta.url}" />`,
+    );
+  }
   return out;
 }
 

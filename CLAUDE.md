@@ -17,12 +17,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Monorepo, single process:** An Express server (`server.ts`) serves both the API and the Vite-powered React SPA in dev mode. In production, Express serves the built `dist/` folder.
 
-### Backend (Express + SQLite)
+### Backend (Express + Supabase Postgres)
 
-- `src/server/routes/api.ts` — All REST endpoints (CRUD for campaigns, products, memberships, messages, settings, discount codes, purchases, plus Mercado Pago checkout/webhooks)
-- `src/server/db.ts` — better-sqlite3 database init, schema, seed data, migrations
-- `src/server/auth.ts` — Password hashing and JWT auth
-- Database: `data/database.sqlite` (auto-created with seed data if empty)
+- `src/server/routes/api.ts` — All REST endpoints (CRUD for campaigns, products, memberships, messages, settings, discount codes, purchases, encargos, analytics events, plus Mercado Pago checkout/webhooks)
+- `src/server/db.ts` — Postgres connection via the `postgres` client (`DATABASE_URL`), schema, seed data, migrations. Exposes a thin `prepare()`/`run()` shim with `?`→`$N` placeholder conversion.
+- `src/server/auth.ts` — Password hashing (scrypt) and JWT auth
+- Database: **Supabase Postgres** via `DATABASE_URL` (not SQLite — the old better-sqlite3 setup was migrated)
 - Mercado Pago webhook at `POST /api/webhook/mercadopago`
 
 ### Frontend (React + React Router + Tailwind v4)
@@ -67,7 +67,7 @@ Easter egg:
 ### Key Patterns
 
 - Path alias: `@/` maps to `./src/`
-- SQLite booleans stored as 0/1, converted in API responses
+- Booleans stored as 0/1, converted in API responses
 - `settings` table: single JSON blob (id=`global`)
 - Currency: ARS, USD, CRYPTO (Mercado Pago only processes ARS)
 - Campaign `c3` ("Cafecito") is the catch-all for general contributions
@@ -76,9 +76,12 @@ Easter egg:
 ## Environment Variables
 
 Copy `.env.example` to `.env`:
+- `DATABASE_URL` — Supabase Postgres connection string (required)
 - `JWT_SECRET` — Admin auth tokens
 - `MP_ACCESS_TOKEN` — Mercado Pago credentials
-- `APP_URL` — Public URL for MP webhooks
+- `APP_URL` — Public URL for MP webhooks (also drives the CORS allowlist)
+- `RESEND_API_KEY` / `FROM_EMAIL` / `ADMIN_EMAIL` — Lead/purchase email notifications (Resend)
+- `PRODUCTORA_WHATSAPP` — Número (solo dígitos) para el botón de WhatsApp directo en /productora
 - `GEMINI_API_KEY` — Exposed to frontend via Vite define
 
 ## Social Links

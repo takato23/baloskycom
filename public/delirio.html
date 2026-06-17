@@ -20,13 +20,51 @@
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Balosky — edición IA con mirada propia" />
-<meta name="twitter:description" content="Archivo intervenido, escenas raras y encargos visuales con IA." />
+<meta name="twitter:title" content="Santi Balosky — creativo IA" />
+<meta name="twitter:description" content="Campañas, spots y contenido con IA para marcas. Que pare el scroll, que funcione en mudo." />
 <meta name="twitter:image" content="https://balosky.com/og-card.jpg" />
 <meta name="twitter:site" content="@santiagobalosky" />
 <meta name="twitter:creator" content="@santiagobalosky" />
 
 <link rel="canonical" href="https://balosky.com/" />
+
+<!-- Structured data: marca personal (Santi) + productora (Organization) para
+     desambiguación de marca en Google y rich results. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Person",
+      "@id": "https://balosky.com/#santi",
+      "name": "Santiago Balosky",
+      "alternateName": "Santi Balosky",
+      "url": "https://balosky.com/",
+      "jobTitle": "Creativo IA",
+      "description": "Creativo IA: campañas, spots y contenido con inteligencia artificial para marcas.",
+      "sameAs": [
+        "https://instagram.com/santiagobalosky",
+        "https://instagram.com/fotobalosky",
+        "https://youtube.com/@santiagobalosky",
+        "https://tiktok.com/@santiagobalosky",
+        "https://twitch.tv/balosky"
+      ]
+    },
+    {
+      "@type": "ProfessionalService",
+      "@id": "https://balosky.com/#productora",
+      "name": "Balosky",
+      "url": "https://balosky.com/productora",
+      "image": "https://balosky.com/og-productora.jpg",
+      "description": "Productora de contenido con IA: campañas, spots y video para marcas, con distribución en una audiencia de 223K.",
+      "areaServed": "AR",
+      "founder": { "@id": "https://balosky.com/#santi" },
+      "priceRange": "USD 500+",
+      "sameAs": ["https://instagram.com/santiagobalosky"]
+    }
+  ]
+}
+</script>
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <link rel="manifest" href="/manifest.webmanifest" />
@@ -6467,10 +6505,10 @@
 <!-- 6. STICKY MINI HERO -->
 <div class="sticky-mini" id="stickyMini">
   <div class="stk-l"><span class="stk-dot"></span><span>Balosky · creativo IA para marcas.</span></div>
-  <a class="stk-cta" href="#prepedido" data-prepedido="reel" data-cursor="BRIEF">Trabajemos →</a>
+  <a class="stk-cta" href="#prepedido" data-prepedido="custom" data-cursor="BRIEF">Trabajemos →</a>
 </div>
 
-<a class="cafe-fab" href="#prepedido" data-prepedido="reel" data-cursor="BRIEF" aria-label="Contame tu proyecto">
+<a class="cafe-fab" href="#prepedido" data-prepedido="custom" data-cursor="BRIEF" aria-label="Contame tu proyecto">
   <span>✦</span>
   <b>trabajemos</b>
   <small>contame tu proyecto</small>
@@ -6639,7 +6677,7 @@
     <a class="nav-lab" href="/laboratorio" data-cursor="IA"><span class="nav-inner"><span class="txt">Laboratorio</span><span class="txt-alt">Laboratorio</span></span></a>
   </div>
   <div class="nav-right">
-    <a class="pill-live" id="pillLive" href="#prepedido" data-prepedido="reel" data-cursor="BRIEF" aria-label="Contame tu proyecto"><span class="pulse"></span><span>disponible para proyectos</span><span style="margin-left:6px; color:rgba(24,210,196,0.84);">·</span><span style="color:rgba(24,210,196,0.92);">trabajemos →</span></a>
+    <a class="pill-live" id="pillLive" href="#prepedido" data-prepedido="custom" data-cursor="BRIEF" aria-label="Contame tu proyecto"><span class="pulse"></span><span>disponible para proyectos</span><span style="margin-left:6px; color:rgba(24,210,196,0.84);">·</span><span style="color:rgba(24,210,196,0.92);">trabajemos →</span></a>
     <button class="mode-btn" id="modeBtn" aria-label="Modo">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3.5"/><path d="M8 1v1.5M8 13.5V15M15 8h-1.5M2.5 8H1M12.95 3.05l-1.06 1.06M4.11 11.89l-1.06 1.06M12.95 12.95l-1.06-1.06M4.11 4.11l-1.06-1.06"/></svg>
     </button>
@@ -6654,7 +6692,7 @@
         <h1 style="font-family:'Inter Tight',sans-serif;font-weight:900;font-size:clamp(48px,12vw,120px);line-height:.88;letter-spacing:-.07em;margin:18px 0;">creativo IA,<br/>con mirada propia.</h1>
         <p style="font-size:18px;line-height:1.55;color:var(--muted);max-width:560px;">Campañas, spots y contenido con IA para marcas. Pensado para el feed: que pare el scroll y se entienda sin sonido.</p>
         <p style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;">
-          <a class="cta cta-primary" href="#prepedido" data-prepedido="reel"><span>Contame tu proyecto</span><span class="arr">→</span></a>
+          <a class="cta cta-primary" href="#prepedido" data-prepedido="custom"><span>Contame tu proyecto</span><span class="arr">→</span></a>
           <a class="cta cta-ghost cta-lab" href="/productora"><span>Ver paquetes</span><span class="arr">↗</span></a>
           <a class="cta cta-ghost cta-lab" href="/laboratorio"><span>Ver laboratorio</span><span class="arr">↗</span></a>
         </p>
@@ -6693,7 +6731,7 @@
 
         <div class="hero-bottom">
           <div class="cta-row">
-            <a class="cta cta-primary cta-lab" href="#prepedido" data-prepedido="reel" data-cursor="BRIEF"><span>Contame tu proyecto</span><span class="arr">↗</span></a>
+            <a class="cta cta-primary cta-lab" href="#prepedido" data-prepedido="custom" data-cursor="BRIEF"><span>Contame tu proyecto</span><span class="arr">↗</span></a>
             <a class="cta cta-ghost cta-lab" href="/productora" data-cursor="PAQUETES"><span>Ver paquetes</span><span class="arr">↗</span></a>
             <a class="cta cta-ghost" href="#vision" data-cursor="VER"><span>Ver trabajos</span><span class="arr">→</span></a>
           </div>
@@ -6790,7 +6828,7 @@
         </div>
         <p>Contame qué vendés y qué querés lograr. Si veo algo posible, te respondo con una propuesta concreta y un número.</p>
         <div class="offer-router reveal" aria-label="Elegir camino">
-          <a class="offer-route offer-route--hot" href="#prepedido" data-prepedido="reel" data-cursor="BRIEF">
+          <a class="offer-route offer-route--hot" href="#prepedido" data-prepedido="custom" data-cursor="BRIEF">
             <span>01 · proyecto</span>
             <b>Contame tu proyecto</b>
             <small id="slotsLine">Idea, rango y contacto. Te respondo con número.</small>
@@ -6821,7 +6859,7 @@
           <span>contacto · email o @instagram</span>
           <input type="text" name="contact" required maxlength="160" placeholder="vos@email.com · @tuuser" />
         </label>
-        <input type="hidden" name="packageId" id="prepedidoPackage" value="reel" />
+        <input type="hidden" name="packageId" id="prepedidoPackage" value="custom" />
         <label>
           <span>cuánto querés invertir</span>
           <input type="text" name="budget" maxlength="80" placeholder="USD 500 · rango · a definir" />
@@ -7040,7 +7078,7 @@
       <div class="foot-big">balosky.com</div>
       <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:flex-end; gap:30px; flex-wrap:wrap;">
         <p style="max-width:500px; color:rgba(243,239,230,0.72); font-size:16px; line-height:1.6;">creativo IA para marcas. Campañas, spots y contenido con mirada propia. BA, 2026.</p>
-        <a class="cta cta-primary" href="#prepedido" data-prepedido="reel"><span>Contame tu proyecto</span><span class="arr">→</span></a>
+        <a class="cta cta-primary" href="#prepedido" data-prepedido="custom"><span>Contame tu proyecto</span><span class="arr">→</span></a>
       </div>
       <div class="foot-grid">
         <div></div>
@@ -7818,12 +7856,12 @@ window.__orb = { boost: 0, on: true, palette: 0, setPalette: null };
   /* ===== [DELIRIO] ESCENA 3D: satélites alrededor del orbe ===== */
   const satellites = [];
   const headPlanetDefs = [
-    { url: '/models/planets/planet-01.glb', baseAngle: 0.04, radius: 1.62, speed: 0.20, size: 0.396, y: 0.34, z: 0.82, phase: 0.2, spin: 0.16 },
-    { url: '/models/planets/planet-02.glb', baseAngle: 0.92, radius: 1.82, speed: -0.14, size: 0.341, y: 0.08, z: 0.66, phase: 1.4, spin: -0.14 },
-    { url: '/models/planets/planet-03.glb', baseAngle: 2.05, radius: 1.58, speed: 0.16, size: 0.363, y: -0.22, z: 0.76, phase: 2.1, spin: 0.12 },
-    { url: '/models/planets/planet-04.glb', baseAngle: 3.15, radius: 1.92, speed: -0.13, size: 0.319, y: 0.12, z: 0.60, phase: 3.5, spin: -0.12 },
-    { url: '/models/planets/planet-05.glb', baseAngle: 4.10, radius: 1.48, speed: 0.18, size: 0.330, y: -0.04, z: 0.70, phase: 4.4, spin: 0.14 },
-    { url: '/models/planets/planet-06.glb', baseAngle: 5.18, radius: 2.02, speed: -0.11, size: 0.297, y: 0.28, z: 0.56, phase: 5.8, spin: -0.10 },
+    { url: '/models/planets/planet-01.opt.glb', baseAngle: 0.04, radius: 1.62, speed: 0.20, size: 0.396, y: 0.34, z: 0.82, phase: 0.2, spin: 0.16 },
+    { url: '/models/planets/planet-02.opt.glb', baseAngle: 0.92, radius: 1.82, speed: -0.14, size: 0.341, y: 0.08, z: 0.66, phase: 1.4, spin: -0.14 },
+    { url: '/models/planets/planet-03.opt.glb', baseAngle: 2.05, radius: 1.58, speed: 0.16, size: 0.363, y: -0.22, z: 0.76, phase: 2.1, spin: 0.12 },
+    { url: '/models/planets/planet-04.opt.glb', baseAngle: 3.15, radius: 1.92, speed: -0.13, size: 0.319, y: 0.12, z: 0.60, phase: 3.5, spin: -0.12 },
+    { url: '/models/planets/planet-05.opt.glb', baseAngle: 4.10, radius: 1.48, speed: 0.18, size: 0.330, y: -0.04, z: 0.70, phase: 4.4, spin: 0.14 },
+    { url: '/models/planets/planet-06.opt.glb', baseAngle: 5.18, radius: 2.02, speed: -0.11, size: 0.297, y: 0.28, z: 0.56, phase: 5.8, spin: -0.10 },
   ];
 
   function normalizeModelInto(group, object, targetSize) {
@@ -7848,6 +7886,9 @@ window.__orb = { boost: 0, on: true, palette: 0, setPalette: null };
 
   function loadHeadPlanets() {
     if (!THREE.GLTFLoader || loadHeadPlanets.done) return;
+    // Los planetas son decorativos y pesan ~12MB. En celular/dispositivos
+    // flojos no se cargan: queda la cabeza (lo importante) y el sitio vuela.
+    if (PERF && (PERF.state.low || PERF.state.mobile)) { loadHeadPlanets.done = true; return; }
     loadHeadPlanets.done = true;
     const planetLoader = makeGltfLoader();
     headPlanetDefs.forEach((def, idx) => {
@@ -8127,8 +8168,8 @@ if (window.location.hash) {
   }
 
   function openPrepedido(packageId) {
-    var requested = packageId || 'reel';
-    var allowed = ['reel', 'spot', 'historia', 'custom'];
+    var requested = packageId || 'custom';
+    var allowed = ['spot', 'pack', 'campania', 'canal', 'custom'];
     pkg.value = allowed.includes(requested) ? requested : 'custom';
     modal.classList.add('is-open');
     modal.setAttribute('aria-hidden', 'false');
@@ -8168,9 +8209,13 @@ if (window.location.hash) {
   if (initialHash.startsWith('prepedido')) {
     const initialPackage = initialHash.includes('spot')
       ? 'spot'
-      : initialHash.includes('historia')
-        ? 'historia'
-        : 'reel';
+      : initialHash.includes('campania')
+        ? 'campania'
+        : initialHash.includes('canal')
+          ? 'canal'
+          : initialHash.includes('pack')
+            ? 'pack'
+            : 'custom';
     setTimeout(() => openPrepedido(initialPackage), 180);
   }
 

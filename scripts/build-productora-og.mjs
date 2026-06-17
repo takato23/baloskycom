@@ -36,5 +36,9 @@ html = html
   .replace(/(name="twitter:description" content=")[^"]*(")/, `$1${DESCRIPTION}$2`)
   .replace(/og-card\.jpg/g, 'og-productora.jpg');
 
+html = /<link\s+rel="canonical"/.test(html)
+  ? html.replace(/(<link\s+rel="canonical"\s+href=")[^"]*(")/, '$1https://balosky.com/productora$2')
+  : html.replace(/(<meta\s+property="og:url"[^>]*>)/, '$1\n    <link rel="canonical" href="https://balosky.com/productora" />');
+
 fs.writeFileSync(outHtml, html);
 console.log('[build-productora-og] dist/productora.html generado con OG propio');
