@@ -1390,8 +1390,7 @@ router.post('/encargos', writePublicLimiter, async (req, res) => {
         supporterName: rawName,
         itemTitle: `Consulta productora · ${packageId}`,
         isEncargo: true,
-        nextSteps:
-          'Gracias por escribir. Lo miro tranquilo y te respondo pronto con una idea y un número. Mientras tanto, te dejo el reel para que veas el tono de lo que hago:',
+        nextSteps: '¡Gracias por tu mensaje! Te contesto pronto.',
         purchaseId: id,
       }).catch((ackError) => console.error('[POST /encargos] ack email error', ackError));
     }
