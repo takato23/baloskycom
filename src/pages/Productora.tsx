@@ -48,7 +48,7 @@ const packages = [
     meta: 'la pieza + mi audiencia',
     featured: true,
     pitch:
-      'Hago la pieza con mi estética y la publico en mi cuenta: 223K seguidores, picos de 5.5M de views. Tu marca adentro del contenido que la gente ya quiere ver, no interrumpiéndolo.',
+      'Hago la pieza con mi estética y la publico en mi cuenta: 226K seguidores, picos de 5.5M de views. Tu marca adentro del contenido que la gente ya quiere ver, no interrumpiéndolo.',
     includes: [
       'Pieza a medida, estética Balosky',
       'Publicación en @santiagobalosky',
@@ -540,7 +540,7 @@ export default function Productora() {
             )}
           </div>
           <ul className="prod-cred" aria-label="Datos de respaldo">
-            <li><strong>223K</strong><span>seguidores · cuenta verificada</span></li>
+            <li><strong>226K</strong><span>seguidores · cuenta verificada</span></li>
             <li><strong>5.5M</strong><span>views en una sola pieza</span></li>
             <li><strong>Buenos Aires</strong><span>idea → entrega, equipo chico</span></li>
             {slots && (

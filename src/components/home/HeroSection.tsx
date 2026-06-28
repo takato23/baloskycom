@@ -12,7 +12,7 @@ import OrbPlaceholder from './OrbPlaceholder';
  *
  * Ahora el centro es el modelo 3D de Santi (public/models/santi-head.glb,
  * generado con Meshy AI desde una foto). Gira lento en idle, te sigue con
- * el mouse. Los cartelitos orbitales (EN VIVO / ARGENTINA / 185K / MÚSICA /
+ * el mouse. Los cartelitos orbitales (EN VIVO / ARGENTINA / 226K / MÚSICA /
  * CAFECITOS / COMUNIDAD), el título y el BOOM dot siguen igual.
  *
  * Live-strip de stats mockup (Apoyos · mes / Recaudado · ARS / club /
@@ -71,7 +71,7 @@ export default function HeroSection() {
   const heroRef = useRef<HTMLElement | null>(null);
 
   /* Orbit RAF — port directo de delirio.html.
-   * Los cartelitos (EN VIVO / ARGENTINA / 176K / MÚSICA / CAFECITOS / COMUNIDAD)
+   * Los cartelitos (EN VIVO / ARGENTINA / 226K / MÚSICA / CAFECITOS / COMUNIDAD)
    * orbitan en elipse alrededor del centro del hero. Sin este effect quedan
    * apilados en 50/50 porque el CSS sólo los centra y el `transform` que
    * los distribuía lo calculaba JS.
@@ -250,7 +250,7 @@ export default function HeroSection() {
         <div className="hero-inner">
           <div className="hero-top">
             <div className="t-mono" style={{ color: 'var(--muted)' }}>
-              Edición IA · 185K IG · Buenos Aires
+              Edición IA · 226K IG · Buenos Aires
             </div>
             <div className="t-mono" style={{ color: 'var(--muted)' }}>
               {clock}

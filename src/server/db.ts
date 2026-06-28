@@ -921,7 +921,7 @@ async function initDb() {
     if (countSocials.length === 0 || (countSocials[0] as any).count === 0) {
       const nowSoc = new Date().toISOString();
       const socialsSeed: Array<[string, string, string, string, string, string, string, string, number]> = [
-        ['soc_ig',  'instagram',   'Instagram',    '@santiagobalosky · 185K', 'https://instagram.com/santiagobalosky',     'IG', '#F02E65', '#FFB83D', 1],
+        ['soc_ig',  'instagram',   'Instagram',    '@santiagobalosky · 226K', 'https://instagram.com/santiagobalosky',     'IG', '#F02E65', '#FFB83D', 1],
         ['soc_igf', 'instagram',   'Foto Balosky', '@fotobalosky',            'https://instagram.com/fotobalosky',         '📷', '#7C3FFF', '#F02E65', 2],
         ['soc_tw',  'twitch',      'Twitch',       'balosky · streams',       'https://twitch.tv/balosky',                 'TV', '#9146FF', '#5c2bb5', 3],
         ['soc_yt',  'youtube',     'YouTube',      '@santiagobalosky',        'https://youtube.com/@santiagobalosky',      '▶',  '#FF0000', '#b50000', 4],

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-"Balosky" — a creator-support platform for Santi Balosky (@santiagobalosky, 176K IG followers). Supporters can contribute to campaigns, buy products, subscribe to memberships, and leave messages. Payments go through Mercado Pago (Argentina). The UI is in Spanish. Target domain: balosky.com.
+"Balosky" — a creator-support platform for Santi Balosky (@santiagobalosky, 226K IG followers). Supporters can contribute to campaigns, buy products, subscribe to memberships, and leave messages. Payments go through Mercado Pago (Argentina). The UI is in Spanish. Target domain: balosky.com.
 
 ## Commands
 
