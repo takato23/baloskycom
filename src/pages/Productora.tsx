@@ -579,6 +579,34 @@ export default function Productora() {
         </div>
       </section>
 
+      {/* Prensa: prueba social real (Met Gala argentina). Verificable, sin
+          chamuyo — los hechos y las reacciones de los protagonistas. */}
+      <section className="prod-band prod-press-band" id="prensa">
+        <div className="prod-wrap">
+          <div className="prod-section-head" data-reveal>
+            <p className="prod-eyebrow">prensa</p>
+            <h2>No hago demos. Hago cosas que pasan.</h2>
+            <p className="prod-section-lede">
+              En mayo hice la <b>Met Gala argentina</b>: los famosos del país imaginados en la gala, con IA. La levantaron medios nacionales y la comentaron los propios protagonistas.
+            </p>
+          </div>
+          <div className="prod-press" data-reveal>
+            <ul className="prod-press__media" aria-label="Medios que la cubrieron">
+              <li>Infobae</li>
+              <li>La Nación</li>
+              <li>Los Andes</li>
+              <li>Yahoo</li>
+              <li>AgenciaFe</li>
+            </ul>
+            <ul className="prod-press__quotes" aria-label="Reacciones de los protagonistas">
+              <li><strong>Tinelli</strong><span>“Sos crack mal”</span></li>
+              <li><strong>Santiago del Moro</strong><span>“Sos crack”</span></li>
+              <li><strong>Graciela Alfano</strong><span>“Te amo”</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <div className="prod-ticker" aria-hidden="true">
         <div className="prod-ticker__track">
           {[...tickerLines, ...tickerLines].map((line, i) => (
