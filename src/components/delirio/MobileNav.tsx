@@ -27,17 +27,15 @@ type NavEntry = {
 };
 
 /**
- * Nota histórica: antes la primera entry apuntaba a `/#apoya`. Ahora
- * `#trabajemos` contiene el presupuesto de edición IA y el cafecito queda
- * como botón de apoyo simple.
+ * La home pública es la puerta de entrada a Balosky Productora. La barra
+ * móvil refleja ese recorrido comercial y deja el universo personal al final.
  */
 const ENTRIES: NavEntry[] = [
-  { href: '/btv',        label: 'BTV',     icon: '▣' },
-  { href: '/productora', label: 'Prod',    icon: '►' },
-  { href: '/#trabajemos', label: 'Presu',   icon: '♡' },
-  { href: '/#ojo',        label: 'Ojo',     icon: '◉' },
-  { href: '/#sonido',     label: 'Sonido',  icon: '♪' },
-  { href: '/laboratorio', label: 'Lab',     icon: '◆' },
+  { href: '/',            label: 'Prod',     icon: '►' },
+  { href: '/#vision',     label: 'Trabajos', icon: '◉' },
+  { href: '/#apoya',      label: 'Hacemos',  icon: '◆' },
+  { href: '/#prepedido',  label: 'Brief',    icon: '✦' },
+  { href: '/#universo',   label: 'Universo', icon: '▣' },
 ];
 
 const HIDDEN_PATH_PREFIXES = ['/admin', '/agenda-publica', '/checkout'];
@@ -48,9 +46,7 @@ export default function MobileNav() {
   const hidden = HIDDEN_PATH_PREFIXES.some((p) => location.pathname.startsWith(p));
   if (hidden) return null;
 
-  const isLab = location.pathname === '/laboratorio';
-  const isBtv = location.pathname === '/btv' || location.pathname === '/balosflix';
-  const isProductora = location.pathname === '/productora';
+  const isProductora = location.pathname === '/' || location.pathname === '/productora';
 
   /* Si estás en / y hacés click en un anchor, el navegador no scrollea
    * porque la URL sólo cambia el hash. Forzamos el scroll nativo para
@@ -74,9 +70,7 @@ export default function MobileNav() {
       <ul>
         {ENTRIES.map((e) => {
           const active =
-            (e.href === '/laboratorio' && isLab) ||
-            (e.href === '/btv' && isBtv) ||
-            (e.href === '/productora' && isProductora) ||
+            (e.href === '/' && isProductora) ||
             false;
           const content = (
             <span className="mobile-nav__inner">

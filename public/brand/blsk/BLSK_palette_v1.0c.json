@@ -1,0 +1,34 @@
+{
+  "version": "1.0-candidata",
+  "colors": {
+    "black": {
+      "hex": "#0A0A0A",
+      "role": "estructura / texto principal"
+    },
+    "ivory": {
+      "hex": "#F3F0E8",
+      "role": "fondo principal"
+    },
+    "signal": {
+      "hex": "#FF3B1F",
+      "role": "señal: punto, un dato o un desplazamiento — uno solo por pieza"
+    },
+    "grey": {
+      "hex": "#6D6D6D",
+      "role": "texto secundario sobre marfil"
+    },
+    "grey_dark": {
+      "hex": "#8F8F8F",
+      "role": "texto secundario sobre negro (AA)"
+    },
+    "light_grey": {
+      "hex": "#C8C5BE",
+      "role": "líneas / divisores sobre marfil"
+    }
+  },
+  "usage": {
+    "signal_percent": "5-10",
+    "rule": "una sola señal por pieza; el punto rojo del logo cuenta como la señal",
+    "complex_backgrounds": "logo monocromo; señal solo con contraste local >= 3:1"
+  }
+}

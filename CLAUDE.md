@@ -81,7 +81,6 @@ Copy `.env.example` to `.env`:
 - `MP_ACCESS_TOKEN` — Mercado Pago credentials
 - `APP_URL` — Public URL for MP webhooks (also drives the CORS allowlist)
 - `RESEND_API_KEY` / `FROM_EMAIL` / `ADMIN_EMAIL` — Lead/purchase email notifications (Resend)
-- `PRODUCTORA_WHATSAPP` — Número (solo dígitos) para el botón de WhatsApp directo en /productora
 - `GEMINI_API_KEY` — Exposed to frontend via Vite define
 
 ## Social Links

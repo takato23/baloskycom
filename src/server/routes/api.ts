@@ -1182,7 +1182,7 @@ const ENCARGO_PACKAGES = new Set([
   'reel', 'spot', 'historia', 'consultoria', 'serie', 'web', 'proyecto', 'custom',
   // Paquetes de la landing /productora (pack pauta de 3 variantes, campaña
   // con distribución en la cuenta de Santi, y retainer mensual de canal 24/7).
-  'pack', 'campania', 'canal',
+  'pack', 'campania', 'canal', 'plano',
 ]);
 const ENCARGO_STATUSES = new Set(['nuevo', 'respondido', 'cotizado', 'ganado', 'perdido']);
 const ENCARGO_PAYMENT_RE = /\[ENCARGO\]|\bencargo\b/i;
@@ -1287,7 +1287,8 @@ router.delete('/encargos/:id', requireAuth, async (req, res) => {
  * Un "slot" es un encargo ganado este mes en el CRM (status='ganado',
  * fecha de última actualización dentro del mes corriente). La capacidad
  * mensual sale de settings.productora.slotsPerMonth (default 4, tope 20).
- * Devuelve sólo números agregados — nada del contenido de los deals — para
+ * Devuelve sólo números agregados — nada del contenido de los deals ni datos
+ * de contacto — para
  * que la landing muestre escasez real y verificable, no inventada.
  */
 router.get('/productora/slots', async (_req, res) => {
@@ -1308,12 +1309,7 @@ router.get('/productora/slots', async (_req, res) => {
       return Number.isFinite(ts) && ts >= monthStart.getTime();
     }).length;
 
-    // WhatsApp comercial: PRODUCTORA_WHATSAPP pisa al teléfono de alertas.
-    // Sólo dígitos (formato wa.me). Si no hay número, el front oculta el botón.
-    const rawPhone = process.env.PRODUCTORA_WHATSAPP || process.env.WHATSAPP_ALERT_PHONE || '';
-    const whatsapp = rawPhone.replace(/\D/g, '') || null;
-
-    res.json({ total, taken: Math.min(taken, total), remaining: Math.max(0, total - taken), whatsapp });
+    res.json({ total, taken: Math.min(taken, total), remaining: Math.max(0, total - taken) });
   } catch (e) {
     console.error('[GET /productora/slots]', e);
     res.status(500).json({ error: 'database error' });

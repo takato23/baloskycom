@@ -1,0 +1,14 @@
+{
+  "version": "1.0-candidata",
+  "grammar": ["señal aparece", "señal se asienta", "corte activa las letras", "hold"],
+  "easing": {"travel": [0.30, 0, 0.05, 1], "pulse": "sin", "letter_cut_frames": 2},
+  "presentation": {"duration_s": 10, "fps": 25, "keyframes_f": {"empty": [0,40], "dot_in": 40,
+    "travel": [40,70], "settle": [70,72], "letters_cut": [75,77], "hold": [77,212],
+    "pulse": [212,224], "end": 250}},
+  "operational": {"duration_s": 3.2, "fps": 25, "keyframes_f": {"empty": [0,6], "dot_in": 6,
+    "pulse": [6,18], "letters_cut": [21,23], "hold": [23,80]}},
+  "forbidden": ["glitch","partículas","rebotes elásticos","morph","3D","cámara","REC escrito",
+    "letras desplazándose","más de un pulso","fades de letras > 4 frames"],
+  "deliverables": ["16:9","9:16","1:1","25p","50p","H.264","ProRes 4444 alpha (blanco)",
+    "masters sobre negro","end cards PNG"]
+}

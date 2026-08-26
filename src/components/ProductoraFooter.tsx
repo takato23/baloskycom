@@ -1,21 +1,28 @@
 import { ArrowUpRight } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 /**
  * Footer dedicado a la landing comercial `/productora`. A diferencia del
  * `DelirioFooter` (cafecitos, Carta del Delirio, stats de la plataforma
- * creator), este habla el idioma de una productora: contacto directo,
- * un solo CTA y la misma paleta tinta/hueso/naranja de la página.
+ * creator), este habla el idioma de una productora: contacto directo y
+ * un solo CTA.
+ *
+ * También lo monta `/cameo`, que es producto del creador: ahí la marca sigue
+ * siendo BALOSKY. El wordmark y la firma BLSK. son sólo de `/productora`.
  *
  * Vive en `src/styles/productora.css` (clases `prod-foot__*`).
  */
 export default function ProductoraFooter() {
   const year = new Date().getFullYear();
+  const isBlsk = useLocation().pathname === '/productora';
 
   return (
-    <footer className="prod-foot">
+    <footer className={`prod-foot${isBlsk ? ' blsk prod-foot--blsk' : ''}`}>
       <div className="prod-foot__top">
         <div className="prod-foot__lead">
-          <p className="prod-eyebrow prod-eyebrow--light">Balosky Productora</p>
+          <p className="prod-eyebrow prod-eyebrow--light">
+            {isBlsk ? 'BLSK. productora' : 'Balosky Productora'}
+          </p>
           <h2>¿Tenés algo para filmar?</h2>
           <p className="prod-foot__sub">
             Spots, trailers y piezas con IA para marcas. Contame qué querés vender y te
@@ -33,7 +40,12 @@ export default function ProductoraFooter() {
       </div>
 
       <div className="prod-foot__wordmark" aria-hidden="true">
-        Balosky
+        {isBlsk ? (
+          /* El manual prohíbe reconstruir el logo con texto: va el SVG maestro. */
+          <img src="/brand/blsk/svg/BLSK_primary_white_mono.svg" alt="" />
+        ) : (
+          'Balosky'
+        )}
       </div>
 
       <ul className="prod-foot__absurd" aria-label="Estadísticas de la casa">
@@ -44,7 +56,11 @@ export default function ProductoraFooter() {
       </ul>
 
       <div className="prod-foot__bottom">
-        <span>© {year} Balosky · Buenos Aires</span>
+        <span>
+          {isBlsk
+            ? `© ${year} BLSK. · Dirección: Balosky · Buenos Aires`
+            : `© ${year} Balosky · Buenos Aires`}
+        </span>
         <nav className="prod-foot__links" aria-label="Enlaces">
           <a href="/cameo">Cameo</a>
           <a href="/productora">Productora</a>

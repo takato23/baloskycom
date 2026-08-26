@@ -119,11 +119,11 @@ type RouteOgMeta = {
 };
 
 const PRODUCTORA_META: RouteOgMeta = {
-  title: 'Balosky Productora — video para marcas',
+  title: 'BLSK. — video para marcas',
   description:
-    'Spots, trailers y piezas con IA para marcas. 223K seguidores, piezas de hasta 5.5M de views. Pensados para el feed: enganchan en segundos y se entienden sin sonido.',
+    'La productora de Santi Balosky: 234K seguidores y piezas de hasta 5.5M de views. Spots, trailers y piezas con IA que enganchan en segundos y se entienden sin sonido.',
   url: 'https://balosky.com/productora',
-  ogImage: 'og-productora.jpg',
+  ogImage: 'og-blsk-productora.jpg',
 };
 
 const REEL_META: RouteOgMeta = {
@@ -131,6 +131,8 @@ const REEL_META: RouteOgMeta = {
   description:
     'El reel: spots, campañas y piezas con IA en un minuto. Si te cierra el tono, hablamos.',
   url: 'https://balosky.com/reel',
+  // `/reel` no entró en el rebrand: sigue firmado como BALOSKY, así que
+  // conserva el card naranja. Ver docs/blsk-marca.md.
   ogImage: 'og-productora.jpg',
 };
 
@@ -249,6 +251,15 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(express.static(PUBLIC_DIR_DEV, { index: false }));
 }
 
+// En producción self-hosted los estáticos de dist tienen que montarse ACÁ,
+// antes del guard de DIRECT_FILE_RX de más abajo: si van después, ese guard
+// contesta 404 a todo lo que termine en .svg/.jpg/.png/.webp y se cae cada
+// imagen del sitio. En Vercel esto no pasa porque `{"handle":"filesystem"}`
+// de vercel.json sirve dist/ antes de llegar a la función.
+if (process.env.NODE_ENV === 'production' && !isVercel) {
+  app.use(express.static(path.join(process.cwd(), 'dist')));
+}
+
 // Vite middleware for development (conditional setup below)
 let viteLocked = false;
 
@@ -284,10 +295,9 @@ app.use((req, res, next) => {
   return next();
 });
 
-// For production, serve static files
+// Fallback SPA de producción. Los estáticos ya se montaron más arriba.
 if (process.env.NODE_ENV === 'production' && !isVercel) {
   const distPath = path.join(process.cwd(), 'dist');
-  app.use(express.static(distPath));
   app.get('*', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });

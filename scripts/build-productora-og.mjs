@@ -19,9 +19,9 @@ const dist = path.resolve(process.cwd(), 'dist');
 const srcHtml = path.join(dist, 'index.html');
 const outHtml = path.join(dist, 'productora.html');
 
-const TITLE = 'Balosky Productora — video para marcas';
+const TITLE = 'BLSK. — video para marcas';
 const DESCRIPTION =
-  'Spots, trailers y piezas con IA para marcas. 223K seguidores, piezas de hasta 5.5M de views. Pensados para el feed: enganchan en segundos y se entienden sin sonido.';
+  'La productora de Santi Balosky: 234K seguidores y piezas de hasta 5.5M de views. Spots, trailers y piezas con IA que enganchan en segundos y se entienden sin sonido.';
 
 let html = fs.readFileSync(srcHtml, 'utf-8');
 
@@ -34,7 +34,7 @@ html = html
   .replace(/(property="og:image:alt" content=")[^"]*(")/, `$1${TITLE}$2`)
   .replace(/(name="twitter:title" content=")[^"]*(")/, `$1${TITLE}$2`)
   .replace(/(name="twitter:description" content=")[^"]*(")/, `$1${DESCRIPTION}$2`)
-  .replace(/og-card\.jpg/g, 'og-productora.jpg');
+  .replace(/og-card\.jpg/g, 'og-blsk-productora.jpg');
 
 html = /<link\s+rel="canonical"/.test(html)
   ? html.replace(/(<link\s+rel="canonical"\s+href=")[^"]*(")/, '$1https://balosky.com/productora$2')
