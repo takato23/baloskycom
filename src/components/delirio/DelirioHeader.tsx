@@ -6,22 +6,14 @@ import { useAppContext } from '@/context/AppContext';
  * (no react-router Links) para que, estando en otra ruta, un click haga un
  * full-nav a `/` y recién ahí el hash resuelva al anchor.
  *
- * **Historial de anchors**: `#apoya` y `#club` existían cuando teníamos
- * `ApoyaSection` + `ClubSection` separados. Desde la unificación en
- * `MonetizacionHub` ambos colapsaron a `#trabajemos`. Dejamos el span
- * `#club` dentro del hub para retrocompat de links viejos, pero en el nav
- * nuevo apuntamos directo a `#trabajemos`.
- *
- * `Laboratorio` es una ruta React → `<Link>`.
+ * La home pública es la portada canónica de Balosky Productora.
  */
 const ANCHOR_LINKS = [
-  { href: '/btv', label: 'BTV' },
-  { href: '/productora', label: 'Productora' },
-  { href: '/#trabajemos', label: 'Trabajemos' },
   { href: '/#vision', label: 'Trabajos' },
-  { href: '/#ojo', label: 'Ojo' },
-  { href: '/#sonido', label: 'Sonido' },
-  { href: '/#redes', label: 'Redes' },
+  { href: '/#apoya', label: 'Qué hacemos' },
+  { href: '/#proceso', label: 'Cómo trabajo' },
+  { href: '/#santi', label: 'Santi' },
+  { href: '/#prepedido', label: 'Contacto' },
 ];
 
 export default function DelirioHeader() {
@@ -50,10 +42,31 @@ export default function DelirioHeader() {
   };
 
   return (
-    <nav className={isHome ? 'nav nav--home' : 'nav'} role="navigation" aria-label="Navegación principal">
-      <a href="/" className="logo" aria-label="Balosky — inicio" onClick={handleLogoClick}>
-        <span className="orbito" aria-hidden="true" />
-        Balosky
+    <nav
+      className={`nav${isHome ? ' nav--home' : ''}${isProductora ? ' nav--blsk' : ''}`}
+      role="navigation"
+      aria-label="Navegación principal"
+    >
+      {/* Arquitectura de marca: BALOSKY es el creador, BLSK. es la productora.
+          El header es chrome compartido, así que sólo en `/productora`
+          muestra el wordmark BLSK. (mono; la señal ahí es el CTA). */}
+      <a
+        href="/"
+        className="logo"
+        aria-label={isProductora ? 'BLSK. — inicio' : 'Balosky Productora — inicio'}
+        onClick={handleLogoClick}
+      >
+        {isProductora ? (
+          <>
+            <span className="logo__blsk" aria-hidden="true" />
+            <span className="logo__blsk-sub">productora</span>
+          </>
+        ) : (
+          <>
+            <span className="orbito" aria-hidden="true" />
+            Balosky <b>Productora</b>
+          </>
+        )}
       </a>
 
       <div className="nav-links">

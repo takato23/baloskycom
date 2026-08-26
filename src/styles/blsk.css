@@ -1,0 +1,74 @@
+/* BLSK. — tokens de marca v1.0 candidata
+   Fuente: BLSK_Brand_System_v1.0_candidata (paleta, motion, tipografía).
+   Ámbito: la productora. NO aplicar al sitio personal BALOSKY. */
+
+.blsk {
+  /* Paleta */
+  --blsk-black: #0a0a0a;
+  --blsk-ivory: #f3f0e8;
+  --blsk-signal: #ff3b1f;
+  --blsk-grey: #6d6d6d;        /* texto secundario sobre marfil */
+  --blsk-grey-dark-bg: #8f8f8f; /* texto secundario sobre negro (AA) */
+  --blsk-light-grey: #c8c5be;   /* divisores sobre marfil */
+
+  /* Tipografía de sistema */
+  --blsk-font-display: 'Inter Tight', ui-sans-serif, system-ui, sans-serif;
+  --blsk-font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --blsk-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Unidad X = diámetro del punto (26,4 u sobre caja 160 = 16,5 %) */
+  --blsk-x: 0.165em;
+
+  /* Motion: una sola gramática, easing seco, sin rebote */
+  --blsk-ease: cubic-bezier(0.3, 0, 0.05, 1);
+  --blsk-cut: 80ms;   /* corte de 2 frames @25fps */
+  --blsk-move: 1200ms; /* recorrido del punto */
+}
+
+/* Jerarquía tipográfica (manual, lámina 26) */
+.blsk .blsk-h1 {
+  font-family: var(--blsk-font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  line-height: 0.94;
+}
+
+.blsk .blsk-h2 {
+  font-family: var(--blsk-font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.blsk .blsk-body {
+  font-family: var(--blsk-font-body);
+  font-size: clamp(15px, 1.1vw, 17px);
+  line-height: 1.55;
+}
+
+.blsk .blsk-data {
+  font-family: var(--blsk-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em; /* caja alta +8 % */
+  font-variant-numeric: tabular-nums;
+}
+
+/* La señal: UNA sola por pieza. Si el logo señal está presente, ese punto ES la señal. */
+.blsk .blsk-signal { color: var(--blsk-signal); }
+.blsk .blsk-dot {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 50%;
+  background: var(--blsk-signal);
+  vertical-align: baseline;
+}
+
+/* Área de seguridad mínima: 1,5 X alrededor del conjunto; 2 X en avatar/cierre. */
+.blsk .blsk-logo { display: block; padding: calc(var(--blsk-x) * 1.5); }
+.blsk .blsk-logo--avatar { padding: calc(var(--blsk-x) * 2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .blsk * { animation: none !important; transition-duration: 1ms !important; }
+}

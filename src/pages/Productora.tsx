@@ -5,17 +5,17 @@ import type { Media } from '@/types';
 import { getMediaPlaceholder } from '@/lib/mediaPlaceholder';
 import { trackEvent } from '@/lib/analytics';
 import PageMeta from '@/components/PageMeta';
+import '@/styles/blsk.css';
 import '@/styles/productora.css';
 
 type SubmitState = 'idle' | 'sending' | 'sent' | 'error';
 
-// Paquetes con precio ancla. El precio final se cierra por consulta (idea,
-// derechos, urgencia), pero el ancla filtra curiosos y posiciona: esto es
-// una productora con tarifa, no un freelancer a regateo.
+// Formas de contratación. Cuando el alcance es repetible mostramos un ancla;
+// los planos para una producción se cotizan según duración, integración y derechos.
 const packages = [
   {
     id: 'spot',
-    name: 'Spot',
+    name: 'Pieza completa',
     price: 'desde USD 500',
     meta: '1 pieza vertical · 20-35s',
     pitch:
@@ -28,22 +28,22 @@ const packages = [
     ],
   },
   {
-    id: 'pack',
-    name: 'Pack Pauta',
-    price: 'desde USD 900',
-    meta: '3 variantes del mismo aviso',
+    id: 'plano',
+    name: 'Planos para producción',
+    price: 'según alcance',
+    meta: 'unidad especializada · lista para post',
     pitch:
-      'Tres versiones con arranques distintos para testear cuál rinde antes de poner toda la plata en una. Pensado para A/B en Meta y TikTok.',
+      'Me sumo a tu agencia o productora para diseñar y entregar ese plano o secuencia con IA que la pieza necesita, sin adueñarme del proyecto.',
     includes: [
-      '3 enganches distintos, misma idea',
-      'Optimizado para testeo A/B',
+      'Diseño visual y prueba de look',
+      'Generación e iteración del plano',
+      'Entrega lista para integrar en post',
       '2 rondas de revisión',
-      'Derechos de pauta por 6 meses',
     ],
   },
   {
     id: 'campania',
-    name: 'Campaña + Canal',
+    name: 'Pieza + publicación',
     price: 'desde USD 2.500',
     meta: 'la pieza + mi audiencia',
     featured: true,
@@ -74,9 +74,21 @@ const packages = [
 
 // Fallback de la cinta visual si todavía no cargaron los trabajos del feed.
 const fallbackShots = [
-  '/images/home-editorial/ojo-poster-h.jpg',
-  '/images/home-editorial/lab-poster-h.jpg',
+  '/images/home-editorial/ojo-poster-h-960.webp',
+  '/images/home-editorial/lab-poster-h-960.webp',
 ];
+
+const localWorkPosters: Record<string, string> = {
+  ig_DYr6QbNqFQc: '/images/work-thumbs/obelisco-720.webp',
+  ig_DXQSIBoClzQ: '/images/work-thumbs/final-720.webp',
+  ig_DYxLxNBK7ph: '/images/work-thumbs/patriotico-720.webp',
+  ig_DXIbOfxijJ5: '/images/work-thumbs/condena-720.webp',
+  ig_DXLDU0sEQE3: '/images/work-thumbs/thriller-720.webp',
+  ig_DYujyO4KiL1: '/images/work-thumbs/siempre-720.webp',
+};
+
+const getWorkPoster = (media: Media) =>
+  localWorkPosters[media.id] || media.coverImage || media.thumbUrl || '';
 
 const principles = [
   'Si la idea no para el scroll, la tiramos.',
@@ -89,7 +101,7 @@ const principles = [
 const tickerLines = [
   'que pare el scroll',
   'que funcione en mudo',
-  'cero placas con logo gigante',
+  'cero relleno',
   'la IA no es el chiste',
   'sí, la estatua 3D de la home soy yo',
   'tu marca adentro del contenido, no interrumpiéndolo',
@@ -128,13 +140,7 @@ export default function Productora() {
 
   // Slots reales del mes: agregado del CRM de encargos (deals ganados vs
   // capacidad). Escasez verificable — si el fetch falla, no se muestra nada.
-  const [slots, setSlots] = useState<{ total: number; taken: number; remaining: number; whatsapp?: string | null } | null>(null);
-
-  // Link directo a WhatsApp con mensaje prearmado: en Argentina los deals se
-  // cierran ahí, no por formulario.
-  const waLink = slots?.whatsapp
-    ? `https://wa.me/${slots.whatsapp}?text=${encodeURIComponent('Hola Santi! Vi tu productora y quiero hacer un video para mi marca.')}`
-    : null;
+  const [slots, setSlots] = useState<{ total: number; taken: number; remaining: number } | null>(null);
 
   useEffect(() => {
     api.getProductoraSlots().then(setSlots).catch(() => {});
@@ -178,14 +184,14 @@ export default function Productora() {
 
   const heroWork = works.find((m) => m.mediaUrl && !brokenIds.has(m.id));
   const heroVideoUrl = heroMuted ? previews.hero || heroWork?.mediaUrl : heroWork?.mediaUrl;
-  const heroPoster = heroWork?.coverImage || heroWork?.thumbUrl || '/og-card.jpg';
+  const heroPoster = heroWork ? getWorkPoster(heroWork) || '/og-card.jpg' : '/og-card.jpg';
 
   // Cinta visual: stills reales de los trabajos (sin panoramas 360 que se
   // deforman al recortar). Cae al fallback editorial si el feed está vacío.
   const reelShots = (() => {
     const fromWorks = works
       .filter((m) => !brokenIds.has(m.id))
-      .map((m) => m.coverImage || m.thumbUrl)
+      .map(getWorkPoster)
       .filter((src): src is string => Boolean(src));
     const unique = Array.from(new Set([...fromWorks, ...fallbackShots]));
     return unique.slice(0, 6);
@@ -225,9 +231,11 @@ export default function Productora() {
       if (e.key === 'Escape') setReelOpen(false);
     };
     document.addEventListener('keydown', onKey);
+    document.body.classList.add('prod-reel-open');
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
+      document.body.classList.remove('prod-reel-open');
       document.body.style.overflow = '';
     };
   }, [reelOpen]);
@@ -436,7 +444,7 @@ export default function Productora() {
   };
 
   return (
-    <div className={`prod-page${boringMode ? ' prod-page--institucional' : ''}`}>
+    <div className={`blsk prod-page${boringMode ? ' prod-page--institucional' : ''}`}>
       {boringMode && (
         <div className="prod-boring-banner" role="status">
           <p>
@@ -448,11 +456,11 @@ export default function Productora() {
         </div>
       )}
       <PageMeta
-        title="Balosky Productora — video para marcas"
-        description="Spots, trailers y piezas con IA para marcas. Pensados para el feed: que enganchen en los primeros segundos y se entiendan sin sonido."
-        keywords={['productora', 'video', 'spot', 'trailer', 'IA', 'marca', 'publicidad', 'Buenos Aires', 'Balosky']}
-        ogTitle="Balosky Productora"
-        ogDescription="Video que la gente mira hasta el final. Spots, trailers y piezas con IA para marcas."
+        title="BLSK. — productora de publicidad y producción visual con IA"
+        description="BLSK. es la productora de Santi Balosky. Piezas completas y planos con IA para marcas, agencias y productoras, desde Buenos Aires."
+        keywords={['BLSK', 'productora', 'video', 'spot', 'trailer', 'IA', 'marca', 'publicidad', 'Buenos Aires', 'Balosky']}
+        ogTitle="BLSK. — productora"
+        ogDescription="Una pieza completa o ese plano que falta. Publicidad y producción visual con IA."
       />
       <section className="prod-hero" id="productora">
         <video
@@ -489,20 +497,26 @@ export default function Productora() {
 
         <div className="prod-hero__content" data-reveal>
           <p className="prod-kicker">
-            <span />
-            Balosky Productora
+            <img
+              className="prod-kicker__logo"
+              src="/brand/blsk/svg/BLSK_primary_white_mono.svg"
+              alt="BLSK."
+              width={76}
+              height={28}
+            />
+            Productora
           </p>
           <h1>
             {boringMode ? (
               <>Soluciones audiovisuales integrales para su empresa.</>
             ) : (
-              <>Video que la gente mira <em>hasta el final</em>.</>
+              <>Una idea. Un plano. O <em>la pieza entera</em>.</>
             )}
           </h1>
           <p className="prod-lede">
             {boringMode
               ? 'Somos un equipo multidisciplinario comprometido con la excelencia, ofreciendo contenido de calidad e innovación con los más altos estándares del mercado desde una mirada 360°.'
-              : 'Spots, trailers y piezas con IA para marcas. Pensados para el feed: que enganchen en los primeros segundos y se entiendan sin sonido.'}
+              : 'Dirijo y produzco publicidad con IA para marcas, agencias y otras productoras. Puedo llevar una pieza completa o entrar a resolver ese plano que falta.'}
           </p>
           <div className="prod-actions">
             <a
@@ -545,16 +559,16 @@ export default function Productora() {
             <li><strong>Buenos Aires</strong><span>idea → entrega, equipo chico</span></li>
             {slots && (
               <li>
-                <strong>{slots.remaining}/{slots.total}</strong>
-                <span>{slots.remaining > 0 ? 'slots libres este mes' : 'mes completo · agendo el próximo'}</span>
+                <strong>{slots.remaining > 0 ? 'Agenda abierta' : 'Próximo mes'}</strong>
+                <span>{slots.remaining > 0 && slots.remaining <= 3 ? `${slots.remaining} lugares disponibles` : slots.remaining > 0 ? 'consultas en curso' : 'este mes está completo'}</span>
               </li>
             )}
           </ul>
         </div>
 
         <aside className="prod-signal" aria-label="Datos de trabajo">
-          <span>vertical / IA / humor / edición / guion</span>
-          <strong>De la idea al video listo.</strong>
+          <span>dirección / planos IA / guion / edición / post</span>
+          <strong>De un plano a una campaña.</strong>
         </aside>
 
         <a
@@ -571,10 +585,10 @@ export default function Productora() {
         <div className="prod-wrap prod-intro">
           <div data-reveal>
             <p className="prod-eyebrow"><b>01</b>el enfoque</p>
-            <h2>Somos chicos, y por eso vamos más rápido.</h2>
+            <h2>La dirijo yo. El equipo cambia con la idea.</h2>
           </div>
           <p data-reveal>
-            Hace años hago contenido para mi propia cuenta, así que sé qué hace que alguien frene el dedo en el feed. Esa misma cabeza la pongo a trabajar para tu marca: una idea que vende, ejecutada para que la gente la quiera mirar y compartir.
+            Hace años hago contenido para una audiencia real, así que sé qué hace que alguien frene el dedo y qué se saltea. Yo llevo la dirección creativa y la producción con IA; según el trabajo sumo rodaje, 3D, sonido, locución o post.
           </p>
         </div>
       </section>
@@ -621,10 +635,10 @@ export default function Productora() {
       <section className="prod-band" id="formatos">
         <div className="prod-wrap">
           <div className="prod-section-head" data-reveal>
-            <p className="prod-eyebrow"><b>02</b>paquetes</p>
-            <h2>Lo que podés pedir, con número.</h2>
+            <p className="prod-eyebrow prod-eyebrow--mute"><b>02</b>formas de entrar</p>
+            <h2>Desde el concepto. O justo en el plano difícil.</h2>
             <p className="prod-section-lede">
-              Precio final según la idea y los derechos. Seña del 50% para agendar, por Mercado Pago.
+              Estos son puntos de partida. El alcance final se define según la idea, la integración, los derechos y el calendario. Seña del 50% para agendar.
               {slots && slots.remaining > 0 && slots.remaining <= 3 && (
                 <> Quedan <b>{slots.remaining} de {slots.total} slots</b> este mes.</>
               )}
@@ -700,7 +714,7 @@ export default function Productora() {
             </div>
 
             <div className="prod-works" data-reveal-group>
-              {works.slice(0, 7).map((m, index) => {
+              {works.slice(0, 6).map((m, index) => {
                 const broken = brokenIds.has(m.id);
                 const isPlaying = playingId === m.id;
                 const showVideo = !broken && (isPlaying || previewId === m.id);
@@ -727,7 +741,7 @@ export default function Productora() {
                           else videoRefs.current.delete(m.id);
                         }}
                         src={isPlaying ? m.mediaUrl : previews.items[m.id] || m.mediaUrl}
-                        poster={m.coverImage || undefined}
+                        poster={getWorkPoster(m) || undefined}
                         muted={!isPlaying}
                         loop
                         playsInline
@@ -748,7 +762,7 @@ export default function Productora() {
                       />
                     ) : (
                       <img
-                        src={m.coverImage || m.thumbUrl || getMediaPlaceholder(m.title, { category: m.aiTool || m.category, width: 800, height: 1000 })}
+                        src={getWorkPoster(m) || getMediaPlaceholder(m.title, { category: m.aiTool || m.category, width: 800, height: 1000 })}
                         alt={m.title}
                         loading="lazy"
                         onError={(e) => {
@@ -849,25 +863,12 @@ export default function Productora() {
       <section className="prod-band prod-band--contact" id="consulta">
         <div className="prod-wrap prod-contact">
           <div className="prod-contact__copy" data-reveal>
-            <p className="prod-eyebrow"><b>05</b>consulta comercial</p>
-            <h2>Mandame lo que querés vender.</h2>
+            <p className="prod-eyebrow prod-eyebrow--mute"><b>05</b>consulta comercial</p>
+            <h2>Mandame el brief como esté.</h2>
             <p>
-              Contame qué vendés: un producto, un local, un lanzamiento o una idea rara que tengas dando vueltas. Si veo algo posible, te respondo con una propuesta concreta y un número. Y si la idea me ceba, no te mando un PDF: te mando una <b>prueba en video de tu marca</b>, ya hecha.
+              Una campaña, una pieza, un plano difícil o apenas una idea rara. Te digo si puedo resolverlo, cómo lo encararía y qué hay que presupuestar. Si el riesgo está en el look, definimos una prueba acotada antes de escalar.
             </p>
             <div className="prod-contact__channels">
-              {waLink && (
-                <a
-                  href={waLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="prod-mail prod-mail--wa"
-                  data-cursor="WSP"
-                  onClick={() => trackProductora('whatsapp')}
-                >
-                  WhatsApp directo
-                  <ArrowUpRight size={16} />
-                </a>
-              )}
               <a
                 href="mailto:hola@balosky.com"
                 className="prod-mail"
@@ -985,6 +986,7 @@ export default function Productora() {
             type="button"
             className="prod-reel-modal__close"
             aria-label="Cerrar reel"
+            autoFocus
             onClick={() => setReelOpen(false)}
           >
             ✕

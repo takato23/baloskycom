@@ -1,12 +1,45 @@
+/* Layout compartido por `/productora` y `/cameo`.
+   Arquitectura de marca (docs/blsk-marca.md): BALOSKY es el creador y BLSK. la
+   productora. Por eso los tokens de abajo son los de BALOSKY y el skin BLSK.
+   (negro/marfil/señal + IBM Plex Mono + easing sin rebote) se activa con la
+   clase `blsk`, que sólo pone `/productora`. Regla dura del skin: una sola
+   señal roja por pieza. Tokens de marca en src/styles/blsk.css. */
+
+/* Base = BALOSKY. `productora.css` es layout compartido: además de
+   `/productora` lo usa `/cameo`, que es producto del creador y sigue con el
+   naranja. Tinta y marfil quedan en los valores BLSK porque la diferencia
+   con los de BALOSKY es de 1-2/255 — invisible — y así hay un solo set. */
 .prod-page {
-  --prod-ink: #0a0908;
-  --prod-bone: #f3efe6;
+  --prod-ink: #0a0a0a;
+  --prod-bone: #f3f0e8;
   --prod-accent: #fa5d29;
+  --prod-accent-rgb: 250 93 41;
+  --prod-mono: 'JetBrains Mono', ui-monospace, monospace;
   --prod-ease: cubic-bezier(0.3, 0, 0.2, 1);
+  --prod-ease-pop: cubic-bezier(0.2, 1.4, 0.4, 1);
   min-height: 100vh;
   background: var(--prod-ink);
   color: var(--prod-bone);
   overflow: hidden;
+}
+
+/* Skin BLSK. — lo activa la clase `blsk`, que sólo pone `/productora`.
+   Una sola gramática de motion: easing seco, sin rebote. */
+.prod-page.blsk,
+.prod-foot.prod-foot--blsk {
+  --prod-accent: #ff3b1f;
+  --prod-accent-rgb: 255 59 31;
+  --prod-grey: #6d6d6d;         /* secundario sobre marfil */
+  --prod-grey-dark-bg: #8f8f8f; /* secundario sobre negro (AA) */
+  --prod-line: #c8c5be;         /* divisores sobre marfil */
+  --prod-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --prod-ease: cubic-bezier(0.3, 0, 0.05, 1);
+  --prod-ease-pop: cubic-bezier(0.3, 0, 0.05, 1);
+}
+
+.prod-page :where(a, button, input, textarea, [tabindex]):focus-visible {
+  outline: 3px solid #18d2c4;
+  outline-offset: 3px;
 }
 
 .prod-hero {
@@ -26,7 +59,7 @@
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(120% 90% at 30% 30%, transparent 40%, rgba(10, 9, 8, 0.55) 100%),
+    radial-gradient(120% 90% at 30% 30%, transparent 40%, rgba(10, 10, 10, 0.55) 100%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
   background-size: cover, 160px 160px;
   mix-blend-mode: overlay;
@@ -50,8 +83,8 @@
 .prod-hero__shade {
   z-index: -2;
   background:
-    linear-gradient(90deg, rgba(10, 9, 8, 0.82) 0%, rgba(10, 9, 8, 0.58) 42%, rgba(10, 9, 8, 0.2) 100%),
-    linear-gradient(0deg, #0a0908 0%, rgba(10, 9, 8, 0.08) 42%, rgba(10, 9, 8, 0.38) 100%);
+    linear-gradient(90deg, rgba(10, 10, 10, 0.82) 0%, rgba(10, 10, 10, 0.58) 42%, rgba(10, 10, 10, 0.2) 100%),
+    linear-gradient(0deg, #0a0a0a 0%, rgba(10, 10, 10, 0.08) 42%, rgba(10, 10, 10, 0.38) 100%);
 }
 
 .prod-hero__content {
@@ -63,12 +96,12 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(243, 239, 230, 0.68);
+  color: rgba(243, 240, 232, 0.68);
 }
 
 .prod-kicker span {
@@ -76,7 +109,16 @@
   height: 8px;
   border-radius: 50%;
   background: var(--prod-accent);
-  box-shadow: 0 0 24px rgba(250, 93, 41, 0.9);
+  box-shadow: 0 0 24px rgb(var(--prod-accent-rgb) / 0.9);
+}
+
+/* El kicker lleva la maestra mono: el hero va sobre video (fondo complejo) y
+   su única señal es el CTA sólido. Un logo señal acá daría dos rojos. */
+.prod-kicker__logo {
+  height: 28px; /* > 24 px mínimo de la versión primaria */
+  width: auto;
+  display: block;
+  margin-right: 2px;
 }
 
 /* Editorial index number inside eyebrows: "01  el enfoque" */
@@ -98,13 +140,27 @@
 }
 
 .prod-eyebrow--light {
-  color: rgba(243, 239, 230, 0.72);
+  color: rgba(243, 240, 232, 0.72);
+}
+
+/* Una sola señal por pieza: en las bandas que ya tienen un CTA sólido rojo
+   el número no puede ser el segundo rojo. */
+.prod-eyebrow--mute b {
+  color: currentColor;
+}
+
+/* La señal sobre marfil da 3,1:1 — el manual la admite como gráfico o texto
+   grande, nunca como cuerpo, y a 11 px tampoco pasa AA. En las bandas claras
+   el número del eyebrow va en tinta. */
+.prod-band--intro .prod-eyebrow b,
+.prod-band--contact .prod-eyebrow b {
+  color: currentColor;
 }
 
 /* On the cream bands the eyebrow must read dark, not bone */
 .prod-band--intro .prod-eyebrow,
 .prod-band--contact .prod-eyebrow {
-  color: rgba(10, 9, 8, 0.6);
+  color: rgba(10, 10, 10, 0.6);
 }
 
 .prod-hero h1,
@@ -128,7 +184,7 @@
 .prod-lede {
   max-width: 690px;
   margin: clamp(18px, 3vw, 30px) 0 0;
-  color: rgba(243, 239, 230, 0.76);
+  color: rgba(243, 240, 232, 0.76);
   font-size: clamp(18px, 2vw, 24px);
   line-height: 1.35;
 }
@@ -178,11 +234,11 @@
 }
 
 .prod-cred span {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(243, 239, 230, 0.55);
+  color: rgba(243, 240, 232, 0.55);
 }
 
 /* Vertical scroll cue — pinned to the right edge, vertically centered, so it
@@ -192,11 +248,11 @@
   right: clamp(16px, 3vw, 30px);
   top: 50%;
   transform: translateY(-50%);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 10px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: rgba(243, 239, 230, 0.5);
+  color: rgba(243, 240, 232, 0.5);
   writing-mode: vertical-rl;
   display: inline-flex;
   align-items: center;
@@ -208,7 +264,7 @@
   content: '';
   width: 1px;
   height: 40px;
-  background: linear-gradient(rgba(243, 239, 230, 0.5), transparent);
+  background: linear-gradient(rgba(243, 240, 232, 0.5), transparent);
   animation: prodScroll 1.8s var(--prod-ease) infinite;
 }
 
@@ -235,7 +291,7 @@
   gap: 10px;
   border-radius: 999px;
   padding: 0 20px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.13em;
@@ -250,14 +306,14 @@
 
 .prod-btn--solid,
 .prod-submit {
-  background: #fa5d29;
-  color: #0a0908;
+  background: var(--prod-accent);
+  color: #0a0a0a;
 }
 
 .prod-btn--ghost {
-  border: 1px solid rgba(243, 239, 230, 0.28);
-  color: #f3efe6;
-  background: rgba(10, 9, 8, 0.42);
+  border: 1px solid rgba(243, 240, 232, 0.28);
+  color: #f3f0e8;
+  background: rgba(10, 10, 10, 0.42);
   backdrop-filter: blur(14px);
 }
 
@@ -267,15 +323,15 @@
   bottom: clamp(22px, 5vw, 62px);
   width: min(340px, 28vw);
   padding: 18px;
-  border: 1px solid rgba(243, 239, 230, 0.18);
-  background: rgba(10, 9, 8, 0.5);
+  border: 1px solid rgba(243, 240, 232, 0.18);
+  background: rgba(10, 10, 10, 0.5);
   backdrop-filter: blur(18px);
 }
 
 .prod-signal span {
   display: block;
-  color: rgba(243, 239, 230, 0.52);
-  font-family: 'JetBrains Mono', monospace;
+  color: rgba(243, 240, 232, 0.52);
+  font-family: var(--prod-mono);
   font-size: 10px;
   line-height: 1.5;
   letter-spacing: 0.11em;
@@ -293,14 +349,14 @@
 
 .prod-band {
   padding: clamp(64px, 9vw, 120px) clamp(20px, 5vw, 76px);
-  background: #0a0908;
+  background: #0a0a0a;
 }
 
 .prod-band--intro {
-  border-top: 1px solid rgba(243, 239, 230, 0.1);
-  border-bottom: 1px solid rgba(243, 239, 230, 0.1);
-  background: #f3efe6;
-  color: #0a0908;
+  border-top: 1px solid rgba(243, 240, 232, 0.1);
+  border-bottom: 1px solid rgba(243, 240, 232, 0.1);
+  background: #f3f0e8;
+  color: #0a0a0a;
 }
 
 .prod-wrap {
@@ -345,7 +401,7 @@
 .prod-section-lede {
   margin: clamp(12px, 1.6vw, 18px) 0 0;
   max-width: 620px;
-  color: rgba(243, 239, 230, 0.62);
+  color: rgba(243, 240, 232, 0.62);
   font-size: clamp(15px, 1.5vw, 18px);
   line-height: 1.45;
 }
@@ -376,7 +432,7 @@
   font-weight: 800;
   font-size: clamp(22px, 3vw, 40px);
   letter-spacing: -0.035em;
-  color: rgba(243, 239, 230, 0.92);
+  color: rgba(243, 240, 232, 0.92);
 }
 
 .prod-press__media li:not(:last-child)::after {
@@ -400,13 +456,13 @@
   flex-direction: column;
   gap: 6px;
   padding: 16px 18px;
-  border: 1px solid rgba(243, 239, 230, 0.14);
+  border: 1px solid rgba(243, 240, 232, 0.14);
   border-radius: 14px;
-  background: rgba(243, 239, 230, 0.03);
+  background: rgba(243, 240, 232, 0.03);
 }
 
 .prod-press__quotes strong {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -419,7 +475,7 @@
   font-size: clamp(18px, 2vw, 25px);
   font-weight: 700;
   letter-spacing: -0.025em;
-  color: rgba(243, 239, 230, 0.94);
+  color: rgba(243, 240, 232, 0.94);
 }
 
 /* --- Paquetes con precio --- */
@@ -437,8 +493,8 @@
   flex-direction: column;
   gap: 0;
   padding: clamp(22px, 2.8vw, 34px);
-  border: 1px solid rgba(243, 239, 230, 0.18);
-  background: rgba(243, 239, 230, 0.035);
+  border: 1px solid rgba(243, 240, 232, 0.18);
+  background: rgba(243, 240, 232, 0.035);
   overflow: hidden;
   transition: border-color 0.3s var(--prod-ease), background 0.3s var(--prod-ease), transform 0.3s var(--prod-ease);
 }
@@ -474,7 +530,7 @@
   inset: 0;
   background:
     repeating-linear-gradient(0deg, transparent 0 2px, rgba(0, 0, 0, 0.12) 2px 3px),
-    radial-gradient(ellipse at center, transparent 55%, rgba(10, 9, 8, 0.55) 100%);
+    radial-gradient(ellipse at center, transparent 55%, rgba(10, 10, 10, 0.55) 100%);
 }
 
 .prod-pack__tv-badge {
@@ -485,11 +541,11 @@
   align-items: center;
   gap: 6px;
   padding: 4px 9px;
-  border: 1px solid rgba(243, 239, 230, 0.22);
+  border: 1px solid rgba(243, 240, 232, 0.22);
   border-radius: 999px;
-  background: rgba(10, 9, 8, 0.55);
-  color: rgba(243, 239, 230, 0.72);
-  font-family: 'JetBrains Mono', monospace;
+  background: rgba(10, 10, 10, 0.55);
+  color: rgba(243, 240, 232, 0.72);
+  font-family: var(--prod-mono);
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -521,19 +577,19 @@
 }
 
 .prod-pack:hover {
-  border-color: rgba(243, 239, 230, 0.4);
-  background: rgba(243, 239, 230, 0.06);
+  border-color: rgba(243, 240, 232, 0.4);
+  background: rgba(243, 240, 232, 0.06);
   transform: translateY(-4px);
 }
 
 .prod-pack--featured {
   border-color: var(--prod-accent);
-  background: rgba(250, 93, 41, 0.07);
+  background: rgb(var(--prod-accent-rgb) / 0.07);
 }
 
 .prod-pack--featured:hover {
   border-color: var(--prod-accent);
-  background: rgba(250, 93, 41, 0.11);
+  background: rgb(var(--prod-accent-rgb) / 0.11);
 }
 
 .prod-pack__flag {
@@ -542,8 +598,8 @@
   right: -1px;
   padding: 7px 14px;
   background: var(--prod-accent);
-  color: #0a0908;
-  font-family: 'JetBrains Mono', monospace;
+  color: #0a0a0a;
+  font-family: var(--prod-mono);
   font-size: 9px;
   font-weight: 900;
   letter-spacing: 0.16em;
@@ -562,11 +618,11 @@
 .prod-pack em {
   display: block;
   margin-top: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 10px;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: rgba(243, 239, 230, 0.48);
+  color: rgba(243, 240, 232, 0.48);
   font-style: normal;
 }
 
@@ -582,7 +638,7 @@
 
 .prod-pack p {
   margin: 14px 0 0;
-  color: rgba(243, 239, 230, 0.66);
+  color: rgba(243, 240, 232, 0.66);
   font-size: 15px;
   line-height: 1.5;
 }
@@ -601,7 +657,7 @@
   gap: 9px;
   font-size: 14px;
   line-height: 1.35;
-  color: rgba(243, 239, 230, 0.78);
+  color: rgba(243, 240, 232, 0.78);
 }
 
 .prod-pack li svg {
@@ -617,8 +673,8 @@
 
 .prod-reel {
   overflow: hidden;
-  border-block: 1px solid rgba(243, 239, 230, 0.12);
-  background: #0a0908;
+  border-block: 1px solid rgba(243, 240, 232, 0.12);
+  background: #0a0a0a;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
@@ -637,7 +693,7 @@
   width: clamp(220px, 25vw, 420px);
   aspect-ratio: 4 / 5;
   overflow: hidden;
-  border-right: 1px solid rgba(243, 239, 230, 0.12);
+  border-right: 1px solid rgba(243, 240, 232, 0.12);
   margin: 0;
 }
 
@@ -670,7 +726,7 @@
   position: relative;
   aspect-ratio: 4 / 5;
   overflow: hidden;
-  border: 1px solid rgba(243, 239, 230, 0.14);
+  border: 1px solid rgba(243, 240, 232, 0.14);
   background: #06100f;
   isolation: isolate;
 }
@@ -715,7 +771,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #0a0908;
+  color: #0a0a0a;
   background: var(--prod-bone);
   transform: scale(0.86);
   opacity: 0.92;
@@ -737,7 +793,7 @@
   border: 0;
   border-radius: 50%;
   cursor: pointer;
-  background: rgba(10, 9, 8, 0.7);
+  background: rgba(10, 10, 10, 0.7);
   color: var(--prod-bone);
   backdrop-filter: blur(8px);
   font-size: 14px;
@@ -756,7 +812,7 @@
 
 .prod-work__tool {
   display: inline-block;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 9px;
   font-weight: 900;
   letter-spacing: 0.14em;
@@ -780,28 +836,28 @@
   margin-top: 8px;
   padding: 4px 9px;
   border-radius: 999px;
-  background: rgba(10, 9, 8, 0.62);
-  border: 1px solid rgba(243, 239, 230, 0.22);
-  font-family: 'JetBrains Mono', monospace;
+  background: rgba(10, 10, 10, 0.62);
+  border: 1px solid rgba(243, 240, 232, 0.22);
+  font-family: var(--prod-mono);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-style: normal;
-  color: rgba(243, 239, 230, 0.85);
+  color: rgba(243, 240, 232, 0.85);
   backdrop-filter: blur(6px);
 }
 
 .prod-panel {
   min-height: 460px;
   padding: clamp(24px, 4vw, 44px);
-  border: 1px solid rgba(243, 239, 230, 0.16);
+  border: 1px solid rgba(243, 240, 232, 0.16);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   background:
-    linear-gradient(180deg, rgba(10, 9, 8, 0.12), rgba(10, 9, 8, 0.82)),
-    linear-gradient(180deg, rgba(250, 93, 41, 0.04), rgba(250, 93, 41, 0.18)),
+    linear-gradient(180deg, rgba(10, 10, 10, 0.12), rgba(10, 10, 10, 0.82)),
+    linear-gradient(180deg, rgb(var(--prod-accent-rgb) / 0.04), rgb(var(--prod-accent-rgb) / 0.18)),
     url('/images/home-editorial/lab-poster-h.jpg') center/cover;
 }
 
@@ -825,14 +881,14 @@
   align-items: center;
   gap: 14px;
   padding: 18px 22px;
-  border: 1px solid rgba(243, 239, 230, 0.14);
-  background: rgba(243, 239, 230, 0.04);
+  border: 1px solid rgba(243, 240, 232, 0.14);
+  background: rgba(243, 240, 232, 0.04);
   transition: border-color 0.3s var(--prod-ease), background 0.3s var(--prod-ease), transform 0.3s var(--prod-ease);
 }
 
 .prod-principle:hover {
-  border-color: rgba(250, 93, 41, 0.6);
-  background: rgba(250, 93, 41, 0.07);
+  border-color: rgb(var(--prod-accent-rgb) / 0.6);
+  background: rgb(var(--prod-accent-rgb) / 0.07);
   transform: translateX(4px);
 }
 
@@ -855,8 +911,8 @@
 }
 
 .prod-band--contact {
-  background: #f3efe6;
-  color: #0a0908;
+  background: #f3f0e8;
+  color: #0a0a0a;
 }
 
 .prod-contact__channels {
@@ -871,19 +927,13 @@
   gap: 8px;
   margin-top: 22px;
   padding-bottom: 3px;
-  border-bottom: 1px solid rgba(10, 9, 8, 0.25);
-  font-family: 'JetBrains Mono', monospace;
+  border-bottom: 1px solid rgba(10, 10, 10, 0.25);
+  font-family: var(--prod-mono);
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   transition: color 0.25s var(--prod-ease), border-color 0.25s var(--prod-ease), gap 0.25s var(--prod-ease);
-}
-
-/* Canal preferido: WhatsApp en verde para que cante */
-.prod-mail--wa {
-  color: #1da851;
-  border-bottom-color: rgba(29, 168, 81, 0.45);
 }
 
 .prod-mail:hover {
@@ -897,8 +947,8 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   padding: clamp(18px, 3vw, 28px);
-  border: 1px solid rgba(10, 9, 8, 0.14);
-  background: rgba(10, 9, 8, 0.035);
+  border: 1px solid rgba(10, 10, 10, 0.14);
+  background: rgba(10, 10, 10, 0.035);
 }
 
 .prod-form label {
@@ -920,22 +970,22 @@
   width: 100%;
   margin-bottom: 8px;
   padding: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(10, 9, 8, 0.56);
+  color: rgba(10, 10, 10, 0.56);
 }
 
 .prod-form__pack {
   padding: 9px 16px;
-  border: 1px solid rgba(10, 9, 8, 0.22);
+  border: 1px solid rgba(10, 10, 10, 0.22);
   border-radius: 999px;
   background: transparent;
-  color: rgba(10, 9, 8, 0.72);
+  color: rgba(10, 10, 10, 0.72);
   cursor: pointer;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -944,31 +994,31 @@
 }
 
 .prod-form__pack:hover {
-  border-color: rgba(10, 9, 8, 0.5);
+  border-color: rgba(10, 10, 10, 0.5);
 }
 
 .prod-form__pack.is-active {
-  background: #0a0908;
-  border-color: #0a0908;
+  background: #0a0a0a;
+  border-color: #0a0a0a;
   color: var(--prod-bone);
 }
 
 .prod-form span {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(10, 9, 8, 0.56);
+  color: rgba(10, 10, 10, 0.56);
 }
 
 .prod-form input,
 .prod-form textarea {
   width: 100%;
-  border: 1px solid rgba(10, 9, 8, 0.18);
+  border: 1px solid rgba(10, 10, 10, 0.18);
   border-radius: 0;
   background: rgba(255, 255, 255, 0.56);
-  color: #0a0908;
+  color: #0a0a0a;
   padding: 14px 13px;
   font: inherit;
   outline: none;
@@ -981,8 +1031,8 @@
 
 .prod-form input:focus,
 .prod-form textarea:focus {
-  border-color: #fa5d29;
-  box-shadow: 0 0 0 3px rgba(250, 93, 41, 0.16);
+  border-color: var(--prod-accent);
+  box-shadow: 0 0 0 3px rgb(var(--prod-accent-rgb) / 0.16);
 }
 
 .prod-form__wide,
@@ -1128,7 +1178,8 @@
 /* --- Toggle de sonido del hero --- */
 .prod-sound {
   position: absolute;
-  left: clamp(20px, 5vw, 76px);
+  /* A la derecha: a la izquierda pisaba el kicker con el logo BLSK. */
+  right: clamp(20px, 5vw, 76px);
   top: clamp(96px, 12vh, 132px);
   z-index: 3;
   display: inline-flex;
@@ -1136,13 +1187,13 @@
   gap: 10px;
   min-height: 38px;
   padding: 0 16px;
-  border: 1px solid rgba(243, 239, 230, 0.28);
+  border: 1px solid rgba(243, 240, 232, 0.28);
   border-radius: 999px;
-  background: rgba(10, 9, 8, 0.45);
+  background: rgba(10, 10, 10, 0.45);
   backdrop-filter: blur(12px);
-  color: rgba(243, 239, 230, 0.85);
+  color: rgba(243, 240, 232, 0.85);
   cursor: pointer;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.14em;
@@ -1157,7 +1208,7 @@
 
 .prod-sound.is-on {
   border-color: var(--prod-accent);
-  background: rgba(250, 93, 41, 0.16);
+  background: rgb(var(--prod-accent-rgb) / 0.16);
   color: var(--prod-bone);
 }
 
@@ -1223,13 +1274,13 @@
   font-size: clamp(28px, 3.4vw, 42px);
   letter-spacing: -0.045em;
   font-weight: 900;
-  color: #0a0908;
+  color: #0a0a0a;
 }
 
 .prod-form__success p {
   margin: 0;
   max-width: 320px;
-  color: rgba(10, 9, 8, 0.62);
+  color: rgba(10, 10, 10, 0.62);
   font-size: 15px;
   line-height: 1.45;
 }
@@ -1242,8 +1293,8 @@
   height: 64px;
   border-radius: 50%;
   background: var(--prod-accent);
-  color: #0a0908;
-  animation: prodCheckPop 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) 0.12s both;
+  color: #0a0a0a;
+  animation: prodCheckPop 0.55s var(--prod-ease-pop) 0.12s both;
 }
 
 @keyframes prodSuccessIn {
@@ -1259,7 +1310,7 @@
 /* --- Ticker editorial entre secciones --- */
 .prod-ticker {
   overflow: hidden;
-  border-block: 1px solid rgba(243, 239, 230, 0.12);
+  border-block: 1px solid rgba(243, 240, 232, 0.12);
   background: var(--prod-accent);
   padding: 12px 0;
 }
@@ -1276,12 +1327,12 @@
   gap: 26px;
   padding-right: 26px;
   white-space: nowrap;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #0a0908;
+  color: #0a0a0a;
 }
 
 .prod-ticker b {
@@ -1296,7 +1347,7 @@
   align-items: flex-start;
   gap: 6px;
   padding: 18px 22px;
-  border: 1px dashed rgba(243, 239, 230, 0.3);
+  border: 1px dashed rgba(243, 240, 232, 0.3);
   background: transparent;
   cursor: pointer;
   text-align: left;
@@ -1305,7 +1356,7 @@
 
 .prod-boring-toggle:hover {
   border-color: var(--prod-accent);
-  background: rgba(250, 93, 41, 0.06);
+  background: rgb(var(--prod-accent-rgb) / 0.06);
 }
 
 .prod-boring-toggle span {
@@ -1313,11 +1364,11 @@
   font-size: clamp(17px, 1.8vw, 22px);
   font-weight: 750;
   letter-spacing: -0.03em;
-  color: rgba(243, 239, 230, 0.85);
+  color: rgba(243, 240, 232, 0.85);
 }
 
 .prod-boring-toggle em {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-style: normal;
   font-size: 10px;
   font-weight: 900;
@@ -1545,22 +1596,22 @@
 }
 
 .prod-foot__absurd span {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(243, 239, 230, 0.5);
+  color: rgba(243, 240, 232, 0.5);
 }
 
 /* --- Modal fullscreen del showreel --- */
 .prod-reel-modal {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 2147483000;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 9, 8, 0.94);
+  background: rgba(10, 10, 10, 0.94);
   backdrop-filter: blur(10px);
   animation: prodSuccessIn 0.25s var(--prod-ease) both;
 }
@@ -1569,23 +1620,35 @@
   max-height: 92vh;
   max-width: min(92vw, calc(92vh * 9 / 16));
   background: #000;
-  border: 1px solid rgba(243, 239, 230, 0.18);
+  border: 1px solid rgba(243, 240, 232, 0.18);
 }
 
 .prod-reel-modal__close {
   position: absolute;
-  top: 18px;
-  right: 18px;
+  top: max(18px, env(safe-area-inset-top));
+  right: max(18px, env(safe-area-inset-right));
   width: 44px;
   height: 44px;
-  border: 1px solid rgba(243, 239, 230, 0.3);
+  border: 1px solid rgba(243, 240, 232, 0.3);
   border-radius: 50%;
-  background: rgba(10, 9, 8, 0.6);
+  background: rgba(10, 10, 10, 0.6);
   color: var(--prod-bone);
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
   transition: border-color 0.2s var(--prod-ease), color 0.2s var(--prod-ease);
+  z-index: 3;
+}
+
+body.prod-reel-open .mobile-nav,
+body.prod-reel-open .nav,
+body.prod-reel-open .theme-fab {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .prod-page { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+  .prod-hero { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
 }
 
 .prod-reel-modal__close:hover {
@@ -1620,8 +1683,8 @@
   gap: 14px;
   margin-top: clamp(22px, 3vw, 34px);
   padding: 16px 24px;
-  border: 1px solid rgba(250, 93, 41, 0.5);
-  background: rgba(250, 93, 41, 0.08);
+  border: 1px solid rgb(var(--prod-accent-rgb) / 0.5);
+  background: rgb(var(--prod-accent-rgb) / 0.08);
 }
 
 .cameo-price strong {
@@ -1634,11 +1697,11 @@
 }
 
 .cameo-price span {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 10px;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: rgba(243, 239, 230, 0.55);
+  color: rgba(243, 240, 232, 0.55);
 }
 
 .cameo-scenes {
@@ -1651,7 +1714,7 @@
   position: relative;
   aspect-ratio: 4 / 5;
   overflow: hidden;
-  border: 2px solid rgba(243, 239, 230, 0.14);
+  border: 2px solid rgba(243, 240, 232, 0.14);
   background: #06100f;
   padding: 0;
   cursor: pointer;
@@ -1694,10 +1757,10 @@
   height: 30px;
   border-radius: 50%;
   background: var(--prod-accent);
-  color: #0a0908;
+  color: #0a0a0a;
   opacity: 0;
   transform: scale(0.5);
-  transition: opacity 0.2s var(--prod-ease), transform 0.25s cubic-bezier(0.2, 1.4, 0.4, 1);
+  transition: opacity 0.2s var(--prod-ease), transform 0.25s var(--prod-ease-pop);
 }
 
 .cameo-scene.is-selected .cameo-scene__check {
@@ -1731,7 +1794,7 @@
   align-items: center;
   gap: 14px;
   padding: 16px 20px;
-  border: 1px solid rgba(10, 9, 8, 0.16);
+  border: 1px solid rgba(10, 10, 10, 0.16);
   background: rgba(255, 255, 255, 0.5);
   font-family: 'Inter Tight', Inter, sans-serif;
   font-size: clamp(17px, 1.8vw, 21px);
@@ -1747,7 +1810,7 @@
 .cameo-reqs__note {
   margin: 6px 0 0;
   font-size: 14px;
-  color: rgba(10, 9, 8, 0.55);
+  color: rgba(10, 10, 10, 0.55);
 }
 
 .cameo-selected {
@@ -1756,8 +1819,8 @@
   gap: 8px;
   margin-top: 18px !important;
   padding: 10px 16px;
-  border: 1px solid rgba(250, 93, 41, 0.45);
-  background: rgba(250, 93, 41, 0.08);
+  border: 1px solid rgb(var(--prod-accent-rgb) / 0.45);
+  background: rgb(var(--prod-accent-rgb) / 0.08);
   font-size: 15px !important;
 }
 
@@ -1773,11 +1836,11 @@
 .cameo-form__fine {
   grid-column: 1 / -1;
   margin: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--prod-mono);
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(10, 9, 8, 0.45);
+  color: rgba(10, 10, 10, 0.45);
   text-align: center;
 }
 
@@ -1788,35 +1851,38 @@
 }
 
 #pagar .prod-form {
-  border-color: rgba(243, 239, 230, 0.16);
-  background: rgba(243, 239, 230, 0.05);
+  border-color: rgba(243, 240, 232, 0.16);
+  background: rgba(243, 240, 232, 0.05);
 }
 
 #pagar .prod-form span {
-  color: rgba(243, 239, 230, 0.6);
+  color: rgba(243, 240, 232, 0.6);
 }
 
 #pagar .prod-form input {
-  border-color: rgba(243, 239, 230, 0.2);
-  background: rgba(243, 239, 230, 0.08);
+  border-color: rgba(243, 240, 232, 0.2);
+  background: rgba(243, 240, 232, 0.08);
   color: var(--prod-bone);
 }
 
 #pagar .cameo-form__fine {
-  color: rgba(243, 239, 230, 0.4);
+  color: rgba(243, 240, 232, 0.4);
 }
 
 /* --- Footer dedicado de productora --- */
 /* El footer lo monta Layout FUERA de `.prod-page`, así que las custom props
    de la página no lo alcanzan: las redeclaramos acá. */
 .prod-foot {
-  --prod-ink: #0a0908;
-  --prod-bone: #f3efe6;
+  --prod-ink: #0a0a0a;
+  --prod-bone: #f3f0e8;
   --prod-accent: #fa5d29;
+  --prod-accent-rgb: 250 93 41;
+  --prod-mono: 'JetBrains Mono', ui-monospace, monospace;
   --prod-ease: cubic-bezier(0.3, 0, 0.2, 1);
+  --prod-ease-pop: cubic-bezier(0.2, 1.4, 0.4, 1);
   background: var(--prod-ink);
   color: var(--prod-bone);
-  border-top: 1px solid rgba(243, 239, 230, 0.12);
+  border-top: 1px solid rgba(243, 240, 232, 0.12);
   padding: clamp(56px, 8vw, 104px) clamp(20px, 5vw, 76px) clamp(28px, 4vw, 44px);
   overflow: hidden;
 }
@@ -1847,7 +1913,7 @@
 .prod-foot__sub {
   margin: 16px 0 0;
   max-width: 480px;
-  color: rgba(243, 239, 230, 0.62);
+  color: rgba(243, 240, 232, 0.62);
   font-size: clamp(15px, 1.6vw, 18px);
   line-height: 1.5;
 }
@@ -1859,8 +1925,8 @@
   padding: 16px 24px;
   border-radius: 999px;
   background: var(--prod-accent);
-  color: #0a0908;
-  font-family: 'JetBrains Mono', monospace;
+  color: #0a0a0a;
+  font-family: var(--prod-mono);
   font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.06em;
@@ -1873,6 +1939,9 @@
   background: color-mix(in srgb, var(--prod-accent) 88%, #fff 12%);
 }
 
+/* Marca de cierre. En `/cameo` es el wordmark BALOSKY en outline; en
+   `/productora` el manual prohíbe reconstruir el logo con texto, así que
+   ahí va el SVG maestro (mono: la señal del footer es el CTA). */
 .prod-foot__wordmark {
   max-width: 1280px;
   margin: clamp(40px, 6vw, 80px) auto 0;
@@ -1882,9 +1951,19 @@
   letter-spacing: -0.06em;
   font-weight: 950;
   color: transparent;
-  -webkit-text-stroke: 1px rgba(243, 239, 230, 0.22);
-  text-stroke: 1px rgba(243, 239, 230, 0.22);
+  -webkit-text-stroke: 1px rgba(243, 240, 232, 0.22);
+  text-stroke: 1px rgba(243, 240, 232, 0.22);
   user-select: none;
+}
+
+.prod-foot__wordmark img {
+  display: block;
+  /* "BLSK." es una marca más corta y compacta que la palabra "Balosky", así
+     que a ancho completo quedaba el doble de alta (427 px vs ~220 px) y se
+     comía el 41 % del footer. Este ancho la deja grande sin dominar. */
+  width: min(100%, 880px);
+  height: auto;
+  opacity: 0.16;
 }
 
 .prod-foot__bottom {
@@ -1896,12 +1975,12 @@
   max-width: 1280px;
   margin: clamp(28px, 4vw, 48px) auto 0;
   padding-top: 22px;
-  border-top: 1px solid rgba(243, 239, 230, 0.12);
-  font-family: 'JetBrains Mono', monospace;
+  border-top: 1px solid rgba(243, 240, 232, 0.12);
+  font-family: var(--prod-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(243, 239, 230, 0.5);
+  color: rgba(243, 240, 232, 0.5);
 }
 
 .prod-foot__links {
@@ -1911,7 +1990,7 @@
 }
 
 .prod-foot__links a {
-  color: rgba(243, 239, 230, 0.62);
+  color: rgba(243, 240, 232, 0.62);
   transition: color 0.2s var(--prod-ease);
 }
 
@@ -1941,4 +2020,158 @@
     transform: none;
     transition: none;
   }
+}
+
+
+
+/* El punto "EN VIVO" era un rojo suelto (#ff3b3b) que no está en ninguna de
+   las dos paletas. En BLSK. la señal de esta banda ya es el CTA del pack
+   destacado, así que el punto va en marfil: el pulso sigue comunicando "vivo"
+   sin gastar la señal. */
+.prod-page.blsk .prod-pack__tv-badge i {
+  background: var(--prod-bone);
+  box-shadow: 0 0 6px rgb(243 240 232 / 0.7);
+}
+
+/* --- Mobile: targets y repeticiones ------------------------------------- */
+
+@media (max-width: 620px) {
+  /* El header ya muestra "BLSK. productora" justo encima; repetir el wordmark
+     en el kicker del hero, uno debajo del otro, no aporta en 390 px. Se oculta
+     el logo pero NO el kicker: si se va la línea entera el contenido sube y el
+     toggle de sonido termina encima del titular. */
+  .prod-page.blsk .prod-kicker__logo {
+    display: none;
+  }
+
+  /* Estos dos eran los targets más chicos de la página (22 px de alto) y son
+     justo los links de conversión. Mínimo táctil de 44 px. */
+  .prod-mail {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .prod-form__pack {
+    min-height: 44px;
+  }
+
+  .prod-sound {
+    min-height: 44px;
+  }
+}
+
+/* --- Una sola señal por pieza -------------------------------------------
+   Regla dura del manual: "02 SEÑALAR — un solo gesto por pieza". La página
+   venía usando el acento como color de énfasis general (herencia del naranja
+   de BALOSKY), así que cada banda tenía entre 4 y 20 rojos.
+
+   Acá se elige el gesto de cada banda y se neutraliza el resto. Todo va
+   scopeado bajo `.blsk`: `/cameo` conserva su densidad de naranja.
+
+   Criterio: donde hay un CTA sólido, el CTA es la señal (es el gesto
+   comercial). Donde no lo hay, la señal es el número/título de la banda.
+   Lo neutralizado pasa a marfil si es jerarquía, a gris si es dato. */
+
+/* hero — la señal es el CTA. El énfasis del titular pasa a contorno, que ya
+   es parte del lenguaje de la casa (wordmark de cierre, OG card). */
+.prod-page.blsk:not(.prod-page--institucional) .prod-hero h1 em {
+  font-style: normal;
+  color: transparent;
+  -webkit-text-stroke: 0.016em var(--prod-bone);
+  text-stroke: 0.016em var(--prod-bone);
+}
+
+/* prensa — la señal es "Met Gala argentina"; los nombres van en marfil. */
+.prod-page.blsk .prod-press__quotes strong {
+  color: var(--prod-bone);
+}
+
+/* 02 formatos — la señal es el CTA del pack destacado. */
+.prod-page.blsk .prod-pack__price {
+  color: var(--prod-bone);
+}
+
+.prod-page.blsk .prod-pack li svg {
+  color: var(--prod-grey-dark-bg);
+}
+
+.prod-page.blsk .prod-pack__flag {
+  background: var(--prod-bone);
+  color: var(--prod-ink);
+}
+
+/* 03 trabajos — la señal es el número. Los tags de herramienta son dato:
+   mono gris, que es el rol que el manual les da. */
+.prod-page.blsk .prod-work__tool {
+  color: var(--prod-grey-dark-bg);
+}
+
+/* 04 cómo trabajo — la señal es el número; iconos en marfil. */
+.prod-page.blsk .prod-panel svg,
+.prod-page.blsk .prod-principle svg {
+  color: var(--prod-bone);
+}
+
+.prod-page.blsk .prod-boring-toggle em {
+  color: var(--prod-grey-dark-bg);
+}
+
+/* footer — la señal es el CTA; las stats de la casa van en marfil. */
+.prod-foot.prod-foot--blsk .prod-foot__absurd strong {
+  color: var(--prod-bone);
+}
+
+/* --- Header compartido, en ámbito BLSK ------------------------------------
+   `DelirioHeader` es chrome de todo el sitio y vive FUERA de `.prod-page`.
+   En `/productora` la marca es BLSK., así que ahí el wordmark y el CTA
+   cambian; el resto del sitio se queda con el naranja de BALOSKY. */
+
+.nav--blsk {
+  color: #0a0a0a; /* tinta BLSK, no la de BALOSKY */
+}
+
+.nav--blsk .logo {
+  gap: 12px;
+}
+
+/* Mask en vez de <img>: el logo toma el color del nav y sigue al tema
+   claro/oscuro sin tener que servir dos archivos. Versión micro porque
+   a esta altura (22 px) la maestra está por debajo de su mínimo. */
+.nav--blsk .logo__blsk {
+  display: block;
+  width: 61px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: url('/brand/blsk/svg/BLSK_micro_black_mono.svg') no-repeat center / contain;
+  mask: url('/brand/blsk/svg/BLSK_micro_black_mono.svg') no-repeat center / contain;
+}
+
+.nav--blsk .logo__blsk-sub {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+
+/* El header flota sobre TODAS las bandas: si su CTA es rojo, cada banda pasa a
+   tener dos señales y la regla no se sostiene en ninguna. Por eso acá el CTA va
+   en contorno y la señal se la queda el contenido. El rojo aparece sólo en
+   hover, que es un estado momentáneo, no una composición en reposo. */
+.nav--blsk .pill-live--cta {
+  background: transparent;
+  border-color: rgba(10, 10, 10, 0.32);
+  color: #0a0a0a;
+}
+
+.nav--blsk .pill-live--cta .pulse {
+  background: #0a0a0a;
+  box-shadow: none;
+}
+
+.nav--blsk .pill-live--cta:hover {
+  background: #ff3b1f;
+  border-color: #ff3b1f;
+  color: #0a0a0a;
 }

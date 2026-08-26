@@ -400,7 +400,7 @@ export const api = {
   // autoriza en MP, el webhook actualiza la subscription a `authorized`.
   // Disponibilidad real del mes en /productora — agregado del CRM de
   // encargos (deals ganados este mes vs capacidad configurada). Público.
-  getProductoraSlots: async (): Promise<{ total: number; taken: number; remaining: number; whatsapp?: string | null }> => {
+  getProductoraSlots: async (): Promise<{ total: number; taken: number; remaining: number }> => {
     const res = await fetch(`${API_URL}/productora/slots`);
     if (!res.ok) throw new Error('slots no disponibles');
     return res.json();
