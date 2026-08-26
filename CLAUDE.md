@@ -42,6 +42,24 @@ Single design inspired by Artefakt/Thomas Monavon with dark/light mode toggle:
 - Animation: `reveal` (fade-up), `clip-reveal` (clip-path), `perspective-section` (3D entry), `stroke-fill` (outline→fill)
 - Font: Inter Tight for display, Inter for body
 
+### Brand architecture — BALOSKY vs BLSK.
+
+Two brands, one repo. **BALOSKY** is the creator (personal site, home, `/cameo`)
+and keeps the orange `#FA5D29`. **BLSK.** is the production company and owns
+`/productora` only: black `#0A0A0A`, ivory `#F3F0E8`, signal red `#FF3B1F`,
+IBM Plex Mono, and a single easing `cubic-bezier(0.30, 0, 0.05, 1)` with no
+bounce. Full rules in `docs/blsk-marca.md`; tokens in `src/styles/blsk.css`.
+
+**The easy mistake:** `src/styles/productora.css` and `ProductoraFooter` are
+shared by `/productora` *and* `/cameo`. Repainting that file turns Cameo red,
+which breaks the architecture. The BLSK skin is opt-in by class — `.prod-page`
+holds the BALOSKY tokens and `.prod-page.blsk` / `.prod-foot.prod-foot--blsk`
+override them. Only `/productora` adds the `blsk` class.
+
+Two BLSK rules that are easy to violate: **one red signal per piece** (if the
+signal logo is on screen, that dot *is* the signal), and **never rebuild the
+wordmark with text** — use the SVGs in `public/brand/blsk/`.
+
 ### Effects Components (`src/components/effects/`)
 
 Desktop-only effects (disabled on mobile via `useIsMobile` hook):
